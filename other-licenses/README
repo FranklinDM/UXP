@@ -1,0 +1,4 @@
+Libraries should be placed in libs/.
+This directory is retained for historical reasons for 7zStub and NSIS.
+
+DO NOT PLACE NEW CODE IN HERE OR YOU WILL BE EX-TER-MIN-ATED!

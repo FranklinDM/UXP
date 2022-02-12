@@ -1,0 +1,50 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+XPIDL_SOURCES += [
+  'public/nsIExpatSink.idl',
+  'public/nsIExtendedExpatSink.idl',
+]
+
+EXPORTS += [
+  'src/nsCharsetSource.h',
+  'src/nsElementTable.h',
+  'src/nsHTMLTagList.h',
+  'src/nsHTMLTags.h',
+  'src/nsIContentSink.h',
+  'src/nsIDTD.h',
+  'src/nsIFragmentContentSink.h',
+  'src/nsIHTMLContentSink.h',
+  'src/nsIParser.h',
+  'src/nsIParserService.h',
+  'src/nsITokenizer.h',
+  'src/nsParserBase.h',
+  'src/nsParserCIID.h',
+  'src/nsParserConstants.h',
+  'src/nsScannerString.h',
+  'src/nsToken.h',
+]
+
+SOURCES += [
+  'src/CNavDTD.cpp',
+  'src/CParserContext.cpp',
+  'src/nsElementTable.cpp',
+  'src/nsExpatDriver.cpp',
+  'src/nsHTMLEntities.cpp',
+  'src/nsHTMLTags.cpp',
+  'src/nsHTMLTokenizer.cpp',
+  'src/nsParser.cpp',
+  'src/nsParserModule.cpp',
+  'src/nsParserMsgUtils.cpp',
+  'src/nsParserService.cpp',
+  'src/nsScanner.cpp',
+  'src/nsScannerString.cpp',
+]
+
+if CONFIG['GNU_CXX']:
+  CXXFLAGS += ['-Wno-error=shadow']
+
+XPIDL_MODULE = 'htmlparser'
+FINAL_LIBRARY = 'xul'

@@ -1,0 +1,95 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# Note: On Windows our sqlite build assumes we use jemalloc.  If you disable
+# MOZ_STORAGE_MEMORY on Windows, you will also need to change the "ifdef
+# MOZ_MEMORY" options in db/sqlite3/src/Makefile.in.
+if CONFIG['MOZ_MEMORY']:
+  DEFINES['MOZ_STORAGE_MEMORY'] = True
+
+# This is the default value.  If we ever change it when compiling sqlite, we
+# will need to change it here as well.
+DEFINES['SQLITE_MAX_LIKE_PATTERN_LENGTH'] = 50000
+
+# See Sqlite moz.build for reasoning about TEMP_STORE.
+
+XPIDL_SOURCES += [
+  'public/mozIStorageAggregateFunction.idl',
+  'public/mozIStorageAsyncConnection.idl',
+  'public/mozIStorageAsyncStatement.idl',
+  'public/mozIStorageBaseStatement.idl',
+  'public/mozIStorageBindingParams.idl',
+  'public/mozIStorageBindingParamsArray.idl',
+  'public/mozIStorageCompletionCallback.idl',
+  'public/mozIStorageConnection.idl',
+  'public/mozIStorageError.idl',
+  'public/mozIStorageFunction.idl',
+  'public/mozIStoragePendingStatement.idl',
+  'public/mozIStorageProgressHandler.idl',
+  'public/mozIStorageResultSet.idl',
+  'public/mozIStorageRow.idl',
+  'public/mozIStorageService.idl',
+  'public/mozIStorageStatement.idl',
+  'public/mozIStorageStatementCallback.idl',
+  'public/mozIStorageStatementParams.idl',
+  'public/mozIStorageStatementRow.idl',
+  'public/mozIStorageVacuumParticipant.idl',
+  'public/mozIStorageValueArray.idl',
+]
+
+EXPORTS += [
+  'src/mozStorageCID.h',
+  'src/mozStorageHelper.h',
+]
+
+EXPORTS.mozilla += ['src/storage.h']
+
+# NOTE When adding something to this list, you probably need to add it to the
+#      storage.h file too.
+EXPORTS.mozilla.storage += [
+  'src/StatementCache.h',
+  'src/Variant.h',
+  'src/Variant_inl.h',
+]
+# SEE ABOVE NOTE!
+
+SOURCES += [
+  'src/FileSystemModule.cpp',
+  'src/mozStorageArgValueArray.cpp',
+  'src/mozStorageAsyncStatement.cpp',
+  'src/mozStorageAsyncStatementExecution.cpp',
+  'src/mozStorageAsyncStatementJSHelper.cpp',
+  'src/mozStorageAsyncStatementParams.cpp',
+  'src/mozStorageBindingParams.cpp',
+  'src/mozStorageBindingParamsArray.cpp',
+  'src/mozStorageConnection.cpp',
+  'src/mozStorageError.cpp',
+  'src/mozStorageModule.cpp',
+  'src/mozStoragePrivateHelpers.cpp',
+  'src/mozStorageResultSet.cpp',
+  'src/mozStorageRow.cpp',
+  'src/mozStorageService.cpp',
+  'src/mozStorageSQLFunctions.cpp',
+  'src/mozStorageStatement.cpp',
+  'src/mozStorageStatementJSHelper.cpp',
+  'src/mozStorageStatementParams.cpp',
+  'src/mozStorageStatementRow.cpp',
+  'src/SQLCollations.cpp',
+  'src/StorageBaseStatementInternal.cpp',
+  'src/TelemetryVFS.cpp',
+  'src/VacuumManager.cpp',
+]
+
+LOCAL_INCLUDES += [
+  '/dom/base',
+  '/libs/sqlite3/src',
+]
+
+CXXFLAGS += CONFIG['SQLITE_CFLAGS']
+
+XPIDL_MODULE = 'storage'
+FINAL_LIBRARY = 'xul'
+
+include('/ipc/chromium/chromium-config.mozbuild')

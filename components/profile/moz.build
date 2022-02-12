@@ -1,0 +1,32 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+XPIDL_SOURCES += [
+    'public/nsIProfileMigrator.idl',
+    'public/nsIProfileUnlocker.idl',
+    'public/nsIToolkitProfile.idl',
+    'public/nsIToolkitProfileService.idl',
+]
+
+SOURCES += [
+    'src/nsProfileLock.cpp',
+    'src/nsToolkitProfileService.cpp'
+]
+
+if CONFIG['OS_ARCH'] == 'WINNT':
+    SOURCES += ['src/ProfileUnlockerWin.cpp']
+
+LOCAL_INCLUDES += ['/system/runtime']
+
+FINAL_TARGET_FILES.defaults.profile += ['mimeTypes.rdf']
+
+FINAL_TARGET_FILES.defaults.profile.chrome += [
+  'userChrome-example.css',
+  'userContent-example.css',
+]
+
+XPIDL_MODULE = 'toolkitprofile'
+FINAL_LIBRARY = 'xul'
+JAR_MANIFESTS += ['jar.mn']

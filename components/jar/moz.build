@@ -1,0 +1,39 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+XPIDL_SOURCES += [
+  'public/nsIJARChannel.idl',
+  'public/nsIJARProtocolHandler.idl',
+  'public/nsIJARURI.idl',
+  'public/nsIZipReader.idl',
+  'public/nsIZipWriter.idl',
+]
+
+EXPORTS += [
+  'src/nsJARURI.h',
+  'src/nsZipArchive.h',
+  'src/zipstruct.h',
+]
+
+SOURCES += [
+  'src/nsDeflateConverter.cpp',
+  'src/nsJAR.cpp',
+  'src/nsJARChannel.cpp',
+  'src/nsJARFactory.cpp',
+  'src/nsJARInputStream.cpp',
+  'src/nsJARProtocolHandler.cpp',
+  'src/nsJARURI.cpp',
+  'src/nsZipArchive.cpp',
+  'src/nsZipDataStream.cpp',
+  'src/nsZipHeader.cpp',
+  'src/nsZipWriter.cpp',
+  'src/StreamFunctions.cpp',
+  'src/ZipWriterModule.cpp',
+]
+
+XPIDL_MODULE = 'jar'
+FINAL_LIBRARY = 'xul'

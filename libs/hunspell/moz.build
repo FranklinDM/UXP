@@ -1,0 +1,33 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+SOURCES += [
+  'src/affentry.cxx',
+  'src/affixmgr.cxx',
+  'src/csutil.cxx',
+  'src/filemgr.cxx',
+  'src/hashmgr.cxx',
+  'src/hunspell.cxx',
+  'src/hunzip.cxx',
+  'src/phonet.cxx',
+  'src/replist.cxx',
+  'src/suggestmgr.cxx',
+]
+
+LOCAL_INCLUDES += ['/system/intl/spellcheck/src']
+
+# This variable is referenced in configure.in.  Make sure to change that file
+# too if you need to change this variable.
+DEFINES['HUNSPELL_STATIC'] = True
+
+if CONFIG['CLANG_CXX'] or CONFIG['CLANG_CL']:
+  CXXFLAGS += ['-Wno-implicit-fallthrough']
+
+# We allow warnings for third-party code that can be updated from upstream.
+ALLOW_COMPILER_WARNINGS = True
+
+FINAL_LIBRARY = 'xul'

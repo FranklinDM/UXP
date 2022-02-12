@@ -1,0 +1,33 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+if CONFIG['MOZ_FOLD_LIBS']:
+    Library('plds4')
+else:
+    SharedLibrary('plds4')
+    SOURCES += ['../../src/lib/ds/plvrsion.c']
+    USE_LIBS += ['nspr4']
+
+# We allow warnings for third-party code that can be updated from upstream.
+# TODO: fix NSPR warnings and remove this
+ALLOW_COMPILER_WARNINGS = True
+
+DEFINES['_NSPR_BUILD_'] = True
+
+LOCAL_INCLUDES += [
+    '..',
+    '../../src/pr/include',
+]
+
+EXPORTS.nspr += [
+    '../../src/lib/ds/plarena.h',
+    '../../src/lib/ds/plarenas.h',
+    '../../src/lib/ds/plhash.h',
+]
+
+SOURCES += [
+    '../../src/lib/ds/plarena.c',
+    '../../src/lib/ds/plhash.c',
+]

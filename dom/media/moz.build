@@ -1,0 +1,256 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+DIRS += [
+    'encoder',
+    'flac',
+    'imagecapture',
+    'ipc',
+    'mediasink',
+    'mediasource',
+    'mp3',
+    'ogg',
+    'platforms',
+    'systemservices',
+    'wave',
+    'webaudio',
+    'webm',
+    'webspeech',
+    'webvtt',
+    'standalone',
+]
+
+if CONFIG['MOZ_FMP4']:
+    DIRS += ['fmp4']
+
+TEST_DIRS += [
+    'gtest',
+]
+
+MOCHITEST_MANIFESTS += [
+    'test/mochitest.ini',
+]
+
+XPIDL_SOURCES += [
+    'nsIAudioDeviceInfo.idl',
+    'nsIDOMNavigatorUserMedia.idl',
+    'nsIMediaManager.idl',
+]
+
+XPIDL_MODULE = 'dom_media'
+
+EXPORTS += [
+    'AbstractMediaDecoder.h',
+    'AccurateSeekTask.h',
+    'ADTSDecoder.h',
+    'ADTSDemuxer.h',
+    'AudioBufferUtils.h',
+    'AudioChannelFormat.h',
+    'AudioCompactor.h',
+    'AudioConverter.h',
+    'AudioMixer.h',
+    'AudioPacketizer.h',
+    'AudioSampleFormat.h',
+    'AudioSegment.h',
+    'AudioStream.h',
+    'Benchmark.h',
+    'BufferMediaResource.h',
+    'CubebUtils.h',
+    'DecoderDoctorDiagnostics.h',
+    'DecoderTraits.h',
+    'DOMMediaStream.h',
+    'EncodedBufferCache.h',
+    'FileBlockCache.h',
+    'FrameStatistics.h',
+    'Intervals.h',
+    'Latency.h',
+    'MediaCache.h',
+    'MediaContentType.h',
+    'MediaData.h',
+    'MediaDataDemuxer.h',
+    'MediaDecoder.h',
+    'MediaDecoderOwner.h',
+    'MediaDecoderReader.h',
+    'MediaDecoderReaderWrapper.h',
+    'MediaDecoderStateMachine.h',
+    'MediaEngine.h',
+    'MediaEngineDefault.h',
+    'MediaEventSource.h',
+    'MediaFormatReader.h',
+    'MediaInfo.h',
+    'MediaMetadataManager.h',
+    'MediaPrefs.h',
+    'MediaQueue.h',
+    'MediaRecorder.h',
+    'MediaResource.h',
+    'MediaResourceCallback.h',
+    'MediaResult.h',
+    'MediaSegment.h',
+    'MediaShutdownManager.h',
+    'MediaStatistics.h',
+    'MediaStreamGraph.h',
+    'MediaStreamListener.h',
+    'MediaStreamVideoSink.h',
+    'MediaTimer.h',
+    'MediaTrack.h',
+    'MediaTrackConstraints.h',
+    'MediaTrackList.h',
+    'NextFrameSeekTask.h',
+    'nsIDocumentActivity.h',
+    'PrincipalChangeObserver.h',
+    'QueueObject.h',
+    'SeekJob.h',
+    'SeekTarget.h',
+    'SeekTask.h',
+    'SelfRef.h',
+    'SharedBuffer.h',
+    'StreamTracks.h',
+    'ThreadPoolCOMListener.h',
+    'TimeUnits.h',
+    'TrackUnionStream.h',
+    'VideoFrameContainer.h',
+    'VideoLimits.h',
+    'VideoSegment.h',
+    'VideoUtils.h',
+    'VorbisUtils.h',
+    'XiphExtradata.h',
+]
+
+EXPORTS.mozilla += [
+    'MediaManager.h',
+]
+
+EXPORTS.mozilla.dom += [
+    'AudioDeviceInfo.h',
+    'AudioStreamTrack.h',
+    'AudioTrack.h',
+    'AudioTrackList.h',
+    'CanvasCaptureMediaStream.h',
+    'GetUserMediaRequest.h',
+    'MediaDeviceInfo.h',
+    'MediaDevices.h',
+    'MediaStreamError.h',
+    'MediaStreamTrack.h',
+    'TextTrack.h',
+    'TextTrackCue.h',
+    'TextTrackCueList.h',
+    'TextTrackList.h',
+    'TextTrackRegion.h',
+    'VideoPlaybackQuality.h',
+    'VideoStreamTrack.h',
+    'VideoTrack.h',
+    'VideoTrackList.h',
+]
+
+SOURCES += [
+    'AccurateSeekTask.cpp',
+    'ADTSDecoder.cpp',
+    'ADTSDemuxer.cpp',
+    'AudioCaptureStream.cpp',
+    'AudioChannelFormat.cpp',
+    'AudioCompactor.cpp',
+    'AudioConverter.cpp',
+    'AudioDeviceInfo.cpp',
+    'AudioSegment.cpp',
+    'AudioStream.cpp',
+    'AudioStreamTrack.cpp',
+    'AudioTrack.cpp',
+    'AudioTrackList.cpp',
+    'Benchmark.cpp',
+    'CanvasCaptureMediaStream.cpp',
+    'CubebUtils.cpp',
+    'DecoderDoctorDiagnostics.cpp',
+    'DecoderTraits.cpp',
+    'DOMMediaStream.cpp',
+    'EncodedBufferCache.cpp',
+    'FileBlockCache.cpp',
+    'GetUserMediaRequest.cpp',
+    'GraphDriver.cpp',
+    'Latency.cpp',
+    'MediaCache.cpp',
+    'MediaContentType.cpp',
+    'MediaData.cpp',
+    'MediaDecoder.cpp',
+    'MediaDecoderReader.cpp',
+    'MediaDecoderReaderWrapper.cpp',
+    'MediaDecoderStateMachine.cpp',
+    'MediaDeviceInfo.cpp',
+    'MediaDevices.cpp',
+    'MediaEngineDefault.cpp',
+    'MediaFormatReader.cpp',
+    'MediaInfo.cpp',
+    'MediaManager.cpp',
+    'MediaPrefs.cpp',
+    'MediaRecorder.cpp',
+    'MediaResource.cpp',
+    'MediaShutdownManager.cpp',
+    'MediaStreamError.cpp',
+    'MediaStreamGraph.cpp',
+    'MediaStreamListener.cpp',
+    'MediaStreamTrack.cpp',
+    'MediaStreamVideoSink.cpp',
+    'MediaTimer.cpp',
+    'MediaTrack.cpp',
+    'MediaTrackConstraints.cpp',
+    'MediaTrackList.cpp',
+    'NextFrameSeekTask.cpp',
+    'QueueObject.cpp',
+    'SeekJob.cpp',
+    'SeekTask.cpp',
+    'StreamTracks.cpp',
+    'TextTrack.cpp',
+    'TextTrackCue.cpp',
+    'TextTrackCueList.cpp',
+    'TextTrackList.cpp',
+    'TextTrackRegion.cpp',
+    'TrackUnionStream.cpp',
+    'VideoFrameContainer.cpp',
+    'VideoPlaybackQuality.cpp',
+    'VideoSegment.cpp',
+    'VideoStreamTrack.cpp',
+    'VideoTrack.cpp',
+    'VideoTrackList.cpp',
+    'VideoUtils.cpp',
+    'WebVTTListener.cpp',
+    'XiphExtradata.cpp',
+]
+
+if CONFIG['OS_TARGET'] == 'WINNT':
+  SOURCES += [ 'ThreadPoolCOMListener.cpp' ]
+
+# Some codec-related code uses multi-character constants, which GCC and clang
+# warn about. Suppress turning this warning into an error.
+if CONFIG['GNU_CC'] or CONFIG['CLANG_CL']:
+  SOURCES['DecoderTraits.cpp'].flags += ['-Wno-error=multichar']
+
+EXTRA_JS_MODULES.media += [
+    'IdpSandbox.jsm',
+    'RTCStatsReport.jsm',
+]
+
+LOCAL_INCLUDES += [
+    '/dom/base',
+    '/layout/generic',
+    '/layout/xul',
+    '/system/network/base',
+    '/system/security/script',
+]
+
+DEFINES['MOZILLA_INTERNAL_API'] = True
+
+include('/ipc/chromium/chromium-config.mozbuild')
+
+# Suppress some GCC warnings being treated as errors:
+if CONFIG['GNU_CC']:
+    CXXFLAGS += [
+        '-Wno-error=shadow',
+    ]
+
+if CONFIG['_MSC_VER']:
+    # This is intended as a temporary workaround to unblock compilation
+    # on VS2015 in warnings as errors mode.
+    CXXFLAGS += ['-wd4312']
+
+FINAL_LIBRARY = 'xul'

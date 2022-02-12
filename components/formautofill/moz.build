@@ -1,0 +1,22 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+XPIDL_SOURCES += ['public/nsIFormAutofillContentService.idl']
+
+EXTRA_COMPONENTS += [
+    'src/FormAutofillContentService.js',
+    'src/FormAutofillStartup.js',
+]
+
+EXTRA_PP_COMPONENTS += ['formautofill.manifest']
+
+EXTRA_JS_MODULES += [
+    'src/FormAutofill.jsm',
+    'src/FormAutofillIntegration.jsm',
+    'src/RequestAutocompleteUI.jsm',
+]
+
+XPIDL_MODULE = 'toolkit_formautofill'
+JAR_MANIFESTS += ['jar.mn']

@@ -1,0 +1,32 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+CONFIGURE_DEFINE_FILES += ['necko-config.h']
+EXPORTS += ['!necko-config.h']
+
+DIRS += [
+  'base',
+  'cache',
+  'cache2',
+  'cookie',
+  'dns',
+  'exthandler',
+  'ipc',
+  'locales',
+  'mime',
+  'protocol',
+  'socket',
+  'streamconv',
+  'system',
+]
+
+if CONFIG['MOZ_AUTH_EXTENSION']:
+  DIRS += ['auth']
+
+if CONFIG['NECKO_WIFI']:
+  DIRS += ['wifi']
+
+DIRS += ['build']
+TEST_DIRS += ['test']

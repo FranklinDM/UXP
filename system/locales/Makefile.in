@@ -1,0 +1,27 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+include $(topsrcdir)/config/rules.mk
+
+libs-%:
+	@$(MAKE) -C ../../dom/locales/ libs AB_CD=$* XPI_NAME=locale-$*
+ifdef MOZ_DEVTOOLS_SERVER
+	@$(MAKE) -C ../../devtools/shared/locales/ libs AB_CD=$* XPI_NAME=locale-$*
+endif
+ifdef MOZ_DEVTOOLS
+	@$(MAKE) -C ../../devtools/client/locales AB_CD=$* XPI_NAME=locale-$*
+endif
+ifdef MOZ_SERVICES_SYNC
+	@$(MAKE) -C ../../components/weave/locales AB_CD=$* XPI_NAME=locale-$*
+endif
+	@$(MAKE) -C ../intl/hyphenation/locales AB_CD=$* XPI_NAME=locale-$*
+	@$(MAKE) -C ../intl/spellcheck/locales AB_CD=$* XPI_NAME=locale-$*
+	@$(MAKE) -C ../network/locales/ libs AB_CD=$* XPI_NAME=locale-$*
+	@$(MAKE) -C ../security/manager/locales/ libs AB_CD=$* XPI_NAME=locale-$*
+	@$(MAKE) libs AB_CD=$* XPI_NAME=locale-$*
+
+
+
+
+

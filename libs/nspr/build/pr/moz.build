@@ -1,0 +1,248 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+if CONFIG['MOZ_FOLD_LIBS']:
+    Library('nspr4')
+else:
+    SharedLibrary('nspr4')
+
+# We allow warnings for third-party code that can be updated from upstream.
+# TODO: fix NSPR warnings and remove this
+ALLOW_COMPILER_WARNINGS = True
+
+DEFINES['_NSPR_BUILD_'] = True
+if CONFIG['OS_ARCH'] == 'Linux':
+    OS_LIBS += CONFIG['REALTIME_LIBS']
+    DEFINES.update(
+        LINUX=True,
+        HAVE_FCNTL_FILE_LOCKING=True,
+        _GNU_SOURCE=True,
+    )
+    SOURCES += ['../../src/pr/src/md/unix/linux.c']
+    if CONFIG['CPU_ARCH'] == 'x86_64':
+        SOURCES += ['../../src/pr/src/md/unix/os_Linux_x86_64.s']
+    elif CONFIG['CPU_ARCH'] == 'x86':
+        DEFINES['i386'] = True
+        SOURCES += ['../../src/pr/src/md/unix/os_Linux_x86.s']
+    elif CONFIG['CPU_ARCH'] == 'ppc':
+        SOURCES += ['../../src/pr/src/md/unix/os_Linux_ppc.s']
+elif CONFIG['OS_TARGET'] in ('FreeBSD', 'OpenBSD', 'NetBSD'):
+    DEFINES.update(
+        HAVE_BSD_FLOCK=True,
+        HAVE_SOCKLEN_T=True,
+    )
+    DEFINES[CONFIG['OS_TARGET'].upper()] = True
+    SOURCES += ['../../src/pr/src/md/unix/%s.c' % CONFIG['OS_TARGET'].lower()]
+elif CONFIG['OS_TARGET'] == 'Darwin':
+    OS_LIBS += ['-framework CoreServices']
+    DEFINES['FD_SETSIZE'] = 10240
+    DEFINES['_DARWIN_UNLIMITED_SELECT'] = True
+    DEFINES.update(
+        DARWIN=True,
+        HAVE_BSD_FLOCK=True,
+        HAVE_SOCKLEN_T=True,
+    )
+    SOURCES += [
+        '../../src/pr/src/md/unix/darwin.c',
+        '../../src/pr/src/md/unix/os_Darwin.s',
+    ]
+    if not CONFIG['MOZ_IOS']:
+        DEFINES['HAVE_CRT_EXTERNS_H'] = True
+elif CONFIG['OS_TARGET'] == 'SunOS':
+    DEFINES.update(
+        HAVE_FCNTL_FILE_LOCKING=True,
+        HAVE_SOCKLEN_T=True,
+        _PR_HAVE_OFF64_T=True,
+        _PR_INET6=True,
+    )
+    DEFINES['SOLARIS'] = True
+    SOURCES += ['../../src/pr/src/md/unix/solaris.c']
+    if CONFIG['CPU_ARCH'] == 'x86_64':
+        SOURCES += ['../../src/pr/src/md/unix/os_SunOS_x86_64.s']
+        DEFINES['USE_64'] = True
+    elif CONFIG['CPU_ARCH'] == 'x86':
+        SOURCES += ['../../src/pr/src/md/unix/os_SunOS_x86.s']
+elif CONFIG['OS_TARGET'] == 'WINNT':
+    OS_LIBS += [
+        'advapi32',
+        'ws2_32',
+        'mswsock',
+        'winmm',
+    ]
+    DEFINES.update(
+        XP_PC=True,
+        WIN32=True,
+        # For historical reasons we use the WIN95 NSPR target instead of
+        # WINNT.
+        WIN95=True,
+        WINNT=False,
+        _PR_GLOBAL_THREADS_ONLY=True,
+    )
+    if CONFIG['CPU_ARCH'] == 'x86_64':
+        DEFINES['_AMD64_'] = True
+    else:
+        DEFINES['_X86_'] = True
+else:
+    error('Not a supported OS_TARGET for NSPR in moz.build: "%s". Use --with-system-nspr' % CONFIG['OS_TARGET'])
+
+
+LOCAL_INCLUDES += [
+    '..',
+    '../../src/pr/include',
+    '../../src/pr/include/private',
+]
+
+SOURCES += [
+    '../../src/pr/src/io/prfdcach.c',
+    '../../src/pr/src/io/priometh.c',
+    '../../src/pr/src/io/pripv6.c',
+    '../../src/pr/src/io/prlayer.c',
+    '../../src/pr/src/io/prlog.c',
+    '../../src/pr/src/io/prmapopt.c',
+    '../../src/pr/src/io/prmmap.c',
+    '../../src/pr/src/io/prmwait.c',
+    '../../src/pr/src/io/prpolevt.c',
+    '../../src/pr/src/io/prprf.c',
+    '../../src/pr/src/io/prscanf.c',
+    '../../src/pr/src/io/prstdio.c',
+    '../../src/pr/src/linking/prlink.c',
+    '../../src/pr/src/malloc/prmalloc.c',
+    '../../src/pr/src/malloc/prmem.c',
+    '../../src/pr/src/md/prosdep.c',
+    '../../src/pr/src/memory/prseg.c',
+    '../../src/pr/src/memory/prshm.c',
+    '../../src/pr/src/memory/prshma.c',
+    '../../src/pr/src/misc/pralarm.c',
+    '../../src/pr/src/misc/pratom.c',
+    '../../src/pr/src/misc/praton.c',
+    '../../src/pr/src/misc/prcountr.c',
+    '../../src/pr/src/misc/prdtoa.c',
+    '../../src/pr/src/misc/prenv.c',
+    '../../src/pr/src/misc/prerr.c',
+    '../../src/pr/src/misc/prerror.c',
+    '../../src/pr/src/misc/prerrortable.c',
+    '../../src/pr/src/misc/prinit.c',
+    '../../src/pr/src/misc/prinrval.c',
+    '../../src/pr/src/misc/pripc.c',
+    '../../src/pr/src/misc/prlog2.c',
+    '../../src/pr/src/misc/prlong.c',
+    '../../src/pr/src/misc/prnetdb.c',
+    '../../src/pr/src/misc/prolock.c',
+    '../../src/pr/src/misc/prrng.c',
+    '../../src/pr/src/misc/prsystem.c',
+    '../../src/pr/src/misc/prthinfo.c',
+    '../../src/pr/src/misc/prtime.c',
+    '../../src/pr/src/misc/prtpool.c',
+    '../../src/pr/src/misc/prtrace.c',
+    '../../src/pr/src/threads/prcmon.c',
+    '../../src/pr/src/threads/prrwlock.c',
+    '../../src/pr/src/threads/prtpd.c',
+]
+
+if CONFIG['OS_TARGET'] != 'WINNT':
+    DEFINES['_PR_PTHREADS'] = True
+    SOURCES += [
+        '../../src/pr/src/md/unix/unix.c',
+        '../../src/pr/src/md/unix/unix_errors.c',
+        '../../src/pr/src/md/unix/uxproces.c',
+        '../../src/pr/src/md/unix/uxrng.c',
+        '../../src/pr/src/md/unix/uxshm.c',
+        '../../src/pr/src/md/unix/uxwrap.c',
+        '../../src/pr/src/pthreads/ptio.c',
+        '../../src/pr/src/pthreads/ptmisc.c',
+        '../../src/pr/src/pthreads/ptsynch.c',
+        '../../src/pr/src/pthreads/ptthread.c',
+    ]
+else:
+    SOURCES += [
+        '../../src/pr/src/io/prdir.c',
+        '../../src/pr/src/io/prfile.c',
+        '../../src/pr/src/io/prio.c',
+        '../../src/pr/src/io/prsocket.c',
+        '../../src/pr/src/md/windows/ntgc.c',
+        '../../src/pr/src/md/windows/ntinrval.c',
+        '../../src/pr/src/md/windows/ntmisc.c',
+        '../../src/pr/src/md/windows/ntsec.c',
+        '../../src/pr/src/md/windows/ntsem.c',
+        '../../src/pr/src/md/windows/w32ipcsem.c',
+        '../../src/pr/src/md/windows/w32poll.c',
+        '../../src/pr/src/md/windows/w32rng.c',
+        '../../src/pr/src/md/windows/w32shm.c',
+        '../../src/pr/src/md/windows/w95cv.c',
+        '../../src/pr/src/md/windows/w95dllmain.c',
+        '../../src/pr/src/md/windows/w95io.c',
+        '../../src/pr/src/md/windows/w95sock.c',
+        '../../src/pr/src/md/windows/w95thred.c',
+        '../../src/pr/src/md/windows/win32_errors.c',
+        '../../src/pr/src/misc/pripcsem.c',
+        '../../src/pr/src/threads/combined/prucpu.c',
+        '../../src/pr/src/threads/combined/prucv.c',
+        '../../src/pr/src/threads/combined/prulock.c',
+        '../../src/pr/src/threads/combined/prustack.c',
+        '../../src/pr/src/threads/combined/pruthr.c',
+        '../../src/pr/src/threads/prcthr.c',
+        '../../src/pr/src/threads/prdump.c',
+        '../../src/pr/src/threads/prmon.c',
+        '../../src/pr/src/threads/prsem.c',
+    ]
+
+EXPORTS.nspr += [
+    '../../src/pr/include/nspr.h',
+    '../../src/pr/include/pratom.h',
+    '../../src/pr/include/prbit.h',
+    '../../src/pr/include/prclist.h',
+    '../../src/pr/include/prcmon.h',
+    '../../src/pr/include/prcountr.h',
+    '../../src/pr/include/prcvar.h',
+    '../../src/pr/include/prdtoa.h',
+    '../../src/pr/include/prenv.h',
+    '../../src/pr/include/prerr.h',
+    '../../src/pr/include/prerror.h',
+    '../../src/pr/include/prinet.h',
+    '../../src/pr/include/prinit.h',
+    '../../src/pr/include/prinrval.h',
+    '../../src/pr/include/prio.h',
+    '../../src/pr/include/pripcsem.h',
+    '../../src/pr/include/prlink.h',
+    '../../src/pr/include/prlock.h',
+    '../../src/pr/include/prlog.h',
+    '../../src/pr/include/prlong.h',
+    '../../src/pr/include/prmem.h',
+    '../../src/pr/include/prmon.h',
+    '../../src/pr/include/prmwait.h',
+    '../../src/pr/include/prnetdb.h',
+    '../../src/pr/include/prolock.h',
+    '../../src/pr/include/prpdce.h',
+    '../../src/pr/include/prprf.h',
+    '../../src/pr/include/prproces.h',
+    '../../src/pr/include/prrng.h',
+    '../../src/pr/include/prrwlock.h',
+    '../../src/pr/include/prshm.h',
+    '../../src/pr/include/prshma.h',
+    '../../src/pr/include/prsystem.h',
+    '../../src/pr/include/prthread.h',
+    '../../src/pr/include/prtime.h',
+    '../../src/pr/include/prtpool.h',
+    '../../src/pr/include/prtrace.h',
+    '../../src/pr/include/prtypes.h',
+    '../../src/pr/include/prvrsion.h',
+    '../../src/pr/include/prwin16.h',
+]
+
+EXPORTS.nspr.md += [
+    '../../src/pr/include/md/_darwin.cfg',
+    '../../src/pr/include/md/_freebsd.cfg',
+    '../../src/pr/include/md/_linux.cfg',
+    '../../src/pr/include/md/_netbsd.cfg',
+    '../../src/pr/include/md/_openbsd.cfg',
+    '../../src/pr/include/md/_solaris.cfg',
+    '../../src/pr/include/md/_win95.cfg',
+]
+
+EXPORTS.nspr.private += [
+    '../../src/pr/include/private/pprio.h',
+    '../../src/pr/include/private/pprthred.h',
+    '../../src/pr/include/private/prpriv.h',
+]
