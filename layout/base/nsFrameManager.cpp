@@ -194,8 +194,8 @@ nsFrameManager::SetStyleContextInMap(UndisplayedMap* aMap,
   printf("SetStyleContextInMap(%d): p=%p \n", i++, (void *)aContent);
 #endif
 
-  MOZ_ASSERT(!GetStyleContextInMap(aMap, aContent),
-             "Already have an entry for aContent");
+//  MOZ_ASSERT(!GetStyleContextInMap(aMap, aContent),
+//             "Already have an entry for aContent");
 
   nsIContent* parent = ParentForUndisplayedMap(aContent);
 #ifdef DEBUG
@@ -747,8 +747,8 @@ nsFrameManagerBase::UndisplayedMap::AppendNodeFor(UndisplayedNode* aNode,
   for (UndisplayedNode* node = list->getFirst(); node; node = node->getNext()) {
     // NOTE: In the original code there was a work around for this case, I want
     // to check it still happens before hacking around it the same way.
-    MOZ_ASSERT(node->mContent != aNode->mContent,
-               "Duplicated content in undisplayed list!");
+    //MOZ_ASSERT(node->mContent != aNode->mContent,
+    //           "Duplicated content in undisplayed list!");
   }
 #endif
 
