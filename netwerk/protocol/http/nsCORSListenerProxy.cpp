@@ -52,6 +52,7 @@ using namespace mozilla;
 #define PREFLIGHT_CACHE_SIZE 100
 
 static bool gDisableCORS = false;
+static bool gDisableCORSPreflightRequest = false;
 static bool gDisableCORSPrivateData = false;
 
 static void
@@ -412,6 +413,8 @@ nsCORSListenerProxy::Startup()
 {
   Preferences::AddBoolVarCache(&gDisableCORS,
                                "content.cors.disable");
+  Preferences::AddBoolVarCache(&gDisableCORSPreflightRequest,
+                               "content.cors.disable_preflight_request");
   Preferences::AddBoolVarCache(&gDisableCORSPrivateData,
                                "content.cors.no_private_data");
 }
@@ -543,6 +546,9 @@ nsCORSListenerProxy::CheckRequestApproved(nsIRequest* aRequest)
   }
 
   if (gDisableCORS) {
+    if (gDisableCORSPreflightRequest) {
+      return NS_OK;
+    }
     LogBlockedRequest(aRequest, "CORSDisabled", nullptr);
     return NS_ERROR_DOM_BAD_URI;
   }
@@ -1413,6 +1419,10 @@ nsCORSListenerProxy::StartCORSPreflight(nsIChannel* aRequestChannel,
   *aPreflightChannel = nullptr;
 
   if (gDisableCORS) {
+    if (gDisableCORSPreflightRequest) {
+      aCallback->OnPreflightSucceeded();
+      return NS_OK;
+    }
     LogBlockedRequest(aRequestChannel, "CORSDisabled", nullptr);
     return NS_ERROR_DOM_BAD_URI;
   }
