@@ -534,6 +534,13 @@ enum nsCSSUnit {
   eCSSUnit_ViewportMin    = 702,    // (float) smaller of ViewportWidth and ViewportHeight
   eCSSUnit_ViewportMax    = 703,    // (float) larger of ViewportWidth and ViewportHeight
 
+  eCSSUnit_SmallViewportWidth  = 704,      // (float) 1% of the width of the small viewport
+  eCSSUnit_SmallViewportHeight = 705,      // (float) 1% of the height of the small viewport
+  eCSSUnit_LargeViewportWidth  = 706,      // (float) 1% of the width of the large viewport
+  eCSSUnit_LargeViewportHeight = 707,      // (float) 1% of the height of the large viewport
+  eCSSUnit_DynamicViewportWidth  = 708,    // (float) 1% of the width of the dynamic viewport
+  eCSSUnit_DynamicViewportHeight = 709,    // (float) 1% of the height of the dynamic viewport
+
   // Font relative measure
   eCSSUnit_EM           = 800,    // (float) == current font size
   eCSSUnit_XHeight      = 801,    // (float) distance from top of lower case x to baseline
