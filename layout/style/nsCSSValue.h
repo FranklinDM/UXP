@@ -434,17 +434,18 @@ enum nsCSSUnit {
   eCSSUnit_Inherit      = 2,      // (n/a) value is inherited
   eCSSUnit_Initial      = 3,      // (n/a) value is default UA value
   eCSSUnit_Unset        = 4,      // (n/a) value equivalent to 'initial' if on a reset property, 'inherit' otherwise
-  eCSSUnit_None         = 5,      // (n/a) value is none
-  eCSSUnit_Normal       = 6,      // (n/a) value is normal (algorithmic, different than auto)
-  eCSSUnit_System_Font  = 7,      // (n/a) value is -moz-use-system-font
-  eCSSUnit_All          = 8,      // (n/a) value is all
-  eCSSUnit_Dummy        = 9,      // (n/a) a fake but specified value, used
+  eCSSUnit_Revert       = 5,      // (n/a) value is similar to unset, but behavior depends on current style origin
+  eCSSUnit_None         = 6,      // (n/a) value is none
+  eCSSUnit_Normal       = 7,      // (n/a) value is normal (algorithmic, different than auto)
+  eCSSUnit_System_Font  = 8,      // (n/a) value is -moz-use-system-font
+  eCSSUnit_All          = 9,      // (n/a) value is all
+  eCSSUnit_Dummy        = 10,     // (n/a) a fake but specified value, used
                                   //       only in temporary values
-  eCSSUnit_DummyInherit = 10,     // (n/a) a fake but specified value, used
+  eCSSUnit_DummyInherit = 11,     // (n/a) a fake but specified value, used
                                   //       only in temporary values
 
-  eCSSUnit_String       = 11,     // (char16_t*) a string value
-  eCSSUnit_Ident        = 12,     // (char16_t*) a string value
+  eCSSUnit_String       = 12,     // (char16_t*) a string value
+  eCSSUnit_Ident        = 13,     // (char16_t*) a string value
   eCSSUnit_Attr         = 14,     // (char16_t*) a attr(string) value
   eCSSUnit_Local_Font   = 15,     // (char16_t*) a local font name
   eCSSUnit_Font_Format  = 16,     // (char16_t*) a font format name
@@ -945,6 +946,7 @@ public:
   void SetInheritValue();
   void SetInitialValue();
   void SetUnsetValue();
+  void SetRevertValue();
   void SetNoneValue();
   void SetAllValue();
   void SetNormalValue();

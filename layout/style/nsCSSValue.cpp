@@ -598,7 +598,7 @@ void nsCSSValue::SetFontFamilyListValue(css::FontFamilyListRefCnt* aValue)
 
 void nsCSSValue::SetPairValue(const nsCSSValuePair* aValue)
 {
-  // pairs should not be used for null/inherit/initial values
+  // pairs should not be used for null/inherit/initial/unset/revert values
   MOZ_ASSERT(aValue &&
              aValue->mXValue.GetUnit() != eCSSUnit_Null &&
              aValue->mYValue.GetUnit() != eCSSUnit_Null &&
@@ -607,7 +607,9 @@ void nsCSSValue::SetPairValue(const nsCSSValuePair* aValue)
              aValue->mXValue.GetUnit() != eCSSUnit_Initial &&
              aValue->mYValue.GetUnit() != eCSSUnit_Initial &&
              aValue->mXValue.GetUnit() != eCSSUnit_Unset &&
-             aValue->mYValue.GetUnit() != eCSSUnit_Unset,
+             aValue->mYValue.GetUnit() != eCSSUnit_Unset &&
+             aValue->mXValue.GetUnit() != eCSSUnit_Revert &&
+             aValue->mYValue.GetUnit() != eCSSUnit_Revert,
              "missing or inappropriate pair value");
   Reset();
   mUnit = eCSSUnit_Pair;
@@ -625,7 +627,9 @@ void nsCSSValue::SetPairValue(const nsCSSValue& xValue,
              xValue.GetUnit() != eCSSUnit_Initial &&
              yValue.GetUnit() != eCSSUnit_Initial &&
              xValue.GetUnit() != eCSSUnit_Unset &&
-             yValue.GetUnit() != eCSSUnit_Unset,
+             yValue.GetUnit() != eCSSUnit_Unset &&
+             xValue.GetUnit() != eCSSUnit_Revert &&
+             yValue.GetUnit() != eCSSUnit_Revert,
              "inappropriate pair value");
   Reset();
   mUnit = eCSSUnit_Pair;
@@ -635,7 +639,7 @@ void nsCSSValue::SetPairValue(const nsCSSValue& xValue,
 
 void nsCSSValue::SetTripletValue(const nsCSSValueTriplet* aValue)
 {
-  // triplet should not be used for null/inherit/initial values
+  // triplet should not be used for null/inherit/initial/unset/revert values
   MOZ_ASSERT(aValue &&
              aValue->mXValue.GetUnit() != eCSSUnit_Null &&
              aValue->mYValue.GetUnit() != eCSSUnit_Null &&
@@ -648,7 +652,10 @@ void nsCSSValue::SetTripletValue(const nsCSSValueTriplet* aValue)
              aValue->mZValue.GetUnit() != eCSSUnit_Initial &&
              aValue->mXValue.GetUnit() != eCSSUnit_Unset &&
              aValue->mYValue.GetUnit() != eCSSUnit_Unset &&
-             aValue->mZValue.GetUnit() != eCSSUnit_Unset,
+             aValue->mZValue.GetUnit() != eCSSUnit_Unset &&
+             aValue->mXValue.GetUnit() != eCSSUnit_Revert &&
+             aValue->mYValue.GetUnit() != eCSSUnit_Revert &&
+             aValue->mZValue.GetUnit() != eCSSUnit_Revert,
              "missing or inappropriate triplet value");
   Reset();
   mUnit = eCSSUnit_Triplet;
@@ -671,7 +678,10 @@ void nsCSSValue::SetTripletValue(const nsCSSValue& xValue,
              zValue.GetUnit() != eCSSUnit_Initial &&
              xValue.GetUnit() != eCSSUnit_Unset &&
              yValue.GetUnit() != eCSSUnit_Unset &&
-             zValue.GetUnit() != eCSSUnit_Unset,
+             zValue.GetUnit() != eCSSUnit_Unset &&
+             xValue.GetUnit() != eCSSUnit_Revert &&
+             yValue.GetUnit() != eCSSUnit_Revert &&
+             zValue.GetUnit() != eCSSUnit_Revert,
              "inappropriate triplet value");
   Reset();
   mUnit = eCSSUnit_Triplet;
@@ -779,6 +789,12 @@ void nsCSSValue::SetUnsetValue()
 {
   Reset();
   mUnit = eCSSUnit_Unset;
+}
+
+void nsCSSValue::SetRevertValue()
+{
+  Reset();
+  mUnit = eCSSUnit_Revert;
 }
 
 void nsCSSValue::SetNoneValue()
@@ -1930,6 +1946,7 @@ nsCSSValue::AppendToString(nsCSSPropertyID aProperty, nsAString& aResult,
     case eCSSUnit_Inherit:      aResult.AppendLiteral("inherit");  break;
     case eCSSUnit_Initial:      aResult.AppendLiteral("initial");  break;
     case eCSSUnit_Unset:        aResult.AppendLiteral("unset");    break;
+    case eCSSUnit_Revert:       aResult.AppendLiteral("revert");   break;
     case eCSSUnit_None:         aResult.AppendLiteral("none");     break;
     case eCSSUnit_Normal:       aResult.AppendLiteral("normal");   break;
     case eCSSUnit_System_Font:  aResult.AppendLiteral("-moz-use-system-font"); break;
@@ -2043,6 +2060,7 @@ nsCSSValue::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
     case eCSSUnit_Inherit:
     case eCSSUnit_Initial:
     case eCSSUnit_Unset:
+    case eCSSUnit_Revert:
     case eCSSUnit_None:
     case eCSSUnit_Normal:
     case eCSSUnit_System_Font:
@@ -2482,7 +2500,8 @@ nsCSSRect::AppendToString(nsCSSPropertyID aProperty, nsAString& aResult,
   MOZ_ASSERT(mTop.GetUnit() != eCSSUnit_Null &&
              mTop.GetUnit() != eCSSUnit_Inherit &&
              mTop.GetUnit() != eCSSUnit_Initial &&
-             mTop.GetUnit() != eCSSUnit_Unset,
+             mTop.GetUnit() != eCSSUnit_Unset &&
+             mTop.GetUnit() != eCSSUnit_Revert,
              "parser should have used a bare value");
 
   if (eCSSProperty_border_image_slice == aProperty ||
@@ -2652,6 +2671,7 @@ nsCSSValuePairList::AppendToString(nsCSSPropertyID aProperty,
     if (item->mXValue.GetUnit() != eCSSUnit_Inherit &&
         item->mXValue.GetUnit() != eCSSUnit_Initial &&
         item->mXValue.GetUnit() != eCSSUnit_Unset &&
+        item->mXValue.GetUnit() != eCSSUnit_Revert &&
         item->mYValue.GetUnit() != eCSSUnit_Null) {
       aResult.Append(char16_t(' '));
       item->mYValue.AppendToString(aProperty, aResult, aSerialization);
