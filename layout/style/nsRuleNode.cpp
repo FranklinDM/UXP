@@ -3813,9 +3813,18 @@ nsRuleNode::SetFont(nsPresContext* aPresContext, nsStyleContext* aContext,
         break;
       }
     }
-  } else if (eCSSUnit_Revert == weightValue->GetUnit()) {
+  } else if (eCSSUnit_Revert == weightValue->GetUnit() && !atRoot) {
     aConditions.SetUncacheable();
     //FIXMETBA
+    nsStyleContext* rootContext = aContext->GetParent();
+    while (rootContext && rootContext->GetParent()) {
+      rootContext = rootContext->GetParent();
+    }
+    const nsStyleFont* rootFont = nullptr;
+    if (rootContext) {
+      rootFont = rootContext->StyleFont();
+      aFont->mFont.weight = rootFont->mFont.weight;
+    }
   } else {
     SetValue(*weightValue, aFont->mFont.weight, aConditions,
              SETVAL_INTEGER | SETVAL_UNSET_INHERIT, // | SETVAL_REVERT,
