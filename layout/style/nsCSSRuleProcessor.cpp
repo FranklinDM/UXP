@@ -898,6 +898,7 @@ struct RuleCascadeData {
   nsTArray<nsCSSFontFeatureValuesRule*> mFontFeatureValuesRules;
   nsTArray<nsCSSPageRule*> mPageRules;
   nsTArray<nsCSSCounterStyleRule*> mCounterStyleRules;
+  nsTArray<CSSLayerBlockRule*>& mLayerBlockRules;
 
   nsDataHashtable<nsStringHashKey, nsCSSKeyframesRule*> mKeyframesRuleTable;
   nsDataHashtable<nsStringHashKey, nsCSSCounterStyleRule*> mCounterStyleRuleTable;
@@ -951,6 +952,7 @@ RuleCascadeData::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
   n += mFontFeatureValuesRules.ShallowSizeOfExcludingThis(aMallocSizeOf);
   n += mPageRules.ShallowSizeOfExcludingThis(aMallocSizeOf);
   n += mCounterStyleRules.ShallowSizeOfExcludingThis(aMallocSizeOf);
+  n += mLayerBlockRules.ShallowSizeOfExcludingThis(aMallocSizeOf);
 
   n += mKeyframesRuleTable.ShallowSizeOfExcludingThis(aMallocSizeOf);
   for (auto iter = mKeyframesRuleTable.ConstIter(); !iter.Done(); iter.Next()) {
@@ -3840,6 +3842,7 @@ struct CascadeEnumData {
                   nsTArray<nsCSSFontFeatureValuesRule*>& aFontFeatureValuesRules,
                   nsTArray<nsCSSPageRule*>& aPageRules,
                   nsTArray<nsCSSCounterStyleRule*>& aCounterStyleRules,
+                  nsTArray<CSSLayerBlockRule*>& aLayerBlockRules,
                   nsTArray<css::DocumentRule*>& aDocumentRules,
                   nsMediaQueryResultCacheKey& aKey,
                   nsDocumentRuleResultCacheKey& aDocumentKey,
@@ -3851,6 +3854,7 @@ struct CascadeEnumData {
       mFontFeatureValuesRules(aFontFeatureValuesRules),
       mPageRules(aPageRules),
       mCounterStyleRules(aCounterStyleRules),
+      mLayerBlockRules(aLayerBlockRules),
       mDocumentRules(aDocumentRules),
       mCacheKey(aKey),
       mDocumentCacheKey(aDocumentKey),
@@ -3874,6 +3878,7 @@ struct CascadeEnumData {
   nsTArray<nsCSSFontFeatureValuesRule*>& mFontFeatureValuesRules;
   nsTArray<nsCSSPageRule*>& mPageRules;
   nsTArray<nsCSSCounterStyleRule*>& mCounterStyleRules;
+  nsTArray<CSSLayerBlockRule*>& mLayerBlockRules;
   nsTArray<css::DocumentRule*>& mDocumentRules;
   nsMediaQueryResultCacheKey& mCacheKey;
   nsDocumentRuleResultCacheKey& mDocumentCacheKey;
@@ -3936,14 +3941,15 @@ GatherDocRuleEnumFunc(css::Rule* aRule, void* aData)
  *  (1) add any style rules, in order, into data->mRulesByWeight (for
  *      the primary CSS cascade), where they are separated by weight
  *      but kept in order per-weight, and
- *  (2) add any @font-face rules, in order, into data->mFontFaceRules.
- *  (3) add any @keyframes rules, in order, into data->mKeyframesRules.
- *  (4) add any @font-feature-value rules, in order,
+ *  (2) add any @layer block rules, in order, into data->mLayerBlockRules.
+ *  (3) add any @font-face rules, in order, into data->mFontFaceRules.
+ *  (4) add any @keyframes rules, in order, into data->mKeyframesRules.
+ *  (5) add any @font-feature-value rules, in order,
  *      into data->mFontFeatureValuesRules.
- *  (5) add any @page rules, in order, into data->mPageRules.
- *  (6) add any @counter-style rules, in order, into data->mCounterStyleRules.
- *  (7) add any @-moz-document rules into data->mDocumentRules.
- *  (8) record any @-moz-document rules whose conditions evaluate to true
+ *  (6) add any @page rules, in order, into data->mPageRules.
+ *  (7) add any @counter-style rules, in order, into data->mCounterStyleRules.
+ *  (8) add any @-moz-document rules into data->mDocumentRules.
+ *  (9) record any @-moz-document rules whose conditions evaluate to true
  *      on data->mDocumentCacheKey.
  *
  * See also GatherDocRuleEnumFunc above, which we call to traverse into
@@ -3983,6 +3989,15 @@ CascadeRuleEnumFunc(css::Rule* aRule, void* aData)
         *(entry->data.mTail) = newItem;
         entry->data.mTail = &newItem->mNext;
       }
+    }
+  }
+  else if (css::Rule::LAYER_BLOCK_RULE == type) {
+    CSSLayerBlockRule* layerBlockRule = static_cast<CSSLayerBlockRule*>(aRule);
+    if (!data->mLayerBlockRules.AppendElement(layerBlockRule)) {
+      return false;
+    }
+    if (!layerBlockRule->EnumerateRulesForwards(CascadeRuleEnumFunc, aData)) {
+      return false;
     }
   }
   else if (css::Rule::MEDIA_RULE == type ||
@@ -4141,6 +4156,7 @@ nsCSSRuleProcessor::RefreshRuleCascade(nsPresContext* aPresContext)
                            newCascade->mFontFeatureValuesRules,
                            newCascade->mPageRules,
                            newCascade->mCounterStyleRules,
+                           newCascade->mLayerBlockRules,
                            mDocumentRules,
                            newCascade->mCacheKey,
                            mDocumentCacheKey,
