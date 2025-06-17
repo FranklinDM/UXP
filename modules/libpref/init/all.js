@@ -1479,8 +1479,16 @@ pref("network.http.request.max-attempts", 10);
 pref("network.http.accept.default", "*/*");
 // Top-level navigation should include all non-ubiquitous mime types in front of */*
 // including image and video/audio types that are handled top-level.
+#ifdef MOZ_JXL
 pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/webp,image/apng,video/x-matroska,video/webm,*/*;q=0.8");
+#else
+pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,video/x-matroska,video/webm,*/*;q=0.8");
+#endif
+#ifdef MOZ_JXL
 pref("network.http.accept.image", "image/jxl,image/webp,image/apng,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
+#else
+pref("network.http.accept.image", "image/webp,image/apng,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
+#endif
 pref("network.http.accept.style", "text/css,*/*;q=0.1");
 
 // Prefs allowing granular control of referers
@@ -4227,7 +4235,11 @@ pref("image.decode-immediately.enabled", false);
 pref("image.downscale-during-decode.enabled", true);
 
 // The default Accept header sent for images loaded over HTTP(S)
+#ifdef MOZ_JXL
 pref("image.http.accept", "image/webp,image/jxl,image/png,image/*;q=0.8,*/*;q=0.5");
+#else
+pref("image.http.accept", "image/webp,image/png,image/*;q=0.8,*/*;q=0.5");
+#endif
 
 // The threshold for inferring that changes to an <img> element's |src|
 // attribute by JavaScript represent an animation, in milliseconds. If the |src|
@@ -4283,6 +4295,11 @@ pref("image.mem.surfacecache.discard_factor", 2);
 // How many threads we'll use for multithreaded decoding. If < 0, will be
 // automatically determined based on the system's number of cores.
 pref("image.multithreaded_decoding.limit", -1);
+
+#ifdef MOZ_JXL
+// Whether we attempt to decode JPEG-XL images or not.
+pref("image.jxl.enabled", true);
+#endif
 
 // Limit for the canvas image cache. 0 means we don't limit the size of the
 // cache.

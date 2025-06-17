@@ -2016,6 +2016,7 @@ MOZ_FEEDS=1
 MOZ_AUTH_EXTENSION=1
 MOZ_RAW=
 MOZ_AV1=
+MOZ_JXL=
 AV1_USE_AOM=
 MOZ_VORBIS=
 MOZ_TREMOR=
@@ -2752,6 +2753,20 @@ fi
 
 AC_SUBST(MOZ_AV1)
 AC_SUBST(AV1_USE_AOM)
+
+dnl ========================================================
+dnl = Disable JPEG-XL Codec
+dnl ========================================================
+MOZ_ARG_DISABLE_BOOL(jxl,
+[  --disable-jxl           Disable libjxl and highway for jxl image support],
+    MOZ_JXL=,
+    MOZ_JXL=1)
+
+if test -n "$MOZ_JXL"; then
+    AC_DEFINE(MOZ_JXL)
+fi
+
+AC_SUBST(MOZ_JXL)
 
 dnl ========================================================
 dnl = Apple platform decoder support
