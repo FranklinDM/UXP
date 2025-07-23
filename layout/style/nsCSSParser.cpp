@@ -1838,6 +1838,7 @@ protected:
   // places in CSSStyleSheet.cpp (e.g in insertRule, RebuildChildList).
   enum nsCSSSection {
     eCSSSection_Charset,
+    eCSSSection_EarlyLayers,
     eCSSSection_Import,
     eCSSSection_NameSpace,
     eCSSSection_General
@@ -1891,6 +1892,10 @@ protected:
   // True if we are somewhere within a @supports rule whose condition is
   // false.
   bool mInFailingSupportsRule : 1;
+
+  // True if we have parsed a layer block rule before any @import, such as:
+  // @layer <layer-name>? { ... }
+  bool mParsedLayerBlockRuleBeforeGeneral : 1;
 
   // True if we will suppress all parse errors (except unexpected EOFs).
   // This is used to prevent errors for declarations inside a failing
@@ -2009,6 +2014,7 @@ CSSParserImpl::CSSParserImpl()
     mParsingCompoundProperty(false),
     mInSupportsCondition(false),
     mInFailingSupportsRule(false),
+    mParsedLayerBlockRuleBeforeGeneral(false),
     mSuppressErrors(false),
     mSheetPrincipalRequired(true),
     mCalcAllowsTypedArithmetic(false),
@@ -3801,7 +3807,7 @@ CSSParserImpl::ParseAtRule(RuleAppendFunc aAppendFunc,
   if ((mSection <= eCSSSection_Charset) &&
       (mToken.mIdent.LowerCaseEqualsLiteral("charset"))) {
     parseFunc = &CSSParserImpl::ParseCharsetRule;
-    newSection = eCSSSection_Import;  // only one charset allowed
+    newSection = eCSSSection_EarlyLayers;  // only one charset allowed
 
   } else if ((mSection <= eCSSSection_Import) &&
              mToken.mIdent.LowerCaseEqualsLiteral("import")) {
@@ -3849,7 +3855,13 @@ CSSParserImpl::ParseAtRule(RuleAppendFunc aAppendFunc,
   } else if (mToken.mIdent.LowerCaseEqualsLiteral("layer") &&
              sCascadeLayersEnabled) {
     parseFunc = &CSSParserImpl::ParseLayerRule;
-    newSection = eCSSSection_General;
+    // Layer statement rules are allowed before @import and @namespace,
+    // as long as they come after @charset (if present).
+    // If a @layer rule appears after an @import or @namespace rule,
+    // any following @import or @namespace rules will be ignored.
+    newSection = mSection <= eCSSSection_EarlyLayers
+      ? eCSSSection_EarlyLayers
+      : eCSSSection_General;
 
   } else if (mToken.mIdent.LowerCaseEqualsLiteral("counter-style")) {
     parseFunc = &CSSParserImpl::ParseCounterStyleRule;
@@ -3875,6 +3887,13 @@ CSSParserImpl::ParseAtRule(RuleAppendFunc aAppendFunc,
     // Skip over invalid at rule, don't advance section
     OUTPUT_ERROR();
     return SkipAtRule(aInAtRule);
+  }
+
+  // Since we encountered a layer block rule early, subsequent
+  // @import and @namespace rules will be ignored.
+  if (mParsedLayerBlockRuleBeforeGeneral) {
+    newSection = eCSSSection_General;
+    mParsedLayerBlockRuleBeforeGeneral = false;
   }
 
   // Nested @-rules don't affect the top-level rule chain requirement
@@ -5800,6 +5819,10 @@ CSSParserImpl::ParseLayerRule(RuleAppendFunc aAppendFunc, void* aProcessData)
       new CSSLayerStatementRule(nameList, pathList, linenum, colnum);
     (*aAppendFunc)(rule, aProcessData);
     return true;
+  }
+
+  if (mSection <= eCSSSection_Import) {
+    mParsedLayerBlockRuleBeforeGeneral = true;
   }
 
   UngetToken();
