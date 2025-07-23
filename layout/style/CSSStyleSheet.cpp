@@ -1838,6 +1838,29 @@ RuleHasPendingChildSheet(css::Rule *cssRule)
   return cssSheet != nullptr && !cssSheet->IsComplete();
 }
 
+static MOZ_ALWAYS_INLINE uint32_t
+ThrowDOMHierarchyRequestError(ErrorResult& aRv)
+{
+  aRv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
+  return 0;
+}
+
+static MOZ_ALWAYS_INLINE bool
+IsInEarlyLayersSection(CSSStyleSheetInner* aInner, uint32_t aIndex)
+{
+  // Walk the previous rules and check if there are rules that don't
+  // qualify for the early layers section.
+  for (int32_t i = aIndex - 2; i >= 0; --i) {
+    css::Rule* rule = aInner->mOrderedRules.SafeObjectAt(i);
+    int32_t type = rule->GetType();
+    if (type != css::Rule::CHARSET_RULE &&
+        type != css::Rule::LAYER_STATEMENT_RULE) {
+      return false;
+    }
+  }
+  return true;
+}
+
 uint32_t
 CSSStyleSheet::InsertRuleInternal(const nsAString& aRule,
                                   uint32_t aIndex,
@@ -1876,55 +1899,60 @@ CSSStyleSheet::InsertRuleInternal(const nsAString& aRule,
 
   // Hierarchy checking.
   int32_t newType = rule->GetType();
+  bool nextIsImportOrNamespace = false;
 
   // check that we're not inserting before a charset rule
   css::Rule* nextRule = mInner->mOrderedRules.SafeObjectAt(aIndex);
   if (nextRule) {
     int32_t nextType = nextRule->GetType();
+    nextIsImportOrNamespace = nextType == css::Rule::IMPORT_RULE ||
+                              nextType == css::Rule::NAMESPACE_RULE;
     if (nextType == css::Rule::CHARSET_RULE) {
-      aRv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
-      return 0;
-    }
-
-    if (nextType == css::Rule::IMPORT_RULE &&
-        newType != css::Rule::CHARSET_RULE &&
-        newType != css::Rule::IMPORT_RULE) {
-      aRv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
-      return 0;
-    }
-
-    if (nextType == css::Rule::NAMESPACE_RULE &&
+      return ThrowDOMHierarchyRequestError(aRv);
+    } else if (nextType == css::Rule::IMPORT_RULE &&
         newType != css::Rule::CHARSET_RULE &&
         newType != css::Rule::IMPORT_RULE &&
-        newType != css::Rule::NAMESPACE_RULE) {
-      aRv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
-      return 0;
+        newType != css::Rule::LAYER_STATEMENT_RULE) {
+      return ThrowDOMHierarchyRequestError(aRv);
+    } else if (nextType == css::Rule::NAMESPACE_RULE &&
+        newType != css::Rule::CHARSET_RULE &&
+        newType != css::Rule::IMPORT_RULE &&
+        newType != css::Rule::NAMESPACE_RULE &&
+        newType != css::Rule::LAYER_STATEMENT_RULE) {
+      return ThrowDOMHierarchyRequestError(aRv);
     }
   }
 
   if (aIndex != 0) {
-    // no inserting charset at nonzero position
-    if (newType == css::Rule::CHARSET_RULE) {
-      aRv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
-      return 0;
-    }
-
     css::Rule* prevRule = mInner->mOrderedRules.SafeObjectAt(aIndex - 1);
     int32_t prevType = prevRule->GetType();
-
-    if (newType == css::Rule::IMPORT_RULE &&
-        prevType != css::Rule::CHARSET_RULE &&
-        prevType != css::Rule::IMPORT_RULE) {
-      aRv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
-      return 0;
-    }
-
-    if (newType == css::Rule::NAMESPACE_RULE &&
-        prevType != css::Rule::CHARSET_RULE &&
-        prevType != css::Rule::IMPORT_RULE &&
-        prevType != css::Rule::NAMESPACE_RULE) {
-      aRv.Throw(NS_ERROR_DOM_HIERARCHY_REQUEST_ERR);
-      return 0;
+    if (newType == css::Rule::CHARSET_RULE) {
+      // no inserting charset at nonzero position
+      return ThrowDOMHierarchyRequestError(aRv);
+    } else if (newType == css::Rule::IMPORT_RULE &&
+               prevType != css::Rule::CHARSET_RULE &&
+               prevType != css::Rule::IMPORT_RULE) {
+      if (prevType != css::Rule::LAYER_STATEMENT_RULE) {
+        return ThrowDOMHierarchyRequestError(aRv);
+      }
+      if (!IsInEarlyLayersSection(mInner, aIndex)) {
+        return ThrowDOMHierarchyRequestError(aRv);
+      }
+    } else if (newType == css::Rule::NAMESPACE_RULE &&
+               prevType != css::Rule::CHARSET_RULE &&
+               prevType != css::Rule::IMPORT_RULE &&
+               prevType != css::Rule::NAMESPACE_RULE) {
+      if (prevType != css::Rule::LAYER_STATEMENT_RULE) {
+        return ThrowDOMHierarchyRequestError(aRv);
+      }
+      if (!IsInEarlyLayersSection(mInner, aIndex)) {
+        return ThrowDOMHierarchyRequestError(aRv);
+      }
+    } else if (newType == css::Rule::LAYER_STATEMENT_RULE &&
+               (prevType == css::Rule::IMPORT_RULE ||
+                prevType == css::Rule::NAMESPACE_RULE) &&
+               nextIsImportOrNamespace) {
+      return ThrowDOMHierarchyRequestError(aRv);
     }
   }
 
