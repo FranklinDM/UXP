@@ -480,6 +480,21 @@ nsCSSRuleProcessor::ClearGroup()
   return NS_OK;
 }
 
+static MOZ_ALWAYS_INLINE CascadeLayer*
+CreateOrGetCascadeLayerForSheet(css::ImportRule* aImportRule,
+                                CascadeLayer* aCurrentLayer)
+{
+  nsString name;
+  aImportRule->GetLayerName(name);
+  if (name.IsVoid()) {
+    return aCurrentLayer;
+  } else if (name.IsEmpty()) {
+    return aCurrentLayer->CreateAnonymousChildLayer();
+  }
+  nsTArray<nsString> path;
+  aImportRule->GetLayerPath(path);
+  return aCurrentLayer->CreateNamedChildLayer(path);
+}
 
 /**
  * Recursively traverses rules in order to:
@@ -653,7 +668,9 @@ CascadeRuleEnumFunc(css::Rule* aRule, void* aData)
     css::ImportRule* importRule = static_cast<css::ImportRule*>(aRule);
     StyleSheet* sheet = importRule->GetStyleSheet();
     if (sheet) {
-      nsCSSRuleProcessor::CascadeSheet(sheet->AsConcrete(), layer);
+      nsCSSRuleProcessor::CascadeSheet(
+        sheet->AsConcrete(),
+        CreateOrGetCascadeLayerForSheet(importRule, layer));
     }
   }
   return true;
@@ -669,14 +686,17 @@ nsCSSRuleProcessor::CascadeSheet(CSSStyleSheet* aSheet, CascadeLayer* aLayer)
     if (!nsCSSRuleUtils::LoadImportedSheetsInOrderEnabled()) {
       CSSStyleSheet* child = aSheet->mInner->mFirstChild;
       while (child) {
-        CascadeSheet(child, aLayer);
+        css::ImportRule* importRule = child->GetOwnerRule();
+        CascadeSheet(child,
+                     CreateOrGetCascadeLayerForSheet(importRule, aLayer));
         child = child->mNext;
       }
     }
 
     if (!aSheet->mInner->mOrderedRules.EnumerateForwards(CascadeRuleEnumFunc,
-                                                         aLayer))
+                                                         aLayer)) {
       return false;
+    }
   }
   return true;
 }

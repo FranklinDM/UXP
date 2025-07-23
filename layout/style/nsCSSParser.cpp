@@ -1038,6 +1038,8 @@ protected:
   void ProcessImport(const nsString& aURLSpec,
                      nsMediaList* aMedia,
                      const nsString& aLayerName,
+                     nsTArray<nsString>& aLayerPath,
+                     const bool aIsAnonymousLayer,
                      RuleAppendFunc aAppendFunc,
                      void* aProcessData,
                      uint32_t aLineNumber,
@@ -4296,7 +4298,13 @@ CSSParserImpl::ParseMediaQueryExpression(nsMediaQuery* aQuery)
   return true;
 }
 
-// Parse a CSS2 import rule: "@import STRING | URL [medium [, medium]]"
+// Parse a CSS Cascade 5 import rule:
+// @import [ <url> | <string> ]
+//         [ layer | layer(<layer-name>) ]?
+//         <import-conditions> ;
+// <import-conditions> = [ supports( [ <supports-condition> | <declaration> ] ) ]?
+//                       <media-query-list>?
+// TODO: <supports-condition> is not yet supported.
 bool
 CSSParserImpl::ParseImportRule(RuleAppendFunc aAppendFunc, void* aData)
 {
@@ -4308,6 +4316,59 @@ CSSParserImpl::ParseImportRule(RuleAppendFunc aAppendFunc, void* aData)
       !ParseURLOrString(url)) {
     REPORT_UNEXPECTED_TOKEN(PEImportNotURI);
     return false;
+  }
+
+  bool isAnonymousLayer = false;
+  nsString layerName;
+  nsTArray<nsString> layerPath;
+  if (GetToken(true)) {
+    if (mToken.mType == eCSSToken_Function &&
+        mToken.mIdent.LowerCaseEqualsLiteral("layer") &&
+        sCascadeLayersEnabled) {
+      bool parsing = true;
+      bool expectIdent = false;
+      while (parsing) {
+        if (!GetToken(true)) {
+          return false;
+        }
+
+        switch (mToken.mType) {
+          case eCSSToken_Symbol: {
+            if ('.' == mToken.mSymbol) {
+              expectIdent = true;
+              if (!layerName.IsEmpty()) {
+                layerName.Append(mToken.mSymbol);
+                continue;
+              }
+              parsing = false;
+              break;
+            } else if (')' == mToken.mSymbol) {
+              parsing = false;
+              break;
+            }
+          }
+          case eCSSToken_Ident: {
+            expectIdent = false;
+            layerName.Append(mToken.mIdent);
+            layerPath.AppendElement(mToken.mIdent);
+            break;
+          }
+          default: {
+            return false;
+          }
+        }
+      }
+      if (expectIdent) {
+        UngetToken();
+        return false;
+      }
+    } else if (mToken.mType == eCSSToken_Ident &&
+               mToken.mIdent.LowerCaseEqualsLiteral("layer") &&
+               sCascadeLayersEnabled) {
+      isAnonymousLayer = true;
+    } else {
+      UngetToken();
+    }
   }
 
   if (!ExpectSymbol(';', true)) {
@@ -4323,10 +4384,15 @@ CSSParserImpl::ParseImportRule(RuleAppendFunc aAppendFunc, void* aData)
     NS_ASSERTION(media->Length() != 0, "media list must be nonempty");
   }
 
-  // FIXME: Layer functions inside @import declarations are treated as an error.
-  nsAutoString layerName;
-
-  ProcessImport(url, media, layerName, aAppendFunc, aData, linenum, colnum);
+  ProcessImport(url,
+                media,
+                layerName,
+                layerPath,
+                isAnonymousLayer,
+                aAppendFunc,
+                aData,
+                linenum,
+                colnum);
   return true;
 }
 
@@ -4334,15 +4400,20 @@ void
 CSSParserImpl::ProcessImport(const nsString& aURLSpec,
                              nsMediaList* aMedia,
                              const nsString& aLayerName,
+                             nsTArray<nsString>& aLayerPath,
+                             const bool aIsAnonymousLayer,
                              RuleAppendFunc aAppendFunc,
                              void* aData,
                              uint32_t aLineNumber,
                              uint32_t aColumnNumber)
 {
-  RefPtr<css::ImportRule> rule = new css::ImportRule(aMedia, aURLSpec,
-                                                       aLayerName,
-                                                       aLineNumber,
-                                                       aColumnNumber);
+  RefPtr<css::ImportRule> rule = new css::ImportRule(aMedia,
+                                                     aURLSpec,
+                                                     aLayerName,
+                                                     aLayerPath,
+                                                     aIsAnonymousLayer,
+                                                     aLineNumber,
+                                                     aColumnNumber);
   (*aAppendFunc)(rule, aData);
 
   // Diagnose bad URIs even if we don't have a child loader.

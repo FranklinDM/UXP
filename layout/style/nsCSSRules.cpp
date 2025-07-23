@@ -250,11 +250,15 @@ GroupRuleRuleList::IndexedGetter(uint32_t aIndex, bool& aFound)
 
 ImportRule::ImportRule(nsMediaList* aMedia, const nsString& aURLSpec,
                        const nsString& aLayerName,
+                       const nsTArray<nsString>& aLayerPath,
+                       const bool aIsAnonymousLayer,
                        uint32_t aLineNumber, uint32_t aColumnNumber)
   : Rule(aLineNumber, aColumnNumber)
   , mURLSpec(aURLSpec)
   , mMedia(aMedia)
   , mLayerName(aLayerName)
+  , mLayerPath(aLayerPath)
+  , mIsAnonymousLayer(aIsAnonymousLayer)
 {
   MOZ_ASSERT(aMedia);
   // XXXbz This is really silly.... the mMedia here will be replaced
@@ -266,6 +270,8 @@ ImportRule::ImportRule(const ImportRule& aCopy)
   : Rule(aCopy)
   , mURLSpec(aCopy.mURLSpec)
   , mLayerName(aCopy.mLayerName)
+  , mLayerPath(aCopy.mLayerPath)
+  , mIsAnonymousLayer(aCopy.mIsAnonymousLayer)
 {
   // Whether or not an @import rule has a null sheet is a permanent
   // property of that @import rule, since it is null only if the target
@@ -418,10 +424,20 @@ ImportRule::GetStyleSheet(nsIDOMCSSStyleSheet * *aStyleSheet)
 }
 
 NS_IMETHODIMP
-ImportRule::GetLayerName(nsAString & aLayerName)
+ImportRule::GetLayerName(nsAString& aLayerName)
 {
-  aLayerName = mLayerName;
+  if (!mIsAnonymousLayer && mLayerName.IsEmpty()) {
+    SetDOMStringToNull(aLayerName);
+  } else {
+    aLayerName = mLayerName;
+  }
   return NS_OK;
+}
+
+void
+ImportRule::GetLayerPath(nsTArray<nsString>& aResult)
+{
+  aResult = mLayerPath;
 }
 
 /* virtual */ size_t

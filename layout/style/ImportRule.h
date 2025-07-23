@@ -30,6 +30,8 @@ class ImportRule final : public Rule,
 public:
   ImportRule(nsMediaList* aMedia, const nsString& aURLSpec,
              const nsString& aLayerName,
+             const nsTArray<nsString>& aLayerPath,
+             const bool aIsAnonymousLayer,
              uint32_t aLineNumber, uint32_t aColumnNumber);
 private:
   // for |Clone|
@@ -67,10 +69,13 @@ public:
   nsMediaList* Media() const { return mMedia; }
   StyleSheet* GetStyleSheet() const;
   // The XPCOM GetLayerName is OK
+  void GetLayerPath(nsTArray<nsString>& aResult);
 
 private:
   nsString  mURLSpec;
   nsString  mLayerName;
+  nsTArray<nsString> mLayerPath;
+  bool mIsAnonymousLayer;
   RefPtr<nsMediaList> mMedia;
   RefPtr<CSSStyleSheet> mChildSheet;
 };
