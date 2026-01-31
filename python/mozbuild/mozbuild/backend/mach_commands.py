@@ -30,10 +30,7 @@ class MachCommands(MachCommandBase):
         if ide == 'visualstudio':
             backend = 'VisualStudio'
 
-        # Here we refresh the whole build. 'build export' is sufficient here and is probably more
-        # correct but it's also nice having a single target to get a fully built and indexed
-        # project (gives a easy target to use before go out to lunch).
-        res = self._mach_context.commands.dispatch('build', self._mach_context)
+        res = self._mach_context.commands.dispatch('build', self._mach_context, what=['export'])
         if res != 0:
             return 1
 
