@@ -45,7 +45,7 @@ class MachCommands(MachCommandBase):
 
         if ide == 'visualstudio':
             visual_studio_workspace_dir = self.get_visualstudio_workspace_path()
-            process = subprocess.check_call(['explorer.exe', visual_studio_workspace_dir])
+            process = subprocess.call(['explorer.exe', visual_studio_workspace_dir])
 
     def get_visualstudio_workspace_path(self):
         return os.path.normpath(os.path.join(self.topobjdir, 'msvc', 'mozilla.sln'))
