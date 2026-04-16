@@ -38,6 +38,7 @@
 #include "jit/BaselineJIT.h"
 #include "jit/Ion.h"
 #include "jit/IonAnalysis.h"
+#include "jit/LoongArchMinimalJit.h"
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
 #include "vm/BigIntType.h"
@@ -393,6 +394,9 @@ js::RunScript(JSContext* cx, RunState& state)
     SPSEntryMarker marker(cx->runtime(), state.script());
 
     state.script()->ensureNonLazyCanonicalFunction();
+
+    if (jit::TryEnterLoongArchMinimalJit(cx, state))
+        return true;
 
     if (jit::IsIonEnabled(cx)) {
         jit::MethodStatus status = jit::CanEnter(cx, state);
