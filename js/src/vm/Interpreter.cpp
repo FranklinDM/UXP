@@ -398,6 +398,9 @@ js::RunScript(JSContext* cx, RunState& state)
     if (jit::TryEnterLoongArchMinimalJit(cx, state))
         return true;
 
+    if (jit::TryEnterLoongArchMinimalJit(cx, state))
+        return true;
+
     if (jit::IsIonEnabled(cx)) {
         jit::MethodStatus status = jit::CanEnter(cx, state);
         if (status == jit::Method_Error)
