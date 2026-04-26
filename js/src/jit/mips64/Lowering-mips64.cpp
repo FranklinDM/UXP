@@ -181,9 +181,3 @@ LIRGeneratorMIPS64::visitRandom(MRandom* ins)
     LRandom *lir = new(alloc()) LRandom(temp(), temp(), temp());
     defineFixed(lir, ins, LFloatReg(ReturnDoubleReg));
 }
-
-void
-LIRGeneratorMIPS64::visitSignExtendInt64(MSignExtendInt64* ins)
-{
-    defineInt64(new(alloc()) LSignExtendInt64(useInt64RegisterAtStart(ins->input())), ins);
-}
