@@ -197,213 +197,11 @@ OKLabToSRGBColor(float aL, float aA, float aB, float aAlpha)
   float g = mozilla::clamped(LinearSRGBToEncoded(linearG), 0.0f, 1.0f);
   float b = mozilla::clamped(LinearSRGBToEncoded(linearB), 0.0f, 1.0f);
 
-  if (aIdent.LowerCaseEqualsLiteral("-infinity")) {
-    aValue = -std::numeric_limits<float>::infinity();
-    return true;
-  }
-
-  return false;
-}
-
-static bool
-IsCalcNumberFunctionName(const nsAString& aIdent)
-{
-  return aIdent.LowerCaseEqualsLiteral("min") ||
-         aIdent.LowerCaseEqualsLiteral("max") ||
-         aIdent.LowerCaseEqualsLiteral("clamp");
-}
-
-static void
-WrapCalcNumberValue(nsCSSValue& aValue, float aNumber)
-{
-  RefPtr<nsCSSValue::Array> arr = nsCSSValue::Array::Create(1);
-  arr->Item(0).SetFloatValue(aNumber, eCSSUnit_Number);
-  aValue.SetArrayValue(arr, eCSSUnit_Calc);
-}
-
-static bool
-IsFiniteCalcNumber(float aValue)
-{
-  return !std::isnan(aValue) && !std::isinf(aValue);
-}
-
-static bool
-GetCalcLengthTypedArithmeticExponent(const nsCSSValue& aValue,
-                                     int32_t& aExponent)
-{
-  switch (aValue.GetUnit()) {
-    case eCSSUnit_Calc: {
-      nsCSSValue::Array* array = aValue.GetArrayValue();
-      MOZ_ASSERT(array->Count() == 1, "unexpected length");
-      return GetCalcLengthTypedArithmeticExponent(array->Item(0), aExponent);
-    }
-
-    case eCSSUnit_Calc_Plus:
-    case eCSSUnit_Calc_Minus: {
-      nsCSSValue::Array* array = aValue.GetArrayValue();
-      MOZ_ASSERT(array->Count() == 2, "unexpected length");
-      int32_t lhsExponent;
-      int32_t rhsExponent;
-      if (!GetCalcLengthTypedArithmeticExponent(array->Item(0), lhsExponent) ||
-          !GetCalcLengthTypedArithmeticExponent(array->Item(1), rhsExponent) ||
-          lhsExponent != rhsExponent) {
-        return false;
-      }
-      aExponent = lhsExponent;
-      return true;
-    }
-
-    case eCSSUnit_Calc_Times_L:
-    case eCSSUnit_Calc_Times_R:
-    case eCSSUnit_Calc_Divided: {
-      nsCSSValue::Array* array = aValue.GetArrayValue();
-      MOZ_ASSERT(array->Count() == 2, "unexpected length");
-      int32_t lhsExponent;
-      int32_t rhsExponent;
-      if (!GetCalcLengthTypedArithmeticExponent(array->Item(0), lhsExponent) ||
-          !GetCalcLengthTypedArithmeticExponent(array->Item(1), rhsExponent)) {
-        return false;
-      }
-      aExponent = aValue.GetUnit() == eCSSUnit_Calc_Divided
-                    ? lhsExponent - rhsExponent
-                    : lhsExponent + rhsExponent;
-      return true;
-    }
-
-    case eCSSUnit_Calc_Min:
-    case eCSSUnit_Calc_Max:
-    case eCSSUnit_Calc_Clamp: {
-      nsCSSValue::Array* array = aValue.GetArrayValue();
-      MOZ_ASSERT(aValue.GetUnit() != eCSSUnit_Calc_Clamp ||
-                 array->Count() == 3, "unexpected length");
-      MOZ_ASSERT(aValue.GetUnit() == eCSSUnit_Calc_Clamp ||
-                 array->Count() >= 1, "unexpected length");
-
-      int32_t exponent;
-      if (!GetCalcLengthTypedArithmeticExponent(array->Item(0), exponent)) {
-        return false;
-      }
-      for (uint32_t i = 1; i < array->Count(); ++i) {
-        int32_t itemExponent;
-        if (!GetCalcLengthTypedArithmeticExponent(array->Item(i),
-                                                  itemExponent) ||
-            itemExponent != exponent) {
-          return false;
-        }
-      }
-      aExponent = exponent;
-      return true;
-    }
-
-    case eCSSUnit_Number:
-      aExponent = 0;
-      return true;
-
-    default:
-      break;
-  }
-
-  if (aValue.IsLengthUnit()) {
-    aExponent = 1;
-    return true;
-  }
-
-  return false;
-}
-
-static bool
-NormalizeCalcForVariant(nsCSSValue& aValue,
-                        uint32_t aPropertyVariantMask,
-                        uint32_t aResultVariantMask,
-                        bool aSawSpecialNumericValues = false)
-{
-  if (ShouldPreserveCalcValue(aPropertyVariantMask)) {
-    return true;
-  }
-
-  if (aResultVariantMask == VARIANT_NUMBER) {
-    ReduceNumberCalcOps ops;
-    float value = mozilla::css::ComputeCalc(aValue, ops);
-
-    if (aPropertyVariantMask & VARIANT_INTEGER) {
-      if (!IsFiniteCalcNumber(value)) {
-        return false;
-      }
-      aValue.SetIntValue(RoundFloatToCSSInteger(value), eCSSUnit_Integer);
-    } else if ((aPropertyVariantMask & VARIANT_OPACITY) &&
-               aSawSpecialNumericValues) {
-      WrapCalcNumberValue(aValue, value);
-    } else {
-      aValue.SetFloatValue(value, eCSSUnit_Number);
-    }
-    return true;
-  }
-
-  if (aResultVariantMask & VARIANT_PERCENT) {
-    ReducePercentageCalcOps ops;
-    float value = mozilla::css::ComputeCalc(aValue, ops);
-
-    if (aPropertyVariantMask & VARIANT_OPACITY) {
-      if (aSawSpecialNumericValues) {
-        WrapCalcNumberValue(aValue, value);
-      } else {
-        aValue.SetFloatValue(value, eCSSUnit_Number);
-      }
-    } else {
-      aValue.SetPercentValue(value);
-    }
-    return true;
-  }
-
-  if (aResultVariantMask & VARIANT_ANGLE) {
-    ReduceDimensionCalcOps ops(ReduceDimensionCalcOps::DimensionType::Angle);
-    aValue.SetFloatValue(mozilla::css::ComputeCalc(aValue, ops), eCSSUnit_Degree);
-    return true;
-  }
-
-  if (aResultVariantMask & VARIANT_TIME) {
-    ReduceDimensionCalcOps ops(ReduceDimensionCalcOps::DimensionType::Time);
-    aValue.SetFloatValue(mozilla::css::ComputeCalc(aValue, ops), eCSSUnit_Seconds);
-    return true;
-  }
-
-  if (aResultVariantMask & VARIANT_FREQUENCY) {
-    ReduceDimensionCalcOps ops(ReduceDimensionCalcOps::DimensionType::Frequency);
-    aValue.SetFloatValue(mozilla::css::ComputeCalc(aValue, ops), eCSSUnit_Hertz);
-    return true;
-  }
-
-  MOZ_ASSERT_UNREACHABLE("unsupported calc result type");
-  return false;
-}
-
-static bool
-MergeCalcFunctionVariantMask(uint32_t& aMergedMask, uint32_t aItemMask)
-{
-  MOZ_ASSERT(aItemMask != 0, "unexpected empty item mask");
-  if (aMergedMask == 0) {
-    aMergedMask = aItemMask;
-    return true;
-  }
-
-  const bool mergedIsNumber = (aMergedMask & VARIANT_NUMBER) != 0;
-  const bool itemIsNumber = (aItemMask & VARIANT_NUMBER) != 0;
-  if (mergedIsNumber || itemIsNumber) {
-    return mergedIsNumber == itemIsNumber;
-  }
-
-  const uint32_t lengthPercentMask = VARIANT_LENGTH | VARIANT_PERCENT;
-  if ((aMergedMask & lengthPercentMask) && (aItemMask & lengthPercentMask)) {
-    aMergedMask = (aMergedMask | aItemMask) & lengthPercentMask;
-    return true;
-  }
-
-  if ((aMergedMask & aItemMask) != 0) {
-    aMergedMask &= aItemMask;
-    return true;
-  }
-
-  return false;
+  return NS_RGBA(
+    NSToIntRound(r * 255.0f),
+    NSToIntRound(g * 255.0f),
+    NSToIntRound(b * 255.0f),
+    nsStyleUtil::FloatToColorComponent(mozilla::clamped(aAlpha, 0.0f, 1.0f)));
 }
 
 static_assert(css::eAuthorSheetFeatures == 0 &&
@@ -1146,8 +944,6 @@ protected:
 
   // Property specific parsing routines
   bool ParseImageLayers(const nsCSSPropertyID aTable[]);
-  bool ParseAspectRatio(nsCSSValue& aValue);
-  bool ParseAspectRatioRatio(nsCSSValue& aValue);
 
   struct ImageLayersShorthandParseState {
     nsCSSValue&  mColor;
@@ -1225,10 +1021,6 @@ protected:
                                          uint32_t& aVariantMask,
                                          bool *aHadFinalWS);
   bool ParseCalcTerm(nsCSSValue& aValue, uint32_t& aVariantMask);
-  bool ParseCalcMinMaxClampFunction(nsCSSValue& aValue,
-                                    uint32_t& aVariantMask);
-  bool ParseCalcNumberExpressionValue(float& aValue);
-  bool ParseCalcNumberFunction(nsCSSValue& aValue, uint32_t& aVariantMask);
   bool RequireWhitespace();
 
   // For "flex" shorthand property, defined in CSS Flexbox spec
@@ -4053,7 +3845,9 @@ CSSParserImpl::ParseMediaQueryExpression(nsMediaQuery* aQuery)
       break;
     }
   }
-  if (!feature->mName) {
+  if (!feature->mName ||
+      (expr->mRange != nsMediaExpression::eEqual &&
+       feature->mRangeType != nsMediaFeature::eMinMaxAllowed)) {
     REPORT_UNEXPECTED_TOKEN(PEMQExpectedFeatureName);
     SkipUntil(')');
     return false;
@@ -4071,48 +3865,9 @@ CSSParserImpl::ParseMediaQueryExpression(nsMediaQuery* aQuery)
     return true;
   }
 
-  bool usesRangeSyntax = false;
-  if (mToken.IsSymbol('<') || mToken.IsSymbol('>') || mToken.IsSymbol('=')) {
-    if (expr->mRange != nsMediaExpression::eEqual) {
-      REPORT_UNEXPECTED_TOKEN(PEMQExpectedFeatureNameEnd);
-      UngetToken();
-      SkipUntil(')');
-      return false;
-    }
-
-    usesRangeSyntax = true;
-    char16_t rangeSymbol = mToken.mSymbol;
-    bool inclusive = rangeSymbol == '=';
-
-    if (rangeSymbol != '=') {
-      if (!GetToken(true)) {
-        REPORT_UNEXPECTED_EOF(PEMQExpressionEOF);
-        return false;
-      }
-      if (mToken.IsSymbol('=')) {
-        inclusive = true;
-      } else {
-        UngetToken();
-      }
-    }
-
-    if (rangeSymbol == '>') {
-      expr->mRange = inclusive ? nsMediaExpression::eMin
-                               : nsMediaExpression::eMinExclusive;
-    } else if (rangeSymbol == '<') {
-      expr->mRange = inclusive ? nsMediaExpression::eMax
-                               : nsMediaExpression::eMaxExclusive;
-    }
-  } else if (!mToken.IsSymbol(':')) {
+  if (!mToken.IsSymbol(':')) {
     REPORT_UNEXPECTED_TOKEN(PEMQExpectedFeatureNameEnd);
     UngetToken();
-    SkipUntil(')');
-    return false;
-  }
-
-  if ((expr->mRange != nsMediaExpression::eEqual || usesRangeSyntax) &&
-      feature->mRangeType != nsMediaFeature::eMinMaxAllowed) {
-    REPORT_UNEXPECTED_TOKEN(PEMQExpectedFeatureName);
     SkipUntil(')');
     return false;
   }
@@ -13201,59 +12956,6 @@ CSSParserImpl::ParsePropertyByFunction(nsCSSPropertyID aPropID)
 #define BG_CLR    (BG_CENTER | BG_LEFT | BG_RIGHT)
 #define BG_LR     (BG_LEFT | BG_RIGHT)
 
-bool
-CSSParserImpl::ParseAspectRatioRatio(nsCSSValue& aValue)
-{
-  nsCSSValue width;
-  if (!ParseNonNegativeNumber(width)) {
-    return false;
-  }
-
-  float w = width.GetFloatValue();
-  float h = 1.0f;
-  if (ExpectSymbol('/', true)) {
-    nsCSSValue height;
-    if (!ParseNonNegativeNumber(height)) {
-      return false;
-    }
-    h = height.GetFloatValue();
-  }
-
-  // Degenerate ratios behave as auto in layout.
-  aValue.SetFloatValue(w == 0.0f || h == 0.0f ? 0.0f : w / h,
-                       eCSSUnit_Number);
-  return true;
-}
-
-bool
-CSSParserImpl::ParseAspectRatio(nsCSSValue& aValue)
-{
-  if (ParseSingleTokenVariant(aValue, VARIANT_INHERIT, nullptr)) {
-    return true;
-  }
-
-  nsCSSValue autoValue;
-  bool hasAuto = ParseSingleTokenVariant(autoValue, VARIANT_AUTO, nullptr);
-
-  nsCSSValue ratioValue;
-  bool hasRatio = ParseAspectRatioRatio(ratioValue);
-  if (!hasAuto && !hasRatio) {
-    return false;
-  }
-
-  if (hasRatio) {
-    if (!hasAuto) {
-      // The grammar is "auto || <ratio>", so auto may appear after the ratio.
-      ParseSingleTokenVariant(autoValue, VARIANT_AUTO, nullptr);
-    }
-    aValue = ratioValue;
-    return true;
-  }
-
-  aValue.SetAutoValue();
-  return true;
-}
-
 CSSParseResult
 CSSParserImpl::ParseBoxProperty(nsCSSValue& aValue,
                                 nsCSSPropertyID aPropID)
@@ -13292,8 +12994,6 @@ CSSParserImpl::ParseSingleValuePropertyByFunction(nsCSSValue& aValue,
   switch (aPropID) {
     case eCSSProperty_clip_path:
       return ParseClipPath(aValue);
-    case eCSSProperty_aspect_ratio:
-      return ParseAspectRatio(aValue);
     case eCSSProperty_contain:
       return ParseContain(aValue);
     case eCSSProperty_font_family:
@@ -13637,8 +13337,7 @@ CSSParserImpl::IsCalcFunctionToken(const nsCSSToken& aToken) const
 {
   return aToken.mType == eCSSToken_Function &&
          (aToken.mIdent.LowerCaseEqualsLiteral("calc") ||
-          aToken.mIdent.LowerCaseEqualsLiteral("-moz-calc") ||
-          IsCalcNumberFunctionName(aToken.mIdent));
+          aToken.mIdent.LowerCaseEqualsLiteral("-moz-calc"));
 }
 
 // Parse one item of the background shorthand property.
@@ -14977,39 +14676,11 @@ CSSParserImpl::ParseCalc(nsCSSValue &aValue, uint32_t aVariantMask)
     // The toplevel of a calc() is always an nsCSSValue::Array of length 1.
     RefPtr<nsCSSValue::Array> arr = nsCSSValue::Array::Create(1);
 
-    const bool isMinMaxClamp =
-      mToken.mType == eCSSToken_Function &&
-      IsCalcNumberFunctionName(mToken.mIdent);
-    if (isMinMaxClamp) {
-      if (!ParseCalcMinMaxClampFunction(arr->Item(0), resultVariantMask)) {
-        break;
-      }
-    } else if (!ParseCalcAdditiveExpression(arr->Item(0), resultVariantMask)) {
+    if (!ParseCalcAdditiveExpression(arr->Item(0), aVariantMask))
       break;
-    }
 
-    if (mCalcAllowsTypedArithmetic) {
-      int32_t exponent;
-      if (!GetCalcLengthTypedArithmeticExponent(arr->Item(0), exponent)) {
-        break;
-      }
-
-      if (aVariantMask & VARIANT_NUMBER) {
-        if (exponent == 0) {
-          resultVariantMask = VARIANT_NUMBER;
-        } else if (exponent == 1) {
-          resultVariantMask &= ~int32_t(VARIANT_NUMBER);
-        } else {
-          break;
-        }
-      } else if (exponent != 1) {
-        break;
-      }
-    }
-
-    if (!isMinMaxClamp && !ExpectSymbol(')', true)) {
+    if (!ExpectSymbol(')', true))
       break;
-    }
 
     aValue.SetArrayValue(arr, eCSSUnit_Calc);
     mUnitlessLengthQuirk = oldUnitlessLengthQuirk;
@@ -15183,14 +14854,6 @@ CSSParserImpl::ParseCalcTerm(nsCSSValue& aValue, uint32_t& aVariantMask)
   MOZ_ASSERT(aVariantMask != 0, "unexpected variant mask");
   if (!GetToken(true))
     return false;
-  if (mToken.mType == eCSSToken_Function &&
-      IsCalcNumberFunctionName(mToken.mIdent)) {
-    if (!ParseCalcMinMaxClampFunction(aValue, aVariantMask)) {
-      SkipUntil(')');
-      return false;
-    }
-    return true;
-  }
   // Either an additive expression in parentheses...
   if (mToken.IsSymbol('(') ||
       // Treat nested calc() as plain parenthesis.
@@ -15201,16 +14864,6 @@ CSSParserImpl::ParseCalcTerm(nsCSSValue& aValue, uint32_t& aVariantMask)
       return false;
     }
     return true;
-  }
-  if ((aVariantMask & VARIANT_NUMBER) != 0 &&
-      mToken.mType == eCSSToken_Ident) {
-    float specialValue;
-    if (IsCalcSpecialNumberIdent(mToken.mIdent, specialValue)) {
-      mCalcHasSpecialNumericValues = true;
-      aValue.SetFloatValue(specialValue, eCSSUnit_Number);
-      aVariantMask = VARIANT_NUMBER;
-      return true;
-    }
   }
   // ... or just a value
   UngetToken();
@@ -15233,139 +14886,6 @@ CSSParserImpl::ParseCalcTerm(nsCSSValue& aValue, uint32_t& aVariantMask)
       aVariantMask &= ~int32_t(VARIANT_NUMBER);
     }
   }
-  return true;
-}
-
-bool
-CSSParserImpl::ParseCalcMinMaxClampFunction(nsCSSValue& aValue,
-                                            uint32_t& aVariantMask)
-{
-  MOZ_ASSERT(mToken.mType == eCSSToken_Function, "expected function token");
-  MOZ_ASSERT(IsCalcNumberFunctionName(mToken.mIdent),
-             "unexpected calc() math function");
-
-  nsCSSUnit unit;
-  if (mToken.mIdent.LowerCaseEqualsLiteral("min")) {
-    unit = eCSSUnit_Calc_Min;
-  } else if (mToken.mIdent.LowerCaseEqualsLiteral("max")) {
-    unit = eCSSUnit_Calc_Max;
-  } else {
-    MOZ_ASSERT(mToken.mIdent.LowerCaseEqualsLiteral("clamp"),
-               "unexpected calc() math function");
-    unit = eCSSUnit_Calc_Clamp;
-  }
-
-  AutoTArray<nsCSSValue, 4> arguments;
-  uint32_t mergedVariantMask = 0;
-
-  for (;;) {
-    nsCSSValue* argument = arguments.AppendElement();
-    uint32_t argumentVariantMask = aVariantMask;
-    if (!ParseCalcAdditiveExpression(*argument, argumentVariantMask) ||
-        !MergeCalcFunctionVariantMask(mergedVariantMask,
-                                      argumentVariantMask)) {
-      return false;
-    }
-
-    if (!ExpectSymbol(',', true)) {
-      break;
-    }
-  }
-
-  const uint32_t argumentCount = arguments.Length();
-  if ((unit == eCSSUnit_Calc_Clamp && argumentCount != 3) ||
-      (unit != eCSSUnit_Calc_Clamp && argumentCount == 0) ||
-      !ExpectSymbol(')', true)) {
-    return false;
-  }
-
-  if (unit != eCSSUnit_Calc_Clamp && argumentCount == 1) {
-    aValue = arguments[0];
-  } else {
-    RefPtr<nsCSSValue::Array> array = nsCSSValue::Array::Create(argumentCount);
-    for (uint32_t i = 0; i < argumentCount; ++i) {
-      array->Item(i) = arguments[i];
-    }
-    aValue.SetArrayValue(array, unit);
-  }
-
-  aVariantMask = mergedVariantMask;
-  return true;
-}
-
-bool
-CSSParserImpl::ParseCalcNumberExpressionValue(float& aValue)
-{
-  nsCSSValue expression;
-  uint32_t variantMask = VARIANT_NUMBER;
-  if (!ParseCalcAdditiveExpression(expression, variantMask) ||
-      variantMask != VARIANT_NUMBER) {
-    return false;
-  }
-
-  ReduceNumberCalcOps ops;
-  aValue = mozilla::css::ComputeCalc(expression, ops);
-  return true;
-}
-
-bool
-CSSParserImpl::ParseCalcNumberFunction(nsCSSValue& aValue,
-                                       uint32_t& aVariantMask)
-{
-  MOZ_ASSERT(mToken.mType == eCSSToken_Function, "expected function token");
-  MOZ_ASSERT(IsCalcNumberFunctionName(mToken.mIdent),
-             "unexpected calc() number function");
-
-  float result;
-
-  if (mToken.mIdent.LowerCaseEqualsLiteral("clamp")) {
-    float minValue;
-    float centerValue;
-    float maxValue;
-    if (!ParseCalcNumberExpressionValue(minValue) ||
-        !ExpectSymbol(',', true) ||
-        !ParseCalcNumberExpressionValue(centerValue) ||
-        !ExpectSymbol(',', true) ||
-        !ParseCalcNumberExpressionValue(maxValue) ||
-        !ExpectSymbol(')', true)) {
-      return false;
-    }
-
-    if (std::isnan(minValue) || std::isnan(centerValue) ||
-        std::isnan(maxValue)) {
-      result = std::numeric_limits<float>::quiet_NaN();
-    } else {
-      result = std::max(minValue, std::min(centerValue, maxValue));
-    }
-  } else {
-    const bool isMax = mToken.mIdent.LowerCaseEqualsLiteral("max");
-    bool sawComma = false;
-
-    if (!ParseCalcNumberExpressionValue(result)) {
-      return false;
-    }
-
-    while (ExpectSymbol(',', true)) {
-      sawComma = true;
-      float candidate;
-      if (!ParseCalcNumberExpressionValue(candidate)) {
-        return false;
-      }
-      if (std::isnan(result) || std::isnan(candidate)) {
-        result = std::numeric_limits<float>::quiet_NaN();
-      } else {
-        result = isMax ? std::max(result, candidate)
-                       : std::min(result, candidate);
-      }
-    }
-
-    if (!sawComma || !ExpectSymbol(')', true)) {
-      return false;
-    }
-  }
-
-  aValue.SetFloatValue(result, eCSSUnit_Number);
-  aVariantMask = VARIANT_NUMBER;
   return true;
 }
 
