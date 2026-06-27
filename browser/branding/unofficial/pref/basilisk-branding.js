@@ -39,5 +39,5 @@ pref("general.useragent.compatMode.gecko",true);
 // Switch Application Updates off for unofficial branding
 pref("app.update.enabled", false);
 
-// Shared User Agent Overrides
-#include ../../shared/uaoverrides.inc
+// User Agent Overrides
+#include uaoverrides.inc
