@@ -6,4 +6,4 @@
 # Specific options go here
 # Example: imply_option('MOZ_AV1', True)
 
-include('../../toolkit/moz.configure')
+include('../toolkit/moz.configure')

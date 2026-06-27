@@ -192,7 +192,7 @@ endif
 # fail to produce a langpack. See bug 1255096.
 make-langpack:
 ifeq (,$(filter FasterMake+RecursiveMake,$(BUILD_BACKENDS)))
-	$(MAKE) -C $(DEPTH)/application/basilisk/locales langpack
+	$(MAKE) -C $(DEPTH)/browser/locales langpack
 else
 	@echo WARNING: "Language Pack was not generated due to using the hybrid FasterMake/RecursiveMake backend." >&2
 endif

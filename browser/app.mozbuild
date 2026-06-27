@@ -11,4 +11,4 @@ DIRS += ['/%s' % CONFIG['MOZ_BRANDING_DIRECTORY']]
 
 # Never add dirs after the browser root because they apparently won't
 # get packaged properly on Mac.
-DIRS += ['/application/basilisk']
+DIRS += ['/browser']
