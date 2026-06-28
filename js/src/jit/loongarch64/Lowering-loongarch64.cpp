@@ -175,10 +175,7 @@ LIRGeneratorLoongArch64::lowerTruncateFToInt32(MTruncateToInt32* ins)
 void
 LIRGeneratorLoongArch64::visitRandom(MRandom* ins)
 {
-    LRandom *lir = new(alloc()) LRandom(temp(),
-                                        temp(),
-                                        temp(),
-                                        temp());
+    LRandom *lir = new(alloc()) LRandom(temp(), temp(), temp());
     defineFixed(lir, ins, LFloatReg(ReturnDoubleReg));
 }
 
