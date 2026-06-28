@@ -394,12 +394,6 @@ js::RunScript(JSContext* cx, RunState& state)
 
     state.script()->ensureNonLazyCanonicalFunction();
 
-    if (jit::TryEnterLoongArchMinimalJit(cx, state))
-        return true;
-
-    if (jit::TryEnterLoongArchMinimalJit(cx, state))
-        return true;
-
     if (jit::IsIonEnabled(cx)) {
         jit::MethodStatus status = jit::CanEnter(cx, state);
         if (status == jit::Method_Error)
