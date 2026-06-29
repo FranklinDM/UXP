@@ -96,10 +96,9 @@ nsUUIDGenerator::GenerateUUID(nsID** aRet)
 }
 
 NS_IMETHODIMP
+nsresult
 nsUUIDGenerator::GenerateUUIDInPlace(nsID* aId)
 {
-  // The various code in this method is probably not threadsafe, so lock
-  // across the whole method.
   MutexAutoLock lock(mLock);
 
 #if defined(XP_WIN)
@@ -107,6 +106,7 @@ nsUUIDGenerator::GenerateUUIDInPlace(nsID* aId)
   if (FAILED(hr)) {
     return NS_ERROR_FAILURE;
   }
+
 #elif defined(XP_MACOSX)
   CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
   if (!uuid) {
@@ -115,90 +115,62 @@ nsUUIDGenerator::GenerateUUIDInPlace(nsID* aId)
 
   CFUUIDBytes bytes = CFUUIDGetUUIDBytes(uuid);
   memcpy(aId, &bytes, sizeof(nsID));
-
   CFRelease(uuid);
-#else /* not windows or OS X; generate randomness using random(). */
-  /* XXX we should be saving the return of setstate here and switching
-   * back to it; instead, we use the value returned when we called
-   * initstate, since older glibc's have broken setstate() return values
-   */
+
+#else /* POSIX randomness */
+
 #ifndef HAVE_ARC4RANDOM
   setstate(mState);
 #endif
 
 #if defined(__linux__)
-  // Linux does not provide arc4random_buf or arc4random.
-  // Use /dev/urandom for secure UUID generation.
+  // Try /dev/urandom first
   int fd = open("/dev/urandom", O_RDONLY);
   if (fd >= 0) {
     ssize_t n = read(fd, aId, sizeof(nsID));
     close(fd);
     if (n == sizeof(nsID)) {
-      return NS_OK;
+      goto version_bits;
     }
   }
-
-  // Fallback if /dev/urandom fails
-  size_t bytesLeft = sizeof(nsID);
-  while (bytesLeft > 0) {
-    long rval = random();
-    const size_t mRBytes = 4;
-    size_t toCopy = std::min(bytesLeft, mRBytes);
-    memcpy(reinterpret_cast<char*>(aId) + (sizeof(nsID) - bytesLeft),
-           &rval, toCopy);
-    bytesLeft -= toCopy;
-  }
-
-#else
+#endif
 
 #ifdef HAVE_ARC4RANDOM_BUF
   arc4random_buf(aId, sizeof(nsID));
-#else /* HAVE_ARC4RANDOM_BUF */
+
+#else
   size_t bytesLeft = sizeof(nsID);
   while (bytesLeft > 0) {
 #ifdef HAVE_ARC4RANDOM
     long rval = arc4random();
-    const size_t mRBytes = 4;
 #else
     long rval = random();
-    const size_t mRBytes = 4;
 #endif
+    const size_t mRBytes = 4;
     size_t toCopy = std::min(bytesLeft, mRBytes);
+
     memcpy(reinterpret_cast<char*>(aId) + (sizeof(nsID) - bytesLeft),
            &rval, toCopy);
+
     bytesLeft -= toCopy;
   }
 #endif /* HAVE_ARC4RANDOM_BUF */
 
-    uint8_t* src = (uint8_t*)&rval;
-    // We want to grab the mRBytes least significant bytes of rval, since
-    // mRBytes less than sizeof(rval) means the high bytes are 0.
-#ifdef IS_BIG_ENDIAN
-    src += sizeof(rval) - mRBytes;
-#endif
-    uint8_t* dst = ((uint8_t*)aId) + (sizeof(nsID) - bytesLeft);
-    size_t toWrite = (bytesLeft < mRBytes ? bytesLeft : mRBytes);
-    for (size_t i = 0; i < toWrite; i++) {
-      dst[i] = src[i];
-    }
+version_bits:
 
-    bytesLeft -= toWrite;
-  }
-#endif /* HAVE_ARC4RANDOM_BUF */
-
-  /* Put in the version */
+  /* RFC4122 version */
   aId->m2 &= 0x0fff;
   aId->m2 |= 0x4000;
 
-  /* Put in the variant */
+  /* RFC4122 variant */
   aId->m3[0] &= 0x3f;
   aId->m3[0] |= 0x80;
 
 #ifndef HAVE_ARC4RANDOM
-  /* Restore the previous RNG state */
   setstate(mSavedState);
 #endif
-#endif
+
+#endif /* POSIX randomness */
 
   return NS_OK;
 }
