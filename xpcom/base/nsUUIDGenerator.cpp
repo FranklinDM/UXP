@@ -96,7 +96,6 @@ nsUUIDGenerator::GenerateUUID(nsID** aRet)
 }
 
 NS_IMETHODIMP
-nsresult
 nsUUIDGenerator::GenerateUUIDInPlace(nsID* aId)
 {
   MutexAutoLock lock(mLock);
