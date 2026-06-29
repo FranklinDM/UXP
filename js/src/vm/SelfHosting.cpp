@@ -1495,7 +1495,7 @@ CopyValues(SharedMem<To*> dest, SharedMem<From*> src, uint32_t count)
 #if defined(_OPENMP)
     const int64_t openMpCount = int64_t(count);
     if (openMpCount >= (1 << 14)) {
-#pragma omp parallel for default(none) shared(dest, src) schedule(static)
+#pragma omp parallel for default(none) shared(dest, src, openMpCount) schedule(static)
         for (int64_t i = 0; i < openMpCount; i++) {
             uint32_t index = uint32_t(i);
             AtomicOperations::storeSafeWhenRacy(dest + index,
