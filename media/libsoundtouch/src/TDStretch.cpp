@@ -311,7 +311,7 @@ int TDStretch::seekBestOverlapPositionFull(const SAMPLETYPE *refPos)
     const SAMPLETYPE *midBuffer = pMidBuffer;
 
     #if defined(_OPENMP)
-        #pragma omp parallel for default(none) shared(refPos, bestCorr, bestOffs, seekLen, nChannels, midBuffer) private(i) schedule(static)
+        #pragma omp parallel for default(none) shared(refPos, bestCorr, bestOffs, midBuffer) private(i) schedule(static)
     #endif
     for (i = 1; i < seekLen; i ++)
     {
