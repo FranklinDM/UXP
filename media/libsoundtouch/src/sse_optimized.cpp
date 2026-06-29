@@ -255,7 +255,7 @@ uint FIRFilterSSE::evaluateFilterStereo(float *dest, const float *source, uint n
 
     // filter is evaluated for two stereo samples with each iteration, thus use of 'j += 2'
 #if defined(_OPENMP)
-    #pragma omp parallel for default(none) shared(source, dest, count, filterLength, coeffsAlign) private(j) schedule(static)
+    #pragma omp parallel for default(none) shared(source, dest, count, coeffsAlign) private(j) schedule(static)
 #endif
     for (j = 0; j < count; j += 2)
     {
