@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -65,6 +66,14 @@ TEST_F(Pkcs11AESKeyWrapPadTest, WrapUnwrapECKey) {
                          true, CKK_EC, usages, usageCount, nullptr));
   ASSERT_EQ(0, PORT_GetError());
   ASSERT_TRUE(!!unwrapped);
+
+  // Try it with internal params allocation.
+  SECKEYPrivateKey* tmp = PK11_UnwrapPrivKey(
+      slot.get(), kek.get(), CKM_NSS_AES_KEY_WRAP_PAD, nullptr, wrapped.get(),
+      nullptr, &pubKey, false, true, CKK_EC, usages, usageCount, nullptr);
+  ASSERT_EQ(0, PORT_GetError());
+  ASSERT_NE(nullptr, tmp);
+  unwrapped.reset(tmp);
 }
 
 // Encrypt an ephemeral RSA key
@@ -411,4 +420,4 @@ TEST_F(Pkcs11AESKeyWrapPadTest, WrapUnwrapRandom_ShortValidPadding) {
   ASSERT_EQ(0, memcmp(buf, unwrapped_key.data(), out_len));
 }
 
-} /* nss_test */
+}  // namespace nss_test

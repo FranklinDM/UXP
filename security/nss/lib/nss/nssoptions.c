@@ -14,6 +14,7 @@
 #include "secoid.h"
 #include "nss.h"
 #include "nssoptions.h"
+#include "secerr.h"
 
 struct nssOps {
     PRInt32 rsaMinKeySize;
@@ -24,6 +25,9 @@ struct nssOps {
     PRInt32 dtlsVersionMinPolicy;
     PRInt32 dtlsVersionMaxPolicy;
     PRInt32 pkcs12DecodeForceUnicode;
+    PRInt32 defaultLocks;
+    PRInt32 keySizePolicyFlags;
+    PRInt32 eccMinKeySize;
 };
 
 static struct nssOps nss_ops = {
@@ -34,13 +38,21 @@ static struct nssOps nss_ops = {
     0xffff, /* set TLS max to more than the largest legal SSL value */
     1,
     0xffff,
-    PR_FALSE
+    PR_FALSE,
+    0,
+    NSS_KEY_SIZE_POLICY_SSL_FLAG,
+    SSL_ECC_MIN_CURVE_BITS
 };
 
 SECStatus
 NSS_OptionSet(PRInt32 which, PRInt32 value)
 {
     SECStatus rv = SECSuccess;
+
+    if (NSS_IsPolicyLocked()) {
+        PORT_SetError(SEC_ERROR_POLICY_LOCKED);
+        return SECFailure;
+    }
 
     switch (which) {
         case NSS_RSA_MIN_KEY_SIZE:
@@ -67,7 +79,23 @@ NSS_OptionSet(PRInt32 which, PRInt32 value)
         case __NSS_PKCS12_DECODE_FORCE_UNICODE:
             nss_ops.pkcs12DecodeForceUnicode = value;
             break;
+        case NSS_DEFAULT_LOCKS:
+            nss_ops.defaultLocks = value;
+            break;
+        case NSS_KEY_SIZE_POLICY_FLAGS:
+            nss_ops.keySizePolicyFlags = value;
+            break;
+        case NSS_KEY_SIZE_POLICY_SET_FLAGS:
+            nss_ops.keySizePolicyFlags |= value;
+            break;
+        case NSS_KEY_SIZE_POLICY_CLEAR_FLAGS:
+            nss_ops.keySizePolicyFlags &= ~value;
+            break;
+        case NSS_ECC_MIN_KEY_SIZE:
+            nss_ops.eccMinKeySize = value;
+            break;
         default:
+            PORT_SetError(SEC_ERROR_INVALID_ARGS);
             rv = SECFailure;
     }
 
@@ -103,6 +131,19 @@ NSS_OptionGet(PRInt32 which, PRInt32 *value)
             break;
         case __NSS_PKCS12_DECODE_FORCE_UNICODE:
             *value = nss_ops.pkcs12DecodeForceUnicode;
+            break;
+        case NSS_DEFAULT_LOCKS:
+            *value = nss_ops.defaultLocks;
+            break;
+        case NSS_KEY_SIZE_POLICY_FLAGS:
+        case NSS_KEY_SIZE_POLICY_SET_FLAGS:
+            *value = nss_ops.keySizePolicyFlags;
+            break;
+        case NSS_KEY_SIZE_POLICY_CLEAR_FLAGS:
+            *value = ~nss_ops.keySizePolicyFlags;
+            break;
+        case NSS_ECC_MIN_KEY_SIZE:
+            *value = nss_ops.eccMinKeySize;
             break;
         default:
             rv = SECFailure;

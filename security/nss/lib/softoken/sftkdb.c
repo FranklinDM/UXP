@@ -124,7 +124,6 @@ sftkdb_isAuthenticatedAttribute(CK_ATTRIBUTE_TYPE type)
     }
     return PR_FALSE;
 }
-
 /*
  * convert a native ULONG to a database ulong. Database ulong's
  * are all 4 byte big endian values.
@@ -141,7 +140,7 @@ sftk_ULong2SDBULong(unsigned char *data, CK_ULONG value)
 
 /*
  * convert a database ulong back to a native ULONG. (reverse of the above
- * function.
+ * function).
  */
 static CK_ULONG
 sftk_SDBULong2ULong(unsigned char *data)
@@ -155,6 +154,39 @@ sftk_SDBULong2ULong(unsigned char *data)
     return value;
 }
 
+/* certain trust records are default values, which are the values
+ * returned if the signature check fails anyway.
+ * In those cases, we can skip the signature check. */
+PRBool
+sftkdb_isNullTrust(const CK_ATTRIBUTE *template)
+{
+    switch (template->type) {
+        case CKA_TRUST_SERVER_AUTH:
+        case CKA_TRUST_CLIENT_AUTH:
+        case CKA_TRUST_EMAIL_PROTECTION:
+        case CKA_TRUST_CODE_SIGNING:
+            if (template->ulValueLen != SDB_ULONG_SIZE) {
+                break;
+            }
+            if (sftk_SDBULong2ULong(template->pValue) ==
+                CKT_NSS_TRUST_UNKNOWN) {
+                return PR_TRUE;
+            }
+            break;
+        case CKA_TRUST_STEP_UP_APPROVED:
+            if (template->ulValueLen != 1) {
+                break;
+            }
+            if (*((unsigned char *)(template->pValue)) == 0) {
+                return PR_TRUE;
+            }
+            break;
+        default:
+            break;
+    }
+    return PR_FALSE;
+}
+
 /*
  * fix up the input templates. Our fixed up ints are stored in data and must
  * be freed by the caller. The new template must also be freed. If there are no
@@ -162,7 +194,7 @@ sftk_SDBULong2ULong(unsigned char *data)
  */
 static CK_ATTRIBUTE *
 sftkdb_fixupTemplateIn(const CK_ATTRIBUTE *template, int count,
-                       unsigned char **dataOut)
+                       unsigned char **dataOut, int *dataOutSize)
 {
     int i;
     int ulongCount = 0;
@@ -170,6 +202,7 @@ sftkdb_fixupTemplateIn(const CK_ATTRIBUTE *template, int count,
     CK_ATTRIBUTE *ntemplate;
 
     *dataOut = NULL;
+    *dataOutSize = 0;
 
     /* first count the number of CK_ULONG attributes */
     for (i = 0; i < count; i++) {
@@ -201,6 +234,7 @@ sftkdb_fixupTemplateIn(const CK_ATTRIBUTE *template, int count,
         return NULL;
     }
     *dataOut = data;
+    *dataOutSize = SDB_ULONG_SIZE * ulongCount;
     /* copy the old template, fixup the actual ulongs */
     for (i = 0; i < count; i++) {
         ntemplate[i] = template[i];
@@ -245,21 +279,44 @@ sftkdb_TypeString(SFTKDBHandle *handle)
  * function will fail with CKR_BUFFER_TOO_SMALL.
  */
 static CK_RV
-sftkdb_getAttributeSignature(SFTKDBHandle *handle, SFTKDBHandle *keyHandle,
-                             CK_OBJECT_HANDLE objectID, CK_ATTRIBUTE_TYPE type,
-                             SECItem *signText)
+sftkdb_getRawAttributeSignature(SFTKDBHandle *handle, SDB *db,
+                                CK_OBJECT_HANDLE objectID,
+                                CK_ATTRIBUTE_TYPE type,
+                                SECItem *signText)
 {
-    SDB *db;
     char id[30];
     CK_RV crv;
 
-    db = SFTK_GET_SDB(keyHandle);
-
-    sprintf(id, SFTKDB_META_SIG_TEMPLATE,
-            sftkdb_TypeString(handle),
-            (unsigned int)objectID, (unsigned int)type);
+    snprintf(id, sizeof(id), SFTKDB_META_SIG_TEMPLATE,
+             sftkdb_TypeString(handle),
+             (unsigned int)objectID, (unsigned int)type);
 
     crv = (*db->sdb_GetMetaData)(db, id, signText, NULL);
+    return crv;
+}
+
+CK_RV
+sftkdb_GetAttributeSignature(SFTKDBHandle *handle, SFTKDBHandle *keyHandle,
+                             CK_OBJECT_HANDLE objectID, CK_ATTRIBUTE_TYPE type,
+                             SECItem *signText)
+{
+    SDB *db = SFTK_GET_SDB(keyHandle);
+    return sftkdb_getRawAttributeSignature(handle, db, objectID, type, signText);
+}
+
+CK_RV
+sftkdb_DestroyAttributeSignature(SFTKDBHandle *handle, SDB *db,
+                                 CK_OBJECT_HANDLE objectID,
+                                 CK_ATTRIBUTE_TYPE type)
+{
+    char id[30];
+    CK_RV crv;
+
+    snprintf(id, sizeof(id), SFTKDB_META_SIG_TEMPLATE,
+             sftkdb_TypeString(handle),
+             (unsigned int)objectID, (unsigned int)type);
+
+    crv = (*db->sdb_DestroyMetaData)(db, id);
     return crv;
 }
 
@@ -281,9 +338,9 @@ sftkdb_PutAttributeSignature(SFTKDBHandle *handle, SDB *keyTarget,
     char id[30];
     CK_RV crv;
 
-    sprintf(id, SFTKDB_META_SIG_TEMPLATE,
-            sftkdb_TypeString(handle),
-            (unsigned int)objectID, (unsigned int)type);
+    snprintf(id, sizeof(id), SFTKDB_META_SIG_TEMPLATE,
+             sftkdb_TypeString(handle),
+             (unsigned int)objectID, (unsigned int)type);
 
     crv = (*keyTarget->sdb_PutMetaData)(keyTarget, id, signText, NULL);
     return crv;
@@ -363,7 +420,10 @@ sftkdb_fixupTemplateOut(CK_ATTRIBUTE *template, CK_OBJECT_HANDLE objectID,
                 crv = CKR_USER_NOT_LOGGED_IN;
                 continue;
             }
-            rv = sftkdb_DecryptAttribute(&handle->passwordKey,
+            rv = sftkdb_DecryptAttribute(handle,
+                                         &handle->passwordKey,
+                                         objectID,
+                                         ntemplate[i].type,
                                          &cipherText, &plainText);
             PZ_Unlock(handle->passwordLock);
             if (rv != SECSuccess) {
@@ -374,7 +434,7 @@ sftkdb_fixupTemplateOut(CK_ATTRIBUTE *template, CK_OBJECT_HANDLE objectID,
             }
             PORT_Assert(template[i].ulValueLen >= plainText->len);
             if (template[i].ulValueLen < plainText->len) {
-                SECITEM_FreeItem(plainText, PR_TRUE);
+                SECITEM_ZfreeItem(plainText, PR_TRUE);
                 PORT_Memset(template[i].pValue, 0, template[i].ulValueLen);
                 template[i].ulValueLen = -1;
                 crv = CKR_GENERAL_ERROR;
@@ -384,11 +444,12 @@ sftkdb_fixupTemplateOut(CK_ATTRIBUTE *template, CK_OBJECT_HANDLE objectID,
             /* copy the plain text back into the template */
             PORT_Memcpy(template[i].pValue, plainText->data, plainText->len);
             template[i].ulValueLen = plainText->len;
-            SECITEM_FreeItem(plainText, PR_TRUE);
+            SECITEM_ZfreeItem(plainText, PR_TRUE);
         }
         /* make sure signed attributes are valid */
-        if (checkSig && sftkdb_isAuthenticatedAttribute(ntemplate[i].type)) {
+        if (checkSig && sftkdb_isAuthenticatedAttribute(ntemplate[i].type) && !sftkdb_isNullTrust(&ntemplate[i])) {
             SECStatus rv;
+            CK_RV local_crv;
             SECItem signText;
             SECItem plainText;
             unsigned char signData[SDB_MAX_META_DATA_LEN];
@@ -396,12 +457,17 @@ sftkdb_fixupTemplateOut(CK_ATTRIBUTE *template, CK_OBJECT_HANDLE objectID,
             signText.data = signData;
             signText.len = sizeof(signData);
 
-            rv = sftkdb_getAttributeSignature(handle, keyHandle,
-                                              objectID, ntemplate[i].type, &signText);
-            if (rv != SECSuccess) {
+            /* Use a local variable so that we don't clobber any already
+             * set error. This function returns either CKR_OK or the last
+             * found error in the template */
+            local_crv = sftkdb_GetAttributeSignature(handle, keyHandle,
+                                                     objectID,
+                                                     ntemplate[i].type,
+                                                     &signText);
+            if (local_crv != CKR_OK) {
                 PORT_Memset(template[i].pValue, 0, template[i].ulValueLen);
                 template[i].ulValueLen = -1;
-                crv = CKR_DATA_INVALID; /* better error code? */
+                crv = local_crv;
                 continue;
             }
 
@@ -421,7 +487,8 @@ sftkdb_fixupTemplateOut(CK_ATTRIBUTE *template, CK_OBJECT_HANDLE objectID,
                 continue;
             }
 
-            rv = sftkdb_VerifyAttribute(&keyHandle->passwordKey,
+            rv = sftkdb_VerifyAttribute(keyHandle,
+                                        &keyHandle->passwordKey,
                                         objectID, ntemplate[i].type,
                                         &plainText, &signText);
             PZ_Unlock(keyHandle->passwordLock);
@@ -529,7 +596,8 @@ sftk_signTemplate(PLArenaPool *arena, SFTKDBHandle *handle,
                 crv = CKR_USER_NOT_LOGGED_IN;
                 goto loser;
             }
-            rv = sftkdb_SignAttribute(arena, &keyHandle->passwordKey,
+            rv = sftkdb_SignAttribute(arena, keyHandle, keyTarget,
+                                      &keyHandle->passwordKey,
                                       keyHandle->defaultIterationCount,
                                       objectID, template[i].type,
                                       &plainText, &signText);
@@ -538,10 +606,9 @@ sftk_signTemplate(PLArenaPool *arena, SFTKDBHandle *handle,
                 crv = CKR_GENERAL_ERROR; /* better error code here? */
                 goto loser;
             }
-            rv = sftkdb_PutAttributeSignature(handle, keyTarget,
-                                              objectID, template[i].type, signText);
-            if (rv != SECSuccess) {
-                crv = CKR_GENERAL_ERROR; /* better error code here? */
+            crv = sftkdb_PutAttributeSignature(handle, keyTarget, objectID,
+                                               template[i].type, signText);
+            if (crv != CKR_OK) {
                 goto loser;
             }
         }
@@ -586,10 +653,56 @@ loser:
     return crv;
 }
 
+static CK_RV
+sftkdb_fixupSignatures(SFTKDBHandle *handle,
+                       SDB *db, CK_OBJECT_HANDLE oldID, CK_OBJECT_HANDLE newID,
+                       CK_ATTRIBUTE *ptemplate, CK_ULONG max_attributes)
+{
+    unsigned int i;
+    CK_RV crv = CKR_OK;
+
+    /* if we don't have a meta table, we didn't write any signature objects  */
+    if ((db->sdb_flags & SDB_HAS_META) == 0) {
+        return CKR_OK;
+    }
+    for (i = 0; i < max_attributes; i++) {
+        CK_ATTRIBUTE *att = &ptemplate[i];
+        CK_ATTRIBUTE_TYPE type = att->type;
+        if (sftkdb_isPrivateAttribute(type)) {
+            /* move the signature from one object handle to another and delete
+             * the old entry */
+            SECItem signature;
+            unsigned char signData[SDB_MAX_META_DATA_LEN];
+
+            signature.data = signData;
+            signature.len = sizeof(signData);
+            crv = sftkdb_getRawAttributeSignature(handle, db, oldID, type,
+                                                  &signature);
+            if (crv != CKR_OK) {
+                /* NOTE: if we ever change our default write from AES_CBC
+                 * to AES_KW, We'll need to change this to a continue as
+                 * we won't need the integrity record for AES_KW */
+                break;
+            }
+            crv = sftkdb_PutAttributeSignature(handle, db, newID, type,
+                                               &signature);
+            if (crv != CKR_OK) {
+                break;
+            }
+            /* now get rid of the old one */
+            crv = sftkdb_DestroyAttributeSignature(handle, db, oldID, type);
+            if (crv != CKR_OK) {
+                break;
+            }
+        }
+    }
+    return crv;
+}
+
 CK_ATTRIBUTE *
 sftk_ExtractTemplate(PLArenaPool *arena, SFTKObject *object,
-                     SFTKDBHandle *handle, CK_ULONG *pcount,
-                     CK_RV *crv)
+                     SFTKDBHandle *handle, CK_OBJECT_HANDLE objectID,
+                     SDB *db, CK_ULONG *pcount, CK_RV *crv)
 {
     unsigned int count;
     CK_ATTRIBUTE *template;
@@ -663,8 +776,11 @@ sftk_ExtractTemplate(PLArenaPool *arena, SFTKObject *object,
                     *crv = CKR_USER_NOT_LOGGED_IN;
                     break;
                 }
-                rv = sftkdb_EncryptAttribute(arena, &handle->passwordKey,
+                rv = sftkdb_EncryptAttribute(arena, handle, db,
+                                             &handle->passwordKey,
                                              handle->defaultIterationCount,
+                                             objectID,
+                                             tp->type,
                                              &plainText, &cipherText);
                 PZ_Unlock(handle->passwordLock);
                 if (rv == SECSuccess) {
@@ -1111,7 +1227,7 @@ sftkdb_write(SFTKDBHandle *handle, SFTKObject *object,
     CK_RV crv;
     SDB *db;
     PRBool inTransaction = PR_FALSE;
-    CK_OBJECT_HANDLE id;
+    CK_OBJECT_HANDLE id, candidateID;
 
     *objectID = CK_INVALID_HANDLE;
 
@@ -1136,16 +1252,21 @@ sftkdb_write(SFTKDBHandle *handle, SFTKObject *object,
         return CKR_HOST_MEMORY;
     }
 
-    template = sftk_ExtractTemplate(arena, object, handle, &count, &crv);
-    if (!template) {
-        goto loser;
-    }
-
     crv = (*db->sdb_Begin)(db);
     if (crv != CKR_OK) {
         goto loser;
     }
     inTransaction = PR_TRUE;
+
+    crv = (*db->sdb_GetNewObjectID)(db, &candidateID);
+    if (crv != CKR_OK) {
+        goto loser;
+    }
+
+    template = sftk_ExtractTemplate(arena, object, handle, candidateID, db, &count, &crv);
+    if (!template) {
+        goto loser;
+    }
 
     /*
      * We want to make the base database as free from object specific knowledge
@@ -1174,16 +1295,23 @@ sftkdb_write(SFTKDBHandle *handle, SFTKObject *object,
         goto loser;
     }
     if (id == CK_INVALID_HANDLE) {
+        *objectID = candidateID;
         crv = sftkdb_CreateObject(arena, handle, db, objectID, template, count);
     } else {
         /* object already exists, modify it's attributes */
         *objectID = id;
+        /* The object ID changed from our candidate, we need to move any
+         * signature attribute signatures to the new object ID. */
+        crv = sftkdb_fixupSignatures(handle, db, candidateID, id,
+                                     template, count);
+        if (crv != CKR_OK) {
+            goto loser;
+        }
         crv = sftkdb_setAttributeValue(arena, handle, db, id, template, count);
     }
     if (crv != CKR_OK) {
         goto loser;
     }
-
     crv = (*db->sdb_Commit)(db);
     inTransaction = PR_FALSE;
 
@@ -1199,7 +1327,7 @@ loser:
     }
 
     if (arena) {
-        PORT_FreeArena(arena, PR_FALSE);
+        PORT_FreeArena(arena, PR_TRUE);
     }
     if (crv == CKR_OK) {
         *objectID |= (handle->type | SFTK_TOKEN_TYPE);
@@ -1214,6 +1342,7 @@ sftkdb_FindObjectsInit(SFTKDBHandle *handle, const CK_ATTRIBUTE *template,
     unsigned char *data = NULL;
     CK_ATTRIBUTE *ntemplate = NULL;
     CK_RV crv;
+    int dataSize;
     SDB *db;
 
     if (handle == NULL) {
@@ -1222,7 +1351,7 @@ sftkdb_FindObjectsInit(SFTKDBHandle *handle, const CK_ATTRIBUTE *template,
     db = SFTK_GET_SDB(handle);
 
     if (count != 0) {
-        ntemplate = sftkdb_fixupTemplateIn(template, count, &data);
+        ntemplate = sftkdb_fixupTemplateIn(template, count, &data, &dataSize);
         if (ntemplate == NULL) {
             return CKR_HOST_MEMORY;
         }
@@ -1232,7 +1361,7 @@ sftkdb_FindObjectsInit(SFTKDBHandle *handle, const CK_ATTRIBUTE *template,
                                      count, find);
     if (data) {
         PORT_Free(ntemplate);
-        PORT_Free(data);
+        PORT_ZFree(data, dataSize);
     }
     return crv;
 }
@@ -1279,6 +1408,7 @@ sftkdb_GetAttributeValue(SFTKDBHandle *handle, CK_OBJECT_HANDLE objectID,
     CK_RV crv, crv2;
     CK_ATTRIBUTE *ntemplate;
     unsigned char *data = NULL;
+    int dataSize = 0;
     SDB *db;
 
     if (handle == NULL) {
@@ -1319,7 +1449,7 @@ sftkdb_GetAttributeValue(SFTKDBHandle *handle, CK_OBJECT_HANDLE objectID,
     if (count == 0) {
         return CKR_OK;
     }
-    ntemplate = sftkdb_fixupTemplateIn(template, count, &data);
+    ntemplate = sftkdb_fixupTemplateIn(template, count, &data, &dataSize);
     if (ntemplate == NULL) {
         return CKR_HOST_MEMORY;
     }
@@ -1332,7 +1462,7 @@ sftkdb_GetAttributeValue(SFTKDBHandle *handle, CK_OBJECT_HANDLE objectID,
         crv = crv2;
     if (data) {
         PORT_Free(ntemplate);
-        PORT_Free(data);
+        PORT_ZFree(data, dataSize);
     }
     return crv;
 }
@@ -1348,6 +1478,7 @@ sftkdb_SetAttributeValue(SFTKDBHandle *handle, SFTKObject *object,
     CK_RV crv = CKR_OK;
     CK_OBJECT_HANDLE objectID = (object->handle & SFTK_OBJ_ID_MASK);
     PRBool inTransaction = PR_FALSE;
+    int dataSize;
 
     if (handle == NULL) {
         return CKR_TOKEN_WRITE_PROTECTED;
@@ -1369,7 +1500,7 @@ sftkdb_SetAttributeValue(SFTKDBHandle *handle, SFTKObject *object,
         return CKR_USER_NOT_LOGGED_IN;
     }
 
-    ntemplate = sftkdb_fixupTemplateIn(template, count, &data);
+    ntemplate = sftkdb_fixupTemplateIn(template, count, &data, &dataSize);
     if (ntemplate == NULL) {
         return CKR_HOST_MEMORY;
     }
@@ -1404,7 +1535,7 @@ loser:
     }
     if (data) {
         PORT_Free(ntemplate);
-        PORT_Free(data);
+        PORT_ZFree(data, dataSize);
     }
     if (arena) {
         PORT_FreeArena(arena, PR_FALSE);
@@ -1413,7 +1544,8 @@ loser:
 }
 
 CK_RV
-sftkdb_DestroyObject(SFTKDBHandle *handle, CK_OBJECT_HANDLE objectID)
+sftkdb_DestroyObject(SFTKDBHandle *handle, CK_OBJECT_HANDLE objectID,
+                     CK_OBJECT_CLASS objclass)
 {
     CK_RV crv = CKR_OK;
     SDB *db;
@@ -1423,13 +1555,59 @@ sftkdb_DestroyObject(SFTKDBHandle *handle, CK_OBJECT_HANDLE objectID)
     }
     db = SFTK_GET_SDB(handle);
     objectID &= SFTK_OBJ_ID_MASK;
+
     crv = (*db->sdb_Begin)(db);
     if (crv != CKR_OK) {
-        goto loser;
+        return crv;
     }
     crv = (*db->sdb_DestroyObject)(db, objectID);
     if (crv != CKR_OK) {
         goto loser;
+    }
+    /* if the database supports meta data, delete any old signatures
+     * that we may have added */
+    if ((db->sdb_flags & SDB_HAS_META) == SDB_HAS_META) {
+        SDB *keydb = db;
+        if (handle->type == SFTK_KEYDB_TYPE) {
+            /* delete any private attribute signatures that might exist */
+            (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                                   CKA_VALUE);
+            (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                                   CKA_PRIVATE_EXPONENT);
+            (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                                   CKA_PRIME_1);
+            (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                                   CKA_PRIME_2);
+            (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                                   CKA_EXPONENT_1);
+            (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                                   CKA_EXPONENT_2);
+            (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                                   CKA_COEFFICIENT);
+        } else {
+            keydb = SFTK_GET_SDB(handle->peerDB);
+        }
+        /* now destroy any authenticated attributes that may exist */
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_MODULUS);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_PUBLIC_EXPONENT);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_CERT_SHA1_HASH);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_CERT_MD5_HASH);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_TRUST_SERVER_AUTH);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_TRUST_CLIENT_AUTH);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_TRUST_EMAIL_PROTECTION);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_TRUST_CODE_SIGNING);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_TRUST_STEP_UP_APPROVED);
+        (void)sftkdb_DestroyAttributeSignature(handle, keydb, objectID,
+                                               CKA_NSS_OVERRIDE_EXTENSIONS);
     }
     crv = (*db->sdb_Commit)(db);
 loser:
@@ -1464,14 +1642,14 @@ sftkdb_CloseDB(SFTKDBHandle *handle)
         PZ_Lock(handle->passwordLock);
     }
     if (handle->passwordKey.data) {
-        PORT_ZFree(handle->passwordKey.data, handle->passwordKey.len);
+        SECITEM_ZfreeItem(&handle->passwordKey, PR_FALSE);
     }
     if (handle->passwordLock) {
         PZ_Unlock(handle->passwordLock);
         SKIP_AFTER_FORK(PZ_DestroyLock(handle->passwordLock));
     }
     if (handle->updatePasswordKey) {
-        SECITEM_FreeItem(handle->updatePasswordKey, PR_TRUE);
+        SECITEM_ZfreeItem(handle->updatePasswordKey, PR_TRUE);
     }
     if (handle->updateID) {
         PORT_Free(handle->updateID);
@@ -1597,7 +1775,7 @@ static const CK_ATTRIBUTE_TYPE known_attributes[] = {
     CKA_TRUST_EMAIL_PROTECTION, CKA_TRUST_IPSEC_END_SYSTEM,
     CKA_TRUST_IPSEC_TUNNEL, CKA_TRUST_IPSEC_USER, CKA_TRUST_TIME_STAMPING,
     CKA_TRUST_STEP_UP_APPROVED, CKA_CERT_SHA1_HASH, CKA_CERT_MD5_HASH,
-    CKA_NETSCAPE_DB, CKA_NETSCAPE_TRUST, CKA_NSS_OVERRIDE_EXTENSIONS,
+    CKA_NSS_DB, CKA_NSS_TRUST, CKA_NSS_OVERRIDE_EXTENSIONS,
     CKA_PUBLIC_KEY_INFO
 };
 
@@ -1901,11 +2079,10 @@ sftkdb_reconcileTrustEntry(PLArenaPool *arena, CK_ATTRIBUTE *target,
     return SFTKDB_DROP_ATTRIBUTE;
 }
 
-const CK_ATTRIBUTE_TYPE sftkdb_trustList[] =
-    { CKA_TRUST_SERVER_AUTH, CKA_TRUST_CLIENT_AUTH,
-      CKA_TRUST_CODE_SIGNING, CKA_TRUST_EMAIL_PROTECTION,
-      CKA_TRUST_IPSEC_TUNNEL, CKA_TRUST_IPSEC_USER,
-      CKA_TRUST_TIME_STAMPING };
+const CK_ATTRIBUTE_TYPE sftkdb_trustList[] = { CKA_TRUST_SERVER_AUTH, CKA_TRUST_CLIENT_AUTH,
+                                               CKA_TRUST_CODE_SIGNING, CKA_TRUST_EMAIL_PROTECTION,
+                                               CKA_TRUST_IPSEC_TUNNEL, CKA_TRUST_IPSEC_USER,
+                                               CKA_TRUST_TIME_STAMPING };
 
 #define SFTK_TRUST_TEMPLATE_COUNT \
     (sizeof(sftkdb_trustList) / sizeof(sftkdb_trustList[0]))
@@ -2148,6 +2325,56 @@ sftkdb_updateObjectTemplate(PLArenaPool *arena, SDB *db,
     return SFTKDB_ADD_OBJECT;
 }
 
+static CK_RV
+sftkdb_updateIntegrity(PLArenaPool *arena, SFTKDBHandle *handle,
+                       SDB *source, CK_OBJECT_HANDLE sourceID,
+                       SDB *target, CK_OBJECT_HANDLE targetID,
+                       CK_ATTRIBUTE *ptemplate, CK_ULONG max_attributes)
+{
+    unsigned int i;
+    CK_RV global_crv = CKR_OK;
+
+    /* if the target doesn't have META data, don't need to do anything */
+    if ((target->sdb_flags & SDB_HAS_META) == 0) {
+        return CKR_OK;
+    }
+    /* if the source doesn't have meta data, then the record won't require
+     * integrity */
+    if ((source->sdb_flags & SDB_HAS_META) == 0) {
+        return CKR_OK;
+    }
+    for (i = 0; i < max_attributes; i++) {
+        CK_ATTRIBUTE *att = &ptemplate[i];
+        CK_ATTRIBUTE_TYPE type = att->type;
+        if (sftkdb_isPrivateAttribute(type)) {
+            /* copy integrity signatures associated with this record (if any) */
+            SECItem signature;
+            unsigned char signData[SDB_MAX_META_DATA_LEN];
+            CK_RV crv;
+
+            signature.data = signData;
+            signature.len = sizeof(signData);
+            crv = sftkdb_getRawAttributeSignature(handle, source, sourceID, type,
+                                                  &signature);
+            if (crv != CKR_OK) {
+                /* old databases don't have signature IDs because they are
+                 * 3DES encrypted. Since we know not to look for integrity
+                 * for 3DES records it's OK not to find one here. A new record
+                 * will be created when we reencrypt using AES CBC */
+                continue;
+            }
+            crv = sftkdb_PutAttributeSignature(handle, target, targetID, type,
+                                               &signature);
+            if (crv != CKR_OK) {
+                /* we had a signature in the source db, but we couldn't store
+                * it in the target, remember the error so we can report it. */
+                global_crv = crv;
+            }
+        }
+    }
+    return global_crv;
+}
+
 #define MAX_ATTRIBUTES 500
 static CK_RV
 sftkdb_mergeObject(SFTKDBHandle *handle, CK_OBJECT_HANDLE id,
@@ -2160,6 +2387,7 @@ sftkdb_mergeObject(SFTKDBHandle *handle, CK_OBJECT_HANDLE id,
     SDB *source = handle->update;
     SDB *target = handle->db;
     unsigned int i;
+    CK_OBJECT_HANDLE newID = CK_INVALID_HANDLE;
     CK_RV crv;
     PLArenaPool *arena = NULL;
 
@@ -2199,32 +2427,38 @@ sftkdb_mergeObject(SFTKDBHandle *handle, CK_OBJECT_HANDLE id,
 
     objectType = sftkdb_getULongFromTemplate(CKA_CLASS, ptemplate,
                                              max_attributes);
-
     /*
      * Update Object updates the object template if necessary then returns
      * whether or not we need to actually write the object out to our target
      * database.
      */
     if (!handle->updateID) {
-        crv = sftkdb_CreateObject(arena, handle, target, &id,
+        crv = sftkdb_CreateObject(arena, handle, target, &newID,
                                   ptemplate, max_attributes);
     } else {
         sftkdbUpdateStatus update_status;
         update_status = sftkdb_updateObjectTemplate(arena, target,
-                                                    objectType, ptemplate, &max_attributes, &id);
+                                                    objectType, ptemplate, &max_attributes, &newID);
         switch (update_status) {
             case SFTKDB_ADD_OBJECT:
-                crv = sftkdb_CreateObject(arena, handle, target, &id,
+                crv = sftkdb_CreateObject(arena, handle, target, &newID,
                                           ptemplate, max_attributes);
                 break;
             case SFTKDB_MODIFY_OBJECT:
                 crv = sftkdb_setAttributeValue(arena, handle, target,
-                                               id, ptemplate, max_attributes);
+                                               newID, ptemplate, max_attributes);
                 break;
             case SFTKDB_DO_NOTHING:
             case SFTKDB_DROP_ATTRIBUTE:
                 break;
         }
+    }
+
+    /* if keyDB copy any meta data hashes to target, Update for the new
+     * object ID */
+    if (crv == CKR_OK) {
+        crv = sftkdb_updateIntegrity(arena, handle, source, id, target, newID,
+                                     ptemplate, max_attributes);
     }
 
 loser:
@@ -2255,14 +2489,13 @@ sftkdb_Update(SFTKDBHandle *handle, SECItem *key)
     if (handle->update == NULL) {
         return CKR_OK;
     }
-
     /*
      * put the whole update under a transaction. This allows us to handle
      * any possible race conditions between with the updateID check.
      */
     crv = (*handle->db->sdb_Begin)(handle->db);
     if (crv != CKR_OK) {
-        goto loser;
+        return crv;
     }
     inTransaction = PR_TRUE;
 
@@ -2487,7 +2720,7 @@ sftkdb_ResetKeyDB(SFTKDBHandle *handle)
 {
     CK_RV crv;
 
-    /* only reset the key db */
+    /* only rest the key db */
     if (handle->type != SFTK_KEYDB_TYPE) {
         return SECFailure;
     }
@@ -2505,6 +2738,7 @@ sftkdb_ResetKeyDB(SFTKDBHandle *handle)
     return SECSuccess;
 }
 
+#ifndef NSS_DISABLE_DBM
 static PRBool
 sftk_oldVersionExists(const char *dir, int version)
 {
@@ -2608,6 +2842,7 @@ sftk_hasLegacyDB(const char *confdir, const char *certPrefix,
     PR_smprintf_free(dir);
     return exists;
 }
+#endif /* NSS_DISABLE_DBM */
 
 /*
  * initialize certificate and key database handles as a pair.
@@ -2631,7 +2866,9 @@ sftk_DBInit(const char *configdir, const char *certPrefix,
     CK_RV crv = CKR_OK;
     int flags = SDB_RDONLY;
     PRBool newInit = PR_FALSE;
+#ifndef NSS_DISABLE_DBM
     PRBool needUpdate = PR_FALSE;
+#endif /* NSS_DISABLE_DBM */
     char *nconfdir = NULL;
     PRBool legacy = PR_TRUE;
 
@@ -2654,6 +2891,7 @@ sftk_DBInit(const char *configdir, const char *certPrefix,
      * now initialize the appropriate database
      */
     switch (dbType) {
+#ifndef NSS_DISABLE_DBM
         case NSS_DB_TYPE_LEGACY:
             crv = sftkdbCall_open(confdir, certPrefix, keyPrefix, 8, 3, flags,
                                   noCertDB ? NULL : &certSDB, noKeyDB ? NULL : &keySDB);
@@ -2662,12 +2900,14 @@ sftk_DBInit(const char *configdir, const char *certPrefix,
             crv = sftkdbCall_open(configdir, certPrefix, keyPrefix, 8, 3, flags,
                                   noCertDB ? NULL : &certSDB, noKeyDB ? NULL : &keySDB);
             break;
+#endif /* NSS_DISABLE_DBM */
         case NSS_DB_TYPE_SQL:
         case NSS_DB_TYPE_EXTERN: /* SHOULD open a loadable db */
             crv = s_open(confdir, certPrefix, keyPrefix, 9, 4, flags,
                          noCertDB ? NULL : &certSDB, noKeyDB ? NULL : &keySDB, &newInit);
             legacy = PR_FALSE;
 
+#ifndef NSS_DISABLE_DBM
             /*
              * if we failed to open the DB's read only, use the old ones if
              * the exists.
@@ -2717,6 +2957,7 @@ sftk_DBInit(const char *configdir, const char *certPrefix,
                     needUpdate = PR_TRUE;
                 }
             }
+#endif /* NSS_DISABLE_DBM */
             break;
         default:
             crv = CKR_GENERAL_ERROR; /* can't happen, EvaluationConfigDir MUST
@@ -2745,6 +2986,7 @@ sftk_DBInit(const char *configdir, const char *certPrefix,
         (*keyDB)->peerDB = *certDB;
     }
 
+#ifndef NSS_DISABLE_DBM
     /*
      * if we need to update, open the legacy database and
      * mark the handle as needing update.
@@ -2782,6 +3024,8 @@ sftk_DBInit(const char *configdir, const char *certPrefix,
             }
         }
     }
+#endif /* NSS_DISABLE_DBM */
+
 done:
     if (appName) {
         PORT_Free(appName);
@@ -2796,6 +3040,8 @@ CK_RV
 sftkdb_Shutdown(void)
 {
     s_shutdown();
+#ifndef NSS_DISABLE_DBM
     sftkdbCall_Shutdown();
+#endif /* NSS_DISABLE_DBM */
     return CKR_OK;
 }

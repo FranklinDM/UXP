@@ -45,7 +45,7 @@ aes_encrypt_buf(
     SECItem key_item;
     PK11SlotInfo *slot = NULL;
     PK11SymKey *symKey = NULL;
-    CK_GCM_PARAMS gcm_params;
+    CK_NSS_GCM_PARAMS gcm_params;
     SECItem param;
 
     /* Import key into NSS. */
@@ -102,7 +102,7 @@ aes_decrypt_buf(
     SECItem key_item;
     PK11SlotInfo *slot = NULL;
     PK11SymKey *symKey = NULL;
-    CK_GCM_PARAMS gcm_params;
+    CK_NSS_GCM_PARAMS gcm_params;
     SECItem param;
 
     if (inputlen + tagsize > sizeof(concatenated)) {
@@ -439,10 +439,13 @@ loser:
 int
 main(int argc, char **argv)
 {
-    if (argc < 2)
-        exit(1);
+    if (argc < 2) {
+        return 1;
+    }
 
-    NSS_NoDB_Init(NULL);
+    if (NSS_NoDB_Init(NULL) != SECSuccess) {
+        return 1;
+    }
 
     /*************/
     /*   AES     */
@@ -455,6 +458,8 @@ main(int argc, char **argv)
         }
     }
 
-    NSS_Shutdown();
+    if (NSS_Shutdown() != SECSuccess) {
+        return 1;
+    }
     return 0;
 }

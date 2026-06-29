@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -355,7 +356,7 @@ TEST_P(SignParamsSourceTest, CreateRsaPssWithHashMismatch) {
   EXPECT_EQ(nullptr, params);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SignParamsTestCases, SignParamsTest,
     ::testing::Combine(::testing::Values(SEC_OID_UNKNOWN, SEC_OID_SHA1,
                                          SEC_OID_SHA224, SEC_OID_SHA256,
@@ -364,9 +365,9 @@ INSTANTIATE_TEST_CASE_P(
                                          SEC_OID_SHA224, SEC_OID_SHA256,
                                          SEC_OID_SHA384, SEC_OID_SHA512)));
 
-INSTANTIATE_TEST_CASE_P(SignParamsSourceTestCases, SignParamsSourceTest,
-                        ::testing::Values(SEC_OID_UNKNOWN, SEC_OID_SHA1,
-                                          SEC_OID_SHA224, SEC_OID_SHA256,
-                                          SEC_OID_SHA384, SEC_OID_SHA512));
+INSTANTIATE_TEST_SUITE_P(SignParamsSourceTestCases, SignParamsSourceTest,
+                         ::testing::Values(SEC_OID_UNKNOWN, SEC_OID_SHA1,
+                                           SEC_OID_SHA224, SEC_OID_SHA256,
+                                           SEC_OID_SHA384, SEC_OID_SHA512));
 
 }  // namespace nss_test

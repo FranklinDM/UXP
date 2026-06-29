@@ -26,16 +26,16 @@ typedef struct ssl2GatherStr ssl2Gather;
 SECStatus
 ssl3_InitGather(sslGather *gs)
 {
-    SECStatus status;
-
     gs->state = GS_INIT;
     gs->writeOffset = 0;
     gs->readOffset = 0;
     gs->dtlsPacketOffset = 0;
     gs->dtlsPacket.len = 0;
     gs->rejectV2Records = PR_FALSE;
-    status = sslBuffer_Grow(&gs->buf, 4096);
-    return status;
+    /* Allocate plaintext buffer to maximum possibly needed size. It needs to
+     * be larger than recordSizeLimit for TLS 1.0 and 1.1 compatability.
+     * The TLS 1.2 ciphertext is larger than the TLS 1.3 ciphertext. */
+    return sslBuffer_Grow(&gs->buf, TLS_1_2_MAX_CTEXT_LENGTH);
 }
 
 /* Caller must hold RecvBufLock. */
@@ -174,13 +174,26 @@ ssl3_GatherData(sslSocket *ss, sslGather *gs, int flags, ssl2Gather *ssl2gs)
                     }
                 }
 
-                /* This is the max length for an encrypted SSLv3+ fragment. */
-                if (!v2HdrLength &&
-                    gs->remainder > (MAX_FRAGMENT_LENGTH + 2048)) {
-                    SSL3_SendAlert(ss, alert_fatal, record_overflow);
-                    gs->state = GS_INIT;
-                    PORT_SetError(SSL_ERROR_RX_RECORD_TOO_LONG);
-                    return SECFailure;
+                /* If it is NOT an SSLv2 header */
+                if (!v2HdrLength) {
+                    /* Check if default RFC specified max ciphertext/record
+                     * limits are respected. Checks for used record size limit
+                     * extension boundaries are done in
+                     * ssl3con.c/ssl3_HandleRecord() for tls and dtls records.
+                     *
+                     * -> For TLS 1.2 records MUST NOT be longer than
+                     * 2^14 + 2048 bytes.
+                     * -> For TLS 1.3 records MUST NOT exceed 2^14 + 256 bytes.
+                     * -> For older versions this MAY be enforced, we do it.
+                     * [RFC8446 Section 5.2, RFC5246 Section 6.2.3]. */
+                    if (gs->remainder > TLS_1_2_MAX_CTEXT_LENGTH ||
+                        (gs->remainder > TLS_1_3_MAX_CTEXT_LENGTH &&
+                         ss->version >= SSL_LIBRARY_VERSION_TLS_1_3)) {
+                        SSL3_SendAlert(ss, alert_fatal, record_overflow);
+                        gs->state = GS_INIT;
+                        PORT_SetError(SSL_ERROR_RX_RECORD_TOO_LONG);
+                        return SECFailure;
+                    }
                 }
 
                 gs->state = GS_DATA;
@@ -218,7 +231,7 @@ ssl3_GatherData(sslSocket *ss, sslGather *gs, int flags, ssl2Gather *ssl2gs)
                     break; /* End this case.  Continue around the loop. */
                 }
 
-            /* FALL THROUGH if (gs->remainder == 0) as we just received
+                /* FALL THROUGH if (gs->remainder == 0) as we just received
                  * an empty record and there's really no point in calling
                  * ssl_DefRecv() with buf=NULL and len=0. */
 
@@ -267,7 +280,8 @@ dtls_GatherData(sslSocket *ss, sslGather *gs, int flags)
     int nb;
     PRUint8 contentType;
     unsigned int headerLen;
-    SECStatus rv;
+    SECStatus rv = SECSuccess;
+    PRBool dtlsLengthPresent = PR_TRUE;
 
     SSL_TRC(30, ("dtls_GatherData"));
 
@@ -280,18 +294,33 @@ dtls_GatherData(sslSocket *ss, sslGather *gs, int flags)
         gs->dtlsPacketOffset = 0;
         gs->dtlsPacket.len = 0;
 
-        /* Resize to the maximum possible size so we can fit a full datagram */
-        /* This is the max fragment length for an encrypted fragment
-        ** plus the size of the record header.
-        ** This magic constant is copied from ssl3_GatherData, with 5 changed
-        ** to 13 (the size of the record header).
-        */
-        if (gs->dtlsPacket.space < MAX_FRAGMENT_LENGTH + 2048 + 13) {
-            rv = sslBuffer_Grow(&gs->dtlsPacket,
-                                MAX_FRAGMENT_LENGTH + 2048 + 13);
-            if (rv != SECSuccess) {
-                return -1; /* Code already set. */
+        /* Resize to the maximum possible size so we can fit a full datagram.
+         * This leads to record_overflow errors if records/ciphertexts greater
+         * than the buffer (= maximum record) size are to be received.
+         * DTLS Record errors are dropped silently. [RFC6347, Section 4.1.2.7].
+         * Checks for record size limit extension boundaries are performed in
+         * ssl3con.c/ssl3_HandleRecord() for tls and dtls records.
+         *
+         * -> For TLS 1.2 records MUST NOT be longer than 2^14 + 2048 bytes.
+         * -> For TLS 1.3 records MUST NOT exceed 2^14 + 256 bytes.
+         * -> For older versions this MAY be enforced, we do it.
+         * [RFC8446 Section 5.2, RFC5246 Section 6.2.3]. */
+        if (ss->version <= SSL_LIBRARY_VERSION_TLS_1_2) {
+            if (gs->dtlsPacket.space < DTLS_1_2_MAX_PACKET_LENGTH) {
+                rv = sslBuffer_Grow(&gs->dtlsPacket, DTLS_1_2_MAX_PACKET_LENGTH);
             }
+        } else { /* version >= TLS 1.3 */
+            if (gs->dtlsPacket.space != DTLS_1_3_MAX_PACKET_LENGTH) {
+                /* During Hello and version negotiation older DTLS versions with
+                 * greater possible packets are used. The buffer must therefore
+                 * be "truncated" by clearing and reallocating it */
+                sslBuffer_Clear(&gs->dtlsPacket);
+                rv = sslBuffer_Grow(&gs->dtlsPacket, DTLS_1_3_MAX_PACKET_LENGTH);
+            }
+        }
+
+        if (rv != SECSuccess) {
+            return -1; /* Code already set. */
         }
 
         /* recv() needs to read a full datagram at a time */
@@ -305,6 +334,8 @@ dtls_GatherData(sslSocket *ss, sslGather *gs, int flags)
         } else /* if (nb < 0) */ {
             SSL_DBG(("%d: SSL3[%d]: recv error %d", SSL_GETPID(), ss->fd,
                      PR_GetError()));
+            /* DTLS Record Errors, including overlong records, are silently
+             * dropped [RFC6347, Section 4.1.2.7]. */
             return -1;
         }
 
@@ -316,8 +347,28 @@ dtls_GatherData(sslSocket *ss, sslGather *gs, int flags)
         headerLen = 13;
     } else if (contentType == ssl_ct_application_data) {
         headerLen = 7;
-    } else if ((contentType & 0xe0) == 0x20) {
-        headerLen = 2;
+    } else if (dtls_IsDtls13Ciphertext(ss->version, contentType)) {
+        /* We don't support CIDs.
+         *
+         * This condition is met on all invalid outer content types.
+         * For lower DTLS versions as well as the inner content types,
+         * this is checked in ssl3con.c/ssl3_HandleNonApplicationData().
+         *
+         * In DTLS generally invalid records SHOULD be silently discarded,
+         * no alert is sent [RFC6347, Section 4.1.2.7].
+         */
+        if (contentType & 0x10) {
+            PORT_Assert(PR_FALSE);
+            PORT_SetError(SSL_ERROR_RX_UNKNOWN_RECORD_TYPE);
+            gs->dtlsPacketOffset = 0;
+            gs->dtlsPacket.len = 0;
+            return -1;
+        }
+
+        dtlsLengthPresent = (contentType & 0x04) == 0x04;
+        PRUint8 dtlsSeqNoSize = (contentType & 0x08) ? 2 : 1;
+        PRUint8 dtlsLengthBytes = dtlsLengthPresent ? 2 : 0;
+        headerLen = 1 + dtlsSeqNoSize + dtlsLengthBytes;
     } else {
         SSL_DBG(("%d: SSL3[%d]: invalid first octet (%d) for DTLS",
                  SSL_GETPID(), ss->fd, contentType));
@@ -345,12 +396,10 @@ dtls_GatherData(sslSocket *ss, sslGather *gs, int flags)
     gs->dtlsPacketOffset += headerLen;
 
     /* Have received SSL3 record header in gs->hdr. */
-    if (headerLen == 13) {
-        gs->remainder = (gs->hdr[11] << 8) | gs->hdr[12];
-    } else if (headerLen == 7) {
-        gs->remainder = (gs->hdr[5] << 8) | gs->hdr[6];
+    if (dtlsLengthPresent) {
+        gs->remainder = (gs->hdr[headerLen - 2] << 8) |
+                        gs->hdr[headerLen - 1];
     } else {
-        PORT_Assert(headerLen == 2);
         gs->remainder = gs->dtlsPacket.len - gs->dtlsPacketOffset;
     }
 
@@ -511,6 +560,15 @@ ssl3_GatherCompleteHandshake(sslSocket *ss, int flags)
             cText.buf = &ss->gs.inbuf;
             rv = ssl3_HandleRecord(ss, &cText);
         }
+
+#ifdef DEBUG
+        /* In Debug builds free gather ciphertext buffer after each decryption
+         * for advanced ASAN coverage/utilization. The buffer content has been
+         * used at this point, ssl3_HandleRecord() and thereby the decryption
+         * functions are only called from this point of the implementation. */
+        sslBuffer_Clear(&ss->gs.inbuf);
+#endif
+
         if (rv < 0) {
             return ss->recvdCloseNotify ? 0 : rv;
         }
@@ -600,6 +658,46 @@ ssl3_GatherAppDataRecord(sslSocket *ss, int flags)
     return rv;
 }
 
+static SECStatus
+ssl_HandleZeroRttRecordData(sslSocket *ss, const PRUint8 *data, unsigned int len)
+{
+    PORT_Assert(ss->sec.isServer);
+    if (ss->ssl3.hs.zeroRttState == ssl_0rtt_accepted) {
+        sslBuffer buf = { CONST_CAST(PRUint8, data), len, len, PR_TRUE };
+        return tls13_HandleEarlyApplicationData(ss, &buf);
+    }
+    if (ss->ssl3.hs.zeroRttState == ssl_0rtt_ignored &&
+        ss->ssl3.hs.zeroRttIgnore != ssl_0rtt_ignore_none) {
+        /* We're ignoring 0-RTT so drop this record quietly. */
+        return SECSuccess;
+    }
+    PORT_SetError(SSL_ERROR_RX_UNEXPECTED_APPLICATION_DATA);
+    return SECFailure;
+}
+
+/* Ensure that application data in the wrong epoch is blocked. */
+static PRBool
+ssl_IsApplicationDataPermitted(sslSocket *ss, PRUint16 epoch)
+{
+    /* Epoch 0 is never OK. */
+    if (epoch == 0) {
+        return PR_FALSE;
+    }
+    if (ss->version < SSL_LIBRARY_VERSION_TLS_1_3) {
+        return ss->firstHsDone;
+    }
+    /* TLS 1.3 application data. */
+    if (epoch >= TrafficKeyApplicationData) {
+        return ss->firstHsDone;
+    }
+    /* TLS 1.3 early data is server only. Further checks aren't needed
+     * as those are handled in ssl_HandleZeroRttRecordData. */
+    if (epoch == TrafficKeyEarlyApplicationData) {
+        return ss->sec.isServer;
+    }
+    return PR_FALSE;
+}
+
 SECStatus
 SSLExp_RecordLayerData(PRFileDesc *fd, PRUint16 epoch,
                        SSLContentType contentType,
@@ -626,8 +724,8 @@ SSLExp_RecordLayerData(PRFileDesc *fd, PRUint16 epoch,
         goto early_loser; /* Rely on the existing code. */
     }
 
-    /* Don't allow application data before handshake completion. */
-    if (contentType == ssl_ct_application_data && !ss->firstHsDone) {
+    if (contentType == ssl_ct_application_data &&
+        !ssl_IsApplicationDataPermitted(ss, epoch)) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
         goto early_loser;
     }
@@ -638,7 +736,18 @@ SSLExp_RecordLayerData(PRFileDesc *fd, PRUint16 epoch,
     if (epoch < ss->ssl3.crSpec->epoch) {
         epochError = SEC_ERROR_INVALID_ARGS; /* Too c/old. */
     } else if (epoch > ss->ssl3.crSpec->epoch) {
-        epochError = PR_WOULD_BLOCK_ERROR; /* Too warm/new. */
+        /* If a TLS 1.3 server is not expecting EndOfEarlyData,
+         * moving from 1 to 2 is a signal to execute the code
+         * as though that message had been received. Let that pass. */
+        if (ss->version >= SSL_LIBRARY_VERSION_TLS_1_3 &&
+            ss->opt.suppressEndOfEarlyData &&
+            ss->sec.isServer &&
+            ss->ssl3.crSpec->epoch == TrafficKeyEarlyApplicationData &&
+            epoch == TrafficKeyHandshake) {
+            epochError = 0;
+        } else {
+            epochError = PR_WOULD_BLOCK_ERROR; /* Too warm/new. */
+        }
     } else {
         epochError = 0; /* Just right. */
     }
@@ -649,11 +758,18 @@ SSLExp_RecordLayerData(PRFileDesc *fd, PRUint16 epoch,
     }
 
     /* If the handshake is still running, we need to run that. */
-    ssl_Get1stHandshakeLock(ss);
     rv = ssl_Do1stHandshake(ss);
     if (rv != SECSuccess && PORT_GetError() != PR_WOULD_BLOCK_ERROR) {
+        goto early_loser;
+    }
+
+    /* 0-RTT needs its own special handling here. */
+    if (ss->version >= SSL_LIBRARY_VERSION_TLS_1_3 &&
+        epoch == TrafficKeyEarlyApplicationData &&
+        contentType == ssl_ct_application_data) {
+        rv = ssl_HandleZeroRttRecordData(ss, data, len);
         ssl_Release1stHandshakeLock(ss);
-        return SECFailure;
+        return rv;
     }
 
     /* Finally, save the data... */

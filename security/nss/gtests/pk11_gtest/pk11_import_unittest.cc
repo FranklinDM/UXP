@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -255,10 +256,10 @@ TEST_P(Pk11KeyImportTest, GenerateExportImport) {
   Test(Pkcs11KeyPairGenerator(GetParam()));
 }
 
-INSTANTIATE_TEST_CASE_P(Pk11KeyImportTest, Pk11KeyImportTest,
-                        ::testing::Values(CKM_RSA_PKCS_KEY_PAIR_GEN,
-                                          CKM_DSA_KEY_PAIR_GEN,
-                                          CKM_DH_PKCS_KEY_PAIR_GEN));
+INSTANTIATE_TEST_SUITE_P(Pk11KeyImportTest, Pk11KeyImportTest,
+                         ::testing::Values(CKM_RSA_PKCS_KEY_PAIR_GEN,
+                                           CKM_DSA_KEY_PAIR_GEN,
+                                           CKM_DH_PKCS_KEY_PAIR_GEN));
 
 class Pk11KeyImportTestEC : public Pk11KeyImportTestBase,
                             public ::testing::WithParamInterface<SECOidTag> {
@@ -271,10 +272,10 @@ TEST_P(Pk11KeyImportTestEC, GenerateExportImport) {
   Test(Pkcs11KeyPairGenerator(CKM_EC_KEY_PAIR_GEN, GetParam()));
 }
 
-INSTANTIATE_TEST_CASE_P(Pk11KeyImportTestEC, Pk11KeyImportTestEC,
-                        ::testing::Values(SEC_OID_SECG_EC_SECP256R1,
-                                          SEC_OID_SECG_EC_SECP384R1,
-                                          SEC_OID_SECG_EC_SECP521R1,
-                                          SEC_OID_CURVE25519));
+INSTANTIATE_TEST_SUITE_P(Pk11KeyImportTestEC, Pk11KeyImportTestEC,
+                         ::testing::Values(SEC_OID_SECG_EC_SECP256R1,
+                                           SEC_OID_SECG_EC_SECP384R1,
+                                           SEC_OID_SECG_EC_SECP521R1,
+                                           SEC_OID_CURVE25519));
 
 }  // namespace nss_test

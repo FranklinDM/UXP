@@ -380,6 +380,9 @@ extern SECStatus KEA_Derive(SECItem *prime,
  */
 extern PRBool KEA_Verify(SECItem *Y, SECItem *prime, SECItem *subPrime);
 
+/* verify a value is prime */
+PRBool KEA_PrimeCheck(SECItem *prime);
+
 /****************************************
  * J-PAKE key transport
  */
@@ -856,6 +859,28 @@ extern SECStatus
 AES_Decrypt(AESContext *cx, unsigned char *output,
             unsigned int *outputLen, unsigned int maxOutputLen,
             const unsigned char *input, unsigned int inputLen);
+/*
+** Perform AES AEAD operation (either encrypt or decrypt), controlled by
+** the context.
+**  "cx" the context
+**  "output" the output buffer to store the encrypted data.
+**  "outputLen" how much data is stored in "output". Set by the routine
+**     after some data is stored in output.
+**  "maxOutputLen" the maximum amount of data that can ever be
+**     stored in "output"
+**  "input" the input data
+**  "inputLen" the amount of input data
+**  "params" pointer to an AEAD specific param PKCS #11 param structure
+**  "paramsLen" length of the param structure pointed to by params
+**  "aad" addition authenticated data
+**  "aadLen" the amount of additional authenticated data.
+*/
+extern SECStatus
+AES_AEAD(AESContext *cx, unsigned char *output,
+         unsigned int *outputLen, unsigned int maxOutputLen,
+         const unsigned char *input, unsigned int inputLen,
+         void *params, unsigned int paramsLen,
+         const unsigned char *aad, unsigned int aadLen);
 
 /******************************************/
 /*
@@ -922,6 +947,38 @@ AESKeyWrap_Decrypt(AESKeyWrapContext *cx, unsigned char *output,
                    unsigned int *outputLen, unsigned int maxOutputLen,
                    const unsigned char *input, unsigned int inputLen);
 
+/*
+** Perform AES padded key wrap.
+**  "cx" the context
+**  "output" the output buffer to store the encrypted data.
+**  "outputLen" how much data is stored in "output". Set by the routine
+**     after some data is stored in output.
+**  "maxOutputLen" the maximum amount of data that can ever be
+**     stored in "output"
+**  "input" the input data
+**  "inputLen" the amount of input data
+*/
+extern SECStatus
+AESKeyWrap_EncryptKWP(AESKeyWrapContext *cx, unsigned char *output,
+                      unsigned int *outputLen, unsigned int maxOutputLen,
+                      const unsigned char *input, unsigned int inputLen);
+
+/*
+** Perform AES padded key unwrap.
+**  "cx" the context
+**  "output" the output buffer to store the decrypted data.
+**  "outputLen" how much data is stored in "output". Set by the routine
+**     after some data is stored in output.
+**  "maxOutputLen" the maximum amount of data that can ever be
+**     stored in "output"
+**  "input" the input data
+**  "inputLen" the amount of input data
+*/
+extern SECStatus
+AESKeyWrap_DecryptKWP(AESKeyWrapContext *cx, unsigned char *output,
+                      unsigned int *outputLen, unsigned int maxOutputLen,
+                      const unsigned char *input, unsigned int inputLen);
+
 /******************************************/
 /*
 ** Camellia symmetric block cypher
@@ -986,6 +1043,26 @@ Camellia_Decrypt(CamelliaContext *cx, unsigned char *output,
 
 /******************************************/
 /*
+** ChaCha20 block cipher
+*/
+
+extern SECStatus ChaCha20_InitContext(ChaCha20Context *ctx,
+                                      const unsigned char *key,
+                                      unsigned int keyLen,
+                                      const unsigned char *nonce,
+                                      unsigned int nonceLen,
+                                      PRUint32 ctr);
+
+extern ChaCha20Context *ChaCha20_CreateContext(const unsigned char *key,
+                                               unsigned int keyLen,
+                                               const unsigned char *nonce,
+                                               unsigned int nonceLen,
+                                               PRUint32 ctr);
+
+extern void ChaCha20_DestroyContext(ChaCha20Context *ctx, PRBool freeit);
+
+/******************************************/
+/*
 ** ChaCha20+Poly1305 AEAD
 */
 
@@ -1013,6 +1090,20 @@ extern SECStatus ChaCha20Poly1305_Open(
     const unsigned char *input, unsigned int inputLen,
     const unsigned char *nonce, unsigned int nonceLen,
     const unsigned char *ad, unsigned int adLen);
+
+extern SECStatus ChaCha20Poly1305_Encrypt(
+    const ChaCha20Poly1305Context *ctx, unsigned char *output,
+    unsigned int *outputLen, unsigned int maxOutputLen,
+    const unsigned char *input, unsigned int inputLen,
+    const unsigned char *nonce, unsigned int nonceLen,
+    const unsigned char *ad, unsigned int adLen, unsigned char *tagOut);
+
+extern SECStatus ChaCha20Poly1305_Decrypt(
+    const ChaCha20Poly1305Context *ctx, unsigned char *output,
+    unsigned int *outputLen, unsigned int maxOutputLen,
+    const unsigned char *input, unsigned int inputLen,
+    const unsigned char *nonce, unsigned int nonceLen,
+    const unsigned char *ad, unsigned int adLen, unsigned char *tagIn);
 
 extern SECStatus ChaCha20_Xor(
     unsigned char *output, const unsigned char *block, unsigned int len,
@@ -1430,7 +1521,7 @@ extern SECStatus BLAKE2B_MAC_HashBuf(unsigned char *output,
 /*
 ** Create a new Blake2b context
 */
-extern BLAKE2BContext *BLAKE2B_NewContext();
+extern BLAKE2BContext *BLAKE2B_NewContext(void);
 
 /*
 ** Destroy a Blake2b secure hash context.

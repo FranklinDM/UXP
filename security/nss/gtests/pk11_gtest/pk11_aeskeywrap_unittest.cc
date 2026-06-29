@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -116,6 +117,6 @@ class Pkcs11AESKeyWrapTest : public ::testing::TestWithParam<keywrap_vector> {
 
 TEST_P(Pkcs11AESKeyWrapTest, TestVectors) { WrapUnwrap(GetParam()); }
 
-INSTANTIATE_TEST_CASE_P(Pkcs11WycheproofAESKWTest, Pkcs11AESKeyWrapTest,
-                        ::testing::ValuesIn(kWycheproofAesKWVectors));
-} /* nss_test */
+INSTANTIATE_TEST_SUITE_P(Pkcs11WycheproofAESKWTest, Pkcs11AESKeyWrapTest,
+                         ::testing::ValuesIn(kWycheproofAesKWVectors));
+}  // namespace nss_test

@@ -105,7 +105,7 @@ pk11_CheckPassword(PK11SlotInfo *slot, CK_SESSION_HANDLE session,
                 if (retry++ == 0) {
                     rv = PK11_InitToken(slot, PR_FALSE);
                     if (rv == SECSuccess) {
-                        if (slot->session != CK_INVALID_SESSION) {
+                        if (slot->session != CK_INVALID_HANDLE) {
                             session = slot->session; /* we should have
                                                       * a new session now */
                             mustRetry = PR_TRUE;
@@ -356,7 +356,7 @@ PK11_CheckSSOPassword(PK11SlotInfo *slot, char *ssopw)
 
     /* get a rwsession */
     rwsession = PK11_GetRWSession(slot);
-    if (rwsession == CK_INVALID_SESSION) {
+    if (rwsession == CK_INVALID_HANDLE) {
         PORT_SetError(SEC_ERROR_BAD_DATA);
         return rv;
     }
@@ -417,7 +417,7 @@ PK11_VerifyPW(PK11SlotInfo *slot, char *pw)
 SECStatus
 PK11_InitPin(PK11SlotInfo *slot, const char *ssopw, const char *userpw)
 {
-    CK_SESSION_HANDLE rwsession = CK_INVALID_SESSION;
+    CK_SESSION_HANDLE rwsession = CK_INVALID_HANDLE;
     CK_RV crv;
     SECStatus rv = SECFailure;
     int len;
@@ -433,7 +433,7 @@ PK11_InitPin(PK11SlotInfo *slot, const char *ssopw, const char *userpw)
 
     /* get a rwsession */
     rwsession = PK11_GetRWSession(slot);
-    if (rwsession == CK_INVALID_SESSION) {
+    if (rwsession == CK_INVALID_HANDLE) {
         PORT_SetError(SEC_ERROR_BAD_DATA);
         slot->lastLoginCheck = 0;
         return rv;
@@ -506,7 +506,7 @@ PK11_ChangePW(PK11SlotInfo *slot, const char *oldpw, const char *newpw)
 
     /* get a rwsession */
     rwsession = PK11_GetRWSession(slot);
-    if (rwsession == CK_INVALID_SESSION) {
+    if (rwsession == CK_INVALID_HANDLE) {
         PORT_SetError(SEC_ERROR_BAD_DATA);
         return rv;
     }
@@ -575,7 +575,7 @@ PK11_DoPassword(PK11SlotInfo *slot, CK_SESSION_HANDLE session,
 
     /*
      * Central server type applications which control access to multiple
-     * slave applications to single crypto devices need to virtuallize the
+     * client applications to single crypto devices need to virtuallize the
      * login state. This is done by a callback out of PK11_IsLoggedIn and
      * here. If we are actually logged in, then we got here because the
      * higher level code told us that the particular client application may
@@ -796,7 +796,7 @@ PK11_IsLoggedIn(PK11SlotInfo *slot, void *wincx)
     PK11_ExitSlotMonitor(slot);
     /* if we can't get session info, something is really wrong */
     if (crv != CKR_OK) {
-        slot->session = CK_INVALID_SESSION;
+        slot->session = CK_INVALID_HANDLE;
         return PR_FALSE;
     }
 

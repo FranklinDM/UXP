@@ -620,11 +620,11 @@ Pk11Install_PlatformName_GetVerString(Pk11Install_PlatformName* _this)
     tmp[0] = '\0';
 
     for (i = 0; i < _this->numDigits - 1; i++) {
-        sprintf(buf, "%s.", _this->verString[i]);
+        snprintf(buf, sizeof(buf), "%s.", _this->verString[i]);
         strcat(tmp, buf);
     }
     if (i < _this->numDigits) {
-        sprintf(buf, "%s", _this->verString[i]);
+        snprintf(buf, sizeof(buf), "%s", _this->verString[i]);
         strcat(tmp, buf);
     }
 
@@ -1034,7 +1034,7 @@ Pk11Install_Info_Cleanup(Pk11Install_Info* _this)
         for (i = 0; i < _this->numPlatforms; i++) {
             Pk11Install_Platform_delete(&_this->platforms[i]);
         }
-        PR_Free(&_this->platforms);
+        PR_Free(_this->platforms);
         _this->platforms = NULL;
         _this->numPlatforms = 0;
     }
@@ -1043,7 +1043,7 @@ Pk11Install_Info_Cleanup(Pk11Install_Info* _this)
         for (i = 0; i < _this->numForwardCompatible; i++) {
             Pk11Install_PlatformName_delete(&_this->forwardCompatible[i]);
         }
-        PR_Free(&_this->forwardCompatible);
+        PR_Free(_this->forwardCompatible);
         _this->numForwardCompatible = 0;
     }
 }

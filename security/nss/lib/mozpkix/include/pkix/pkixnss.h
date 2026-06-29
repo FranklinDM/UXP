@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -33,15 +34,21 @@ namespace pkix {
 
 // Verifies the PKCS#1.5 signature on the given data using the given RSA public
 // key.
-Result VerifyRSAPKCS1SignedDigestNSS(const SignedDigest& sd,
-                                     Input subjectPublicKeyInfo,
-                                     void* pkcs11PinArg);
+Result VerifyRSAPKCS1SignedDataNSS(Input data, DigestAlgorithm digestAlgorithm,
+                                   Input signature, Input subjectPublicKeyInfo,
+                                   void* pkcs11PinArg);
+
+// Verifies the RSA-PSS signature on the given data using the given RSA
+// public key.
+Result VerifyRSAPSSSignedDataNSS(Input data, DigestAlgorithm digestAlgorithm,
+                                 Input signature, Input subjectPublicKeyInfo,
+                                 void* pkcs11PinArg);
 
 // Verifies the ECDSA signature on the given data using the given ECC public
 // key.
-Result VerifyECDSASignedDigestNSS(const SignedDigest& sd,
-                                  Input subjectPublicKeyInfo,
-                                  void* pkcs11PinArg);
+Result VerifyECDSASignedDataNSS(Input data, DigestAlgorithm digestAlgorithm,
+                                Input signature, Input subjectPublicKeyInfo,
+                                void* pkcs11PinArg);
 
 // Computes the digest of the given data using the given digest algorithm.
 //
@@ -99,7 +106,7 @@ inline SECItem UnsafeMapInputToSECItem(Input input) {
                 "input.GetLength() must fit in a SECItem");
   return result;
 }
-}
-}  // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla
 
 #endif  // mozilla_pkix_pkixnss_h

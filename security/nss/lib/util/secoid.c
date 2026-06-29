@@ -694,7 +694,7 @@ const static SECOidData oids[SEC_OID_TOTAL] = {
        CKM_PBE_MD5_DES_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs5PbeWithSha1AndDEScbc, SEC_OID_PKCS5_PBE_WITH_SHA1_AND_DES_CBC,
        "PKCS #5 Password Based Encryption with SHA-1 and DES-CBC",
-       CKM_NETSCAPE_PBE_SHA1_DES_CBC, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_DES_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs7, SEC_OID_PKCS7,
        "PKCS #7", CKM_INVALID_MECHANISM, INVALID_CERT_EXTENSION),
     OD(pkcs7Data, SEC_OID_PKCS7_DATA,
@@ -962,23 +962,23 @@ const static SECOidData oids[SEC_OID_TOTAL] = {
     OD(pkcs12PBEWithSha1And128BitRC4,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_128_BIT_RC4,
        "PKCS #12 PBE With SHA-1 and 128 Bit RC4",
-       CKM_NETSCAPE_PBE_SHA1_128_BIT_RC4, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_128_BIT_RC4, INVALID_CERT_EXTENSION),
     OD(pkcs12PBEWithSha1And40BitRC4,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_40_BIT_RC4,
        "PKCS #12 PBE With SHA-1 and 40 Bit RC4",
-       CKM_NETSCAPE_PBE_SHA1_40_BIT_RC4, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_40_BIT_RC4, INVALID_CERT_EXTENSION),
     OD(pkcs12PBEWithSha1AndTripleDESCBC,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_TRIPLE_DES_CBC,
        "PKCS #12 PBE With SHA-1 and Triple DES-CBC",
-       CKM_NETSCAPE_PBE_SHA1_TRIPLE_DES_CBC, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_TRIPLE_DES_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs12PBEWithSha1And128BitRC2CBC,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_128_BIT_RC2_CBC,
        "PKCS #12 PBE With SHA-1 and 128 Bit RC2 CBC",
-       CKM_NETSCAPE_PBE_SHA1_128_BIT_RC2_CBC, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_128_BIT_RC2_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs12PBEWithSha1And40BitRC2CBC,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_40_BIT_RC2_CBC,
        "PKCS #12 PBE With SHA-1 and 40 Bit RC2 CBC",
-       CKM_NETSCAPE_PBE_SHA1_40_BIT_RC2_CBC, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_40_BIT_RC2_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs12RSAEncryptionWith128BitRC4,
        SEC_OID_PKCS12_RSA_ENCRYPTION_WITH_128_BIT_RC4,
        "PKCS #12 RSA Encryption with 128 Bit RC4",
@@ -2058,7 +2058,7 @@ SECOID_Init(void)
 {
     PLHashEntry *entry;
     const SECOidData *oid;
-    int i;
+    SECOidTag i;
     char *envVal;
 
 #define NSS_VERSION_VARIABLE __nss_util_version
@@ -2118,7 +2118,7 @@ SECOID_Init(void)
 
         if (oid->mechanism != CKM_INVALID_MECHANISM) {
             entry = PL_HashTableAdd(oidmechhash,
-                                    (void *)oid->mechanism, (void *)oid);
+                                    (void *)(uintptr_t)oid->mechanism, (void *)oid);
             if (entry == NULL) {
                 PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
                 PORT_Assert(0); /* This function should never fail. */
@@ -2137,9 +2137,13 @@ SECOID_FindOIDByMechanism(unsigned long mechanism)
 {
     SECOidData *ret;
 
-    PR_ASSERT(oidhash != NULL);
+    PR_ASSERT(oidmechhash != NULL);
+    if (oidmechhash == NULL && SECOID_Init() != SECSuccess) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return NULL;
+    }
 
-    ret = PL_HashTableLookupConst(oidmechhash, (void *)mechanism);
+    ret = PL_HashTableLookupConst(oidmechhash, (void *)(uintptr_t)mechanism);
     if (ret == NULL) {
         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
     }
@@ -2153,6 +2157,10 @@ SECOID_FindOID(const SECItem *oid)
     SECOidData *ret;
 
     PR_ASSERT(oidhash != NULL);
+    if (oidhash == NULL && SECOID_Init() != SECSuccess) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return NULL;
+    }
 
     ret = PL_HashTableLookupConst(oidhash, oid);
     if (ret == NULL) {
@@ -2244,6 +2252,8 @@ NSS_GetAlgorithmPolicy(SECOidTag tag, PRUint32 *pValue)
     return SECSuccess;
 }
 
+static PRBool nss_policy_locked = PR_FALSE;
+
 /* The Set function modifies the stored value according to the following
  * algorithm:
  *   policy[tag] = (policy[tag] & ~clearBits) | setBits;
@@ -2255,6 +2265,11 @@ NSS_SetAlgorithmPolicy(SECOidTag tag, PRUint32 setBits, PRUint32 clearBits)
     PRUint32 policyFlags;
     if (!pxo)
         return SECFailure;
+
+    if (nss_policy_locked) {
+        PORT_SetError(SEC_ERROR_POLICY_LOCKED);
+        return SECFailure;
+    }
     /* The stored policy flags are the ones complement of the flags as
      * seen by the user.  This is not atomic, but these changes should
      * be done rarely, e.g. at initialization time.
@@ -2263,6 +2278,20 @@ NSS_SetAlgorithmPolicy(SECOidTag tag, PRUint32 setBits, PRUint32 clearBits)
     policyFlags = (policyFlags & ~clearBits) | setBits;
     pxo->notPolicyFlags = ~policyFlags;
     return SECSuccess;
+}
+
+/* Get the state of nss_policy_locked */
+PRBool
+NSS_IsPolicyLocked(void)
+{
+    return nss_policy_locked;
+}
+
+/* Once the policy is locked, it can't be unlocked */
+void
+NSS_LockPolicy(void)
+{
+    nss_policy_locked = PR_TRUE;
 }
 
 /* --------- END OF opaque extended OID table accessor functions ---------*/
@@ -2326,6 +2355,9 @@ SECOID_Shutdown(void)
         dynOidEntriesAllocated = 0;
         dynOidEntriesUsed = 0;
     }
+    /* we are trashing the old policy state now, also reenable changing
+     * the policy as well */
+    nss_policy_locked = PR_FALSE;
     memset(xOids, 0, sizeof xOids);
     return SECSuccess;
 }

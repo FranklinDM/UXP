@@ -92,6 +92,11 @@ definite_length_decoder(const unsigned char* buf,
         }
     }
 
+    if ((tag & SEC_ASN1_TAGNUM_MASK) == SEC_ASN1_NULL && data_length != 0) {
+        /* The DER encoding of NULL has no contents octets */
+        return NULL;
+    }
+
     if (data_length > (buf_length - used_length)) {
         /* The decoded length exceeds the available buffer */
         return NULL;
@@ -517,11 +522,18 @@ DecodeGroup(void* dest,
             }
         } while ((SECSuccess == rv) && (counter.len));
 
+        /* Limit entry data to 1 GiB. */
+        if (SECSuccess == rv && subTemplate->size &&
+            totalEntries > ((size_t)1 << 30) / subTemplate->size) {
+            PORT_SetError(SEC_ERROR_BAD_DER);
+            rv = SECFailure;
+        }
+
         if (SECSuccess == rv) {
             /* allocate room for pointer array and entries */
             /* we want to allocate the array even if there is 0 entry */
             entries = (void**)PORT_ArenaZAlloc(arena, sizeof(void*) * (totalEntries + 1) + /* the extra one is for NULL termination */
-                                                          subTemplate->size * totalEntries);
+                                                          (size_t)subTemplate->size * totalEntries);
 
             if (entries) {
                 entries[totalEntries] = NULL; /* terminate the array */
@@ -535,7 +547,7 @@ DecodeGroup(void* dest,
                 PRUint32 entriesIndex = 0;
                 for (entriesIndex = 0; entriesIndex < totalEntries; entriesIndex++) {
                     entries[entriesIndex] =
-                        (char*)entriesData + (subTemplate->size * entriesIndex);
+                        (char*)entriesData + ((size_t)subTemplate->size * entriesIndex);
                 }
             }
         }
@@ -742,15 +754,18 @@ DecodeItem(void* dest,
                     switch (tagnum) {
                         /* special cases of primitive types */
                         case SEC_ASN1_INTEGER: {
-                            /* remove leading zeroes if the caller requested
-                               siUnsignedInteger
-                               This is to allow RSA key operations to work */
                             SECItem* destItem = (SECItem*)((char*)dest +
                                                            templateEntry->offset);
                             if (destItem && (siUnsignedInteger == destItem->type)) {
-                                while (temp.len > 1 && temp.data[0] == 0) { /* leading 0 */
+                                /* A leading 0 is only allowed when a value
+                                 * would otherwise be interpreted as negative. */
+                                if (temp.len > 1 && temp.data[0] == 0) {
                                     temp.data++;
                                     temp.len--;
+                                    if (!(temp.data[0] & 0x80)) {
+                                        PORT_SetError(SEC_ERROR_BAD_DER);
+                                        rv = SECFailure;
+                                    }
                                 }
                             }
                             break;

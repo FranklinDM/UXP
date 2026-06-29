@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -233,13 +234,13 @@ TEST_P(Tls13SkipTest, SkipClientCertificateVerify) {
                  SSL_ERROR_RX_UNEXPECTED_FINISHED);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SkipTls10, TlsSkipTest,
     ::testing::Combine(TlsConnectTestBase::kTlsVariantsStream,
                        TlsConnectTestBase::kTlsV10));
-INSTANTIATE_TEST_CASE_P(SkipVariants, TlsSkipTest,
-                        ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
-                                           TlsConnectTestBase::kTlsV11V12));
-INSTANTIATE_TEST_CASE_P(Skip13Variants, Tls13SkipTest,
-                        TlsConnectTestBase::kTlsVariantsAll);
+INSTANTIATE_TEST_SUITE_P(SkipVariants, TlsSkipTest,
+                         ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
+                                            TlsConnectTestBase::kTlsV11V12));
+INSTANTIATE_TEST_SUITE_P(Skip13Variants, Tls13SkipTest,
+                         TlsConnectTestBase::kTlsVariantsAll);
 }  // namespace nss_test

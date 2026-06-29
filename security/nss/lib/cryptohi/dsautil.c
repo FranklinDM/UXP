@@ -15,13 +15,12 @@ typedef struct {
     SECItem s;
 } DSA_ASN1Signature;
 
-const SEC_ASN1Template DSA_SignatureTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(DSA_ASN1Signature) },
-      { SEC_ASN1_INTEGER, offsetof(DSA_ASN1Signature, r) },
-      { SEC_ASN1_INTEGER, offsetof(DSA_ASN1Signature, s) },
-      { 0 }
-    };
+const SEC_ASN1Template DSA_SignatureTemplate[] = {
+    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(DSA_ASN1Signature) },
+    { SEC_ASN1_INTEGER, offsetof(DSA_ASN1Signature, r) },
+    { SEC_ASN1_INTEGER, offsetof(DSA_ASN1Signature, s) },
+    { 0 }
+};
 
 /* Input is variable length multi-byte integer, MSB first (big endian).
 ** Most signficant bit of first byte is NOT treated as a sign bit.
@@ -73,19 +72,18 @@ DSAU_ConvertSignedToFixedUnsigned(SECItem *dest, SECItem *src)
     unsigned char *pDst = dest->data;
     unsigned int cntSrc = src->len;
     unsigned int cntDst = dest->len;
-    int zCount = cntDst - cntSrc;
 
-    if (zCount > 0) {
+    if (cntSrc <= cntDst) {
+        unsigned int zCount = cntDst - cntSrc;
         PORT_Memset(pDst, 0, zCount);
         PORT_Memcpy(pDst + zCount, pSrc, cntSrc);
         return SECSuccess;
     }
-    if (zCount <= 0) {
-        /* Source is longer than destination.  Check for leading zeros. */
-        while (zCount++ < 0) {
-            if (*pSrc++ != 0)
-                goto loser;
-        }
+    /* Source is longer than destination: extra leading bytes must be zero. */
+    unsigned int extra = cntSrc - cntDst;
+    while (extra--) {
+        if (*pSrc++ != 0)
+            goto loser;
     }
     PORT_Memcpy(pDst, pSrc, cntDst);
     return SECSuccess;
@@ -189,6 +187,12 @@ common_DecodeDerSig(const SECItem *item, unsigned int len)
     sig.s.type = siUnsignedInteger;
     status = SEC_QuickDERDecodeItem(&arena.arena, &sig, DSA_SignatureTemplate, item);
     if (status != SECSuccess)
+        goto loser;
+
+    /* A valid DER INTEGER for r or s is at most len+1 bytes (len bytes of
+    ** magnitude plus at most one leading zero sign byte).  Reject anything
+    ** larger before attempting the conversion to avoid pathological inputs. */
+    if (sig.r.len > len + 1 || sig.s.len > len + 1)
         goto loser;
 
     /* Convert sig.r and sig.s from variable  length signed integers to

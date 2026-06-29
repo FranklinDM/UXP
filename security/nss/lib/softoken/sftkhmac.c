@@ -9,10 +9,10 @@
 #include "softoken.h"
 #include "hmacct.h"
 
-/* HMACMechanismToHash converts a PKCS#11 MAC mechanism into a freebl hash
+/* sftk_HMACMechanismToHash converts a PKCS#11 MAC mechanism into a freebl hash
  * type. */
-static HASH_HashType
-HMACMechanismToHash(CK_MECHANISM_TYPE mech)
+HASH_HashType
+sftk_HMACMechanismToHash(CK_MECHANISM_TYPE mech)
 {
     switch (mech) {
         case CKM_MD2_HMAC:
@@ -50,7 +50,7 @@ SetupMAC(CK_MECHANISM_PTR mech, SFTKObject *key)
         return NULL;
     }
 
-    alg = HMACMechanismToHash(params->macAlg);
+    alg = sftk_HMACMechanismToHash(params->macAlg);
     if (alg == HASH_AlgNULL) {
         return NULL;
     }
@@ -69,6 +69,7 @@ SetupMAC(CK_MECHANISM_PTR mech, SFTKObject *key)
 
     ctx = PORT_Alloc(sizeof(sftk_MACConstantTimeCtx));
     if (!ctx) {
+        PORT_Memset(secret, 0, secretLength);
         return NULL;
     }
 
@@ -76,6 +77,7 @@ SetupMAC(CK_MECHANISM_PTR mech, SFTKObject *key)
     ctx->secretLength = secretLength;
     ctx->hash = HASH_GetRawHashObject(alg);
     ctx->totalLength = params->ulBodyTotalLen;
+    PORT_Memset(secret, 0, secretLength);
 
     return ctx;
 }
@@ -188,7 +190,7 @@ sftk_MACConstantTime_EndHash(void *pctx, void *out, unsigned int *outLength,
 void
 sftk_MACConstantTime_DestroyContext(void *pctx, PRBool free)
 {
-    PORT_Free(pctx);
+    PORT_ZFree(pctx, sizeof(sftk_MACConstantTimeCtx));
 }
 
 CK_RV
@@ -217,7 +219,7 @@ CK_RV
 sftk_MAC_Init(sftk_MACCtx *ctx, CK_MECHANISM_TYPE mech, SFTKObject *key)
 {
     SFTKAttribute *keyval = NULL;
-    PRBool isFIPS = (key->slot->slotID == FIPS_SLOT_ID);
+    PRBool isFIPS = sftk_isFIPS(key->slot->slotID);
     CK_RV ret = CKR_OK;
 
     /* Find the actual value of the key. */
@@ -232,7 +234,9 @@ sftk_MAC_Init(sftk_MACCtx *ctx, CK_MECHANISM_TYPE mech, SFTKObject *key)
                            keyval->attrib.ulValueLen, isFIPS);
 
 done:
-    sftk_FreeAttribute(keyval);
+    if (keyval) {
+        sftk_FreeAttribute(keyval);
+    }
     return ret;
 }
 
@@ -261,7 +265,7 @@ sftk_MAC_InitRaw(sftk_MACCtx *ctx, CK_MECHANISM_TYPE mech, const unsigned char *
         case CKM_SHA256_HMAC:
         case CKM_SHA384_HMAC:
         case CKM_SHA512_HMAC:
-            hashObj = HASH_GetRawHashObject(HMACMechanismToHash(mech));
+            hashObj = HASH_GetRawHashObject(sftk_HMACMechanismToHash(mech));
 
             /* Because we condition above only on hashes we know to be valid,
              * hashObj should never be NULL. This assert is only useful when
@@ -355,7 +359,7 @@ sftk_MAC_Reset(sftk_MACCtx *ctx)
 }
 
 CK_RV
-sftk_MAC_Update(sftk_MACCtx *ctx, CK_BYTE_PTR data, unsigned int data_len)
+sftk_MAC_Update(sftk_MACCtx *ctx, const CK_BYTE *data, unsigned int data_len)
 {
     switch (ctx->mech) {
         case CKM_MD2_HMAC:

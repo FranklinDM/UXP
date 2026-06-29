@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -302,10 +303,11 @@ TestKeyPair* GenerateDSSKeyPair();
 inline void DeleteTestKeyPair(TestKeyPair* keyPair) { delete keyPair; }
 typedef std::unique_ptr<TestKeyPair> ScopedTestKeyPair;
 
-Result TestVerifyECDSASignedDigest(const SignedDigest& signedDigest,
-                                   Input subjectPublicKeyInfo);
-Result TestVerifyRSAPKCS1SignedDigest(const SignedDigest& signedDigest,
-                                      Input subjectPublicKeyInfo);
+Result TestVerifyECDSASignedData(Input data, DigestAlgorithm digestAlgorithm,
+                                 Input signature, Input subjectPublicKeyInfo);
+Result TestVerifyRSAPKCS1SignedData(Input data, DigestAlgorithm digestAlgorithm,
+                                    Input signature,
+                                    Input subjectPublicKeyInfo);
 Result TestDigestBuf(Input item, DigestAlgorithm digestAlg,
                      /*out*/ uint8_t* digestBuf, size_t digestBufLen);
 
@@ -430,8 +432,8 @@ class OCSPResponseContext final {
 };
 
 ByteString CreateEncodedOCSPResponse(OCSPResponseContext& context);
-}
-}
-}  // namespace mozilla::pkix::test
+}  // namespace test
+}  // namespace pkix
+}  // namespace mozilla
 
 #endif  // mozilla_pkix_test_pkixtestutil_h

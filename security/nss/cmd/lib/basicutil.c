@@ -17,6 +17,7 @@
 
 #include "basicutil.h"
 #include <stdarg.h>
+#include <stddef.h>
 #include <sys/stat.h>
 #include <errno.h>
 
@@ -632,7 +633,8 @@ void
 SECU_PrintPRandOSError(const char *progName)
 {
     char buffer[513];
-    PRInt32 errLen = PR_GetErrorTextLength();
+    PRInt32 errLenInt = PR_GetErrorTextLength();
+    size_t errLen = errLenInt < 0 ? 0 : (size_t)errLenInt;
     if (errLen > 0 && errLen < sizeof buffer) {
         PR_GetErrorText(buffer);
     }
@@ -677,9 +679,8 @@ SECU_SECItemToHex(const SECItem *item, char *dst)
         unsigned char *src = item->data;
         unsigned int len = item->len;
         for (; len > 0; --len, dst += 2) {
-            sprintf(dst, "%02x", *src++);
+            snprintf(dst, 3, "%02x", *src++);
         }
-        *dst = '\0';
     }
 }
 
@@ -739,7 +740,6 @@ SECU_HexString2SECItem(PLArenaPool *arena, SECItem *item, const char *str)
     int byteval = 0;
     int tmp = PORT_Strlen(str);
 
-    PORT_Assert(arena);
     PORT_Assert(item);
 
     if ((tmp % 2) != 0) {
@@ -760,7 +760,9 @@ SECU_HexString2SECItem(PLArenaPool *arena, SECItem *item, const char *str)
         } else if ((str[i] >= 'A') && (str[i] <= 'F')) {
             tmp = str[i] - 'A' + 10;
         } else {
-            /* item is in arena and gets freed by the caller */
+            if (!arena) {
+                SECITEM_FreeItem(item, PR_FALSE);
+            }
             return NULL;
         }
 

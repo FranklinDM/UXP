@@ -30,11 +30,11 @@ run_verbose()
     if [ "$verbose" = 1 ]; then
         echo "$@"
         exec 3>&1
+        "$@" 1>&3 2>&3
+        exec 3>&-
     else
-        exec 3>/dev/null
+        "$@" >/dev/null
     fi
-    "$@" 1>&3 2>&3
-    exec 3>&-
 }
 
 # The prehistoric bash on Mac doesn't support @Q quoting.
@@ -67,10 +67,6 @@ sslkeylogfile=1
 
 gyp_params=(--depth="$cwd" --generator-output=".")
 ninja_params=()
-
-# Assume that the target architecture is the same as the host by default.
-host_arch=$(python "$cwd/coreconf/detect_host_arch.py")
-target_arch=$host_arch
 
 # Assume that MSVC is wanted if this is running on windows.
 platform=$(uname -s)
@@ -108,13 +104,14 @@ while [ $# -gt 0 ]; do
         --pprof) gyp_params+=(-Duse_pprof=1) ;;
         --asan) enable_sanitizer asan ;;
         --msan) enable_sanitizer msan ;;
+        --sourcecov) enable_sourcecov ;;
         --ubsan) enable_ubsan ;;
         --ubsan=?*) enable_ubsan "${1#*=}" ;;
         --fuzz) fuzz=1 ;;
         --fuzz=oss) fuzz=1; fuzz_oss=1 ;;
         --fuzz=tls) fuzz=1; fuzz_tls=1 ;;
-        --sancov) enable_sancov ;;
-        --sancov=?*) enable_sancov "${1#*=}" ;;
+        --sancov) enable_sancov; gyp_params+=(-Dcoverage=1) ;;
+        --sancov=?*) enable_sancov "${1#*=}"; gyp_params+=(-Dcoverage=1) ;;
         --emit-llvm) gyp_params+=(-Demit_llvm=1 -Dsign_libs=0) ;;
         --no-zdefs) gyp_params+=(-Dno_zdefs=1) ;;
         --static) gyp_params+=(-Dstatic_libs=1) ;;
@@ -130,11 +127,25 @@ while [ $# -gt 0 ]; do
         --enable-libpkix) gyp_params+=(-Ddisable_libpkix=0) ;;
         --mozpkix-only) gyp_params+=(-Dmozpkix_only=1 -Ddisable_tests=1 -Dsign_libs=0) ;;
         --disable-keylog) sslkeylogfile=0 ;;
+        --enable-legacy-db) gyp_params+=(-Ddisable_dbm=0) ;;
+        --mozilla-central) gyp_params+=(-Dmozilla_central=1) ;;
+	--python) python="$2"; shift ;;
+	--python=*) python="${1#*=}" ;;
         -D*) gyp_params+=("$1") ;;
         *) show_help; exit 2 ;;
     esac
     shift
 done
+
+if [ -n "$python" ]; then
+    gyp_params+=(-Dpython="$python")
+fi
+
+if [ -z "$target_arch" ]; then
+    # Assume that the target architecture is the same as the host by default.
+    host_arch=$(${python:-python} "$cwd/coreconf/detect_host_arch.py")
+    target_arch=$host_arch
+fi
 
 # Set the target architecture and build type.
 gyp_params+=(-Dtarget_arch="$target_arch")
@@ -144,7 +155,7 @@ else
     target=Debug
 fi
 
-#gyp_params+=(-Denable_sslkeylogfile="$sslkeylogfile")
+gyp_params+=(-Denable_sslkeylogfile="$sslkeylogfile")
 
 # Do special setup.
 if [ "$fuzz" = 1 ]; then

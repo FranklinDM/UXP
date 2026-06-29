@@ -10,9 +10,9 @@
 
 namespace nss_test {
 
-class GHashTest : public ::testing::TestWithParam<gcm_kat_value> {
+class GHashTest : public ::testing::TestWithParam<AesGcmKatValue> {
  protected:
-  void TestGHash(const gcm_kat_value val, bool sw) {
+  void TestGHash(const AesGcmKatValue val, bool sw) {
     // Read test data.
     std::vector<uint8_t> hash_key = hex_string_to_bytes(val.hash_key);
     ASSERT_EQ(16UL, hash_key.size());
@@ -49,7 +49,7 @@ TEST_P(GHashTest, KAT_X86_HW) { TestGHash(GetParam(), false); }
 #endif
 TEST_P(GHashTest, KAT_Sftw) { TestGHash(GetParam(), true); }
 
-INSTANTIATE_TEST_CASE_P(NISTTestVector, GHashTest,
-                        ::testing::ValuesIn(kGcmKatValues));
+INSTANTIATE_TEST_SUITE_P(NISTTestVector, GHashTest,
+                         ::testing::ValuesIn(kGcmKatValues));
 
-}  // nss_test
+}  // namespace nss_test

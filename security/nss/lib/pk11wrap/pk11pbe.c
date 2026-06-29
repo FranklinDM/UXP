@@ -51,54 +51,50 @@ typedef struct sec_pkcs5V2ParameterStr sec_pkcs5V2Parameter;
  * based upon the additions in PKCS 12.  This should eventually be moved
  * if RSA updates PKCS 5.
  */
-const SEC_ASN1Template SEC_PKCS5PBEParameterTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE,
-        0, NULL, sizeof(SEC_PKCS5PBEParameter) },
-      { SEC_ASN1_OCTET_STRING,
-        offsetof(SEC_PKCS5PBEParameter, salt) },
-      { SEC_ASN1_INTEGER,
-        offsetof(SEC_PKCS5PBEParameter, iteration) },
-      { 0 }
-    };
+const SEC_ASN1Template SEC_PKCS5PBEParameterTemplate[] = {
+    { SEC_ASN1_SEQUENCE,
+      0, NULL, sizeof(SEC_PKCS5PBEParameter) },
+    { SEC_ASN1_OCTET_STRING,
+      offsetof(SEC_PKCS5PBEParameter, salt) },
+    { SEC_ASN1_INTEGER,
+      offsetof(SEC_PKCS5PBEParameter, iteration) },
+    { 0 }
+};
 
-const SEC_ASN1Template SEC_V2PKCS12PBEParameterTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(SEC_PKCS5PBEParameter) },
-      { SEC_ASN1_OCTET_STRING, offsetof(SEC_PKCS5PBEParameter, salt) },
-      { SEC_ASN1_INTEGER, offsetof(SEC_PKCS5PBEParameter, iteration) },
-      { 0 }
-    };
+const SEC_ASN1Template SEC_V2PKCS12PBEParameterTemplate[] = {
+    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(SEC_PKCS5PBEParameter) },
+    { SEC_ASN1_OCTET_STRING, offsetof(SEC_PKCS5PBEParameter, salt) },
+    { SEC_ASN1_INTEGER, offsetof(SEC_PKCS5PBEParameter, iteration) },
+    { 0 }
+};
 
 SEC_ASN1_MKSUB(SECOID_AlgorithmIDTemplate)
 
 /* SECOID_PKCS5_PBKDF2 */
-const SEC_ASN1Template SEC_PKCS5V2PBEParameterTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(SEC_PKCS5PBEParameter) },
-      /* This is really a choice, but since we only understand this
+const SEC_ASN1Template SEC_PKCS5V2PBEParameterTemplate[] = {
+    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(SEC_PKCS5PBEParameter) },
+    /* This is really a choice, but since we only understand this
      * choice, just inline it */
-      { SEC_ASN1_OCTET_STRING, offsetof(SEC_PKCS5PBEParameter, salt) },
-      { SEC_ASN1_INTEGER, offsetof(SEC_PKCS5PBEParameter, iteration) },
-      { SEC_ASN1_INTEGER | SEC_ASN1_OPTIONAL,
-        offsetof(SEC_PKCS5PBEParameter, keyLength) },
-      { SEC_ASN1_POINTER | SEC_ASN1_XTRN | SEC_ASN1_OPTIONAL,
-        offsetof(SEC_PKCS5PBEParameter, pPrfAlgId),
-        SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
-      { 0 }
-    };
+    { SEC_ASN1_OCTET_STRING, offsetof(SEC_PKCS5PBEParameter, salt) },
+    { SEC_ASN1_INTEGER, offsetof(SEC_PKCS5PBEParameter, iteration) },
+    { SEC_ASN1_INTEGER | SEC_ASN1_OPTIONAL,
+      offsetof(SEC_PKCS5PBEParameter, keyLength) },
+    { SEC_ASN1_POINTER | SEC_ASN1_XTRN | SEC_ASN1_OPTIONAL,
+      offsetof(SEC_PKCS5PBEParameter, pPrfAlgId),
+      SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
+    { 0 }
+};
 
 /* SEC_OID_PKCS5_PBES2, SEC_OID_PKCS5_PBMAC1 */
-const SEC_ASN1Template SEC_PKCS5V2ParameterTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(SEC_PKCS5PBEParameter) },
-      { SEC_ASN1_INLINE | SEC_ASN1_XTRN, offsetof(sec_pkcs5V2Parameter, pbeAlgId),
-        SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
-      { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
-        offsetof(sec_pkcs5V2Parameter, cipherAlgId),
-        SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
-      { 0 }
-    };
+const SEC_ASN1Template SEC_PKCS5V2ParameterTemplate[] = {
+    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(SEC_PKCS5PBEParameter) },
+    { SEC_ASN1_INLINE | SEC_ASN1_XTRN, offsetof(sec_pkcs5V2Parameter, pbeAlgId),
+      SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
+    { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
+      offsetof(sec_pkcs5V2Parameter, cipherAlgId),
+      SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
+    { 0 }
+};
 
 /*
  * maps a PBE algorithm to a crypto algorithm. for PKCS12 and PKCS5v1
@@ -302,35 +298,45 @@ SEC_PKCS5GetPBEAlgorithm(SECOidTag algTag, int keyLen)
     return SEC_OID_UNKNOWN;
 }
 
-static PRBool
-sec_pkcs5_is_algorithm_v2_aes_algorithm(SECOidTag algorithm)
-{
-    switch (algorithm) {
-        case SEC_OID_AES_128_CBC:
-        case SEC_OID_AES_192_CBC:
-        case SEC_OID_AES_256_CBC:
-            return PR_TRUE;
-        default:
-            return PR_FALSE;
-    }
-}
-
+/*
+ * Some oids encode the key size in the oid, while the actual PKCS
+ * PKCS #11 mechanism does not. In those cases we can't use
+ * the PKCS #11 automated key length code to select the key size.
+ */
 static int
-sec_pkcs5v2_aes_key_length(SECOidTag algorithm)
+sec_pkcs5v2_key_length_by_oid(SECOidTag algorithm)
 {
     switch (algorithm) {
-        /* The key length for the AES-CBC-Pad algorithms are
-         * determined from the undelying cipher algorithm.  */
         case SEC_OID_AES_128_CBC:
+        case SEC_OID_CAMELLIA_128_CBC:
             return AES_128_KEY_LENGTH;
         case SEC_OID_AES_192_CBC:
+        case SEC_OID_CAMELLIA_192_CBC:
             return AES_192_KEY_LENGTH;
         case SEC_OID_AES_256_CBC:
+        case SEC_OID_CAMELLIA_256_CBC:
             return AES_256_KEY_LENGTH;
         default:
             break;
     }
-    return 0;
+    return -1;
+}
+
+/* find the keylength from the algorithm id */
+static int
+sec_pkcs5v2_default_key_length(SECOidTag algorithm)
+{
+    CK_MECHANISM_TYPE cryptoMech;
+    int key_length = sec_pkcs5v2_key_length_by_oid(algorithm);
+    if (key_length != -1) {
+        return key_length;
+    }
+    cryptoMech = PK11_AlgtagToMechanism(algorithm);
+    if (cryptoMech == CKM_INVALID_MECHANISM) {
+        PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
+        return -1;
+    }
+    return PK11_GetMaxKeyLength(cryptoMech);
 }
 
 /*
@@ -366,34 +372,17 @@ sec_pkcs5v2_key_length(SECAlgorithmID *algid, SECAlgorithmID *cipherAlgId)
     if (cipherAlgId)
         cipherAlg = SECOID_GetAlgorithmTag(cipherAlgId);
 
-    if (sec_pkcs5_is_algorithm_v2_aes_algorithm(cipherAlg)) {
-        /* Previously, the PKCS#12 files created with the old NSS
-         * releases encoded the maximum key size of AES (that is 32)
-         * in the keyLength field of PBKDF2-params. That resulted in
-         * always performing AES-256 even if AES-128-CBC or
-         * AES-192-CBC is specified in the encryptionScheme field of
-         * PBES2-params. This is wrong, but for compatibility reasons,
-         * check the keyLength field and use the value if it is 32.
+    if (p5_param.keyLength.data != NULL) {
+        /* if the length is given, accept that length. This
+         * will allow us to decode old NSS encrypted data
+         * where we used the MAX keysize for the algorithm,
+         * but put an incorrect header for a different keysize.
          */
-        if (p5_param.keyLength.data != NULL) {
-            length = DER_GetInteger(&p5_param.keyLength);
-        }
-        /* If the keyLength field is present and contains a value
-         * other than 32, that means the file is created outside of
-         * NSS, which we don't care about. Note that the following
-         * also handles the case when the field is absent. */
-        if (length != 32) {
-            length = sec_pkcs5v2_aes_key_length(cipherAlg);
-        }
-    } else if (p5_param.keyLength.data != NULL) {
         length = DER_GetInteger(&p5_param.keyLength);
     } else {
-        CK_MECHANISM_TYPE cipherMech;
-        cipherMech = PK11_AlgtagToMechanism(cipherAlg);
-        if (cipherMech == CKM_INVALID_MECHANISM) {
-            goto loser;
-        }
-        length = PK11_GetMaxKeyLength(cipherMech);
+        /* if the keylength was not specified, figure it
+         * out from the oid */
+        length = sec_pkcs5v2_default_key_length(cipherAlg);
     }
 
 loser:
@@ -677,17 +666,10 @@ sec_pkcs5CreateAlgorithmID(SECOidTag algorithm,
             SECOidTag hashAlg = HASH_GetHashOidTagByHMACOidTag(cipherAlgorithm);
             if (hashAlg != SEC_OID_UNKNOWN) {
                 keyLength = HASH_ResultLenByOidTag(hashAlg);
-            } else if (sec_pkcs5_is_algorithm_v2_aes_algorithm(cipherAlgorithm)) {
-                keyLength = sec_pkcs5v2_aes_key_length(cipherAlgorithm);
             } else {
-                CK_MECHANISM_TYPE cryptoMech;
-                cryptoMech = PK11_AlgtagToMechanism(cipherAlgorithm);
-                if (cryptoMech == CKM_INVALID_MECHANISM) {
-                    goto loser;
-                }
-                keyLength = PK11_GetMaxKeyLength(cryptoMech);
+                keyLength = sec_pkcs5v2_default_key_length(cipherAlgorithm);
             }
-            if (keyLength == 0) {
+            if (keyLength <= 0) {
                 goto loser;
             }
         }
@@ -883,7 +865,9 @@ pbe_PK11AlgidToParam(SECAlgorithmID *algid, SECItem *mech)
         pbeV2_params->ulPrfDataLen = 0;
         pbeV2_params->saltSource = CKZ_SALT_SPECIFIED;
         pSalt = ((CK_CHAR_PTR)pbeV2_params) + sizeof(CK_PKCS5_PBKD2_PARAMS);
-        PORT_Memcpy(pSalt, salt->data, salt->len);
+        if (salt->data) {
+            PORT_Memcpy(pSalt, salt->data, salt->len);
+        }
         pbeV2_params->pSaltSourceData = pSalt;
         pbeV2_params->ulSaltSourceDataLen = salt->len;
         pbeV2_params->iterations = iterations;
@@ -899,7 +883,9 @@ pbe_PK11AlgidToParam(SECAlgorithmID *algid, SECItem *mech)
 
         pSalt = ((CK_CHAR_PTR)pbe_params) + sizeof(CK_PBE_PARAMS);
         pbe_params->pSalt = pSalt;
-        PORT_Memcpy(pSalt, salt->data, salt->len);
+        if (salt->data) {
+            PORT_Memcpy(pSalt, salt->data, salt->len);
+        }
         pbe_params->ulSaltLen = salt->len;
         if (iv_len) {
             pbe_params->pInitVector =
@@ -988,10 +974,10 @@ PBE_CreateContext(SECOidTag hashAlgorithm, PBEBitGenID bitGenPurpose,
                     mechanism = CKM_PBA_SHA1_WITH_SHA1_HMAC;
                     break;
                 case SEC_OID_MD2:
-                    mechanism = CKM_NETSCAPE_PBE_MD2_HMAC_KEY_GEN;
+                    mechanism = CKM_NSS_PBE_MD2_HMAC_KEY_GEN;
                     break;
                 case SEC_OID_MD5:
-                    mechanism = CKM_NETSCAPE_PBE_MD5_HMAC_KEY_GEN;
+                    mechanism = CKM_NSS_PBE_MD5_HMAC_KEY_GEN;
                     break;
                 default:
                     break;
@@ -1103,7 +1089,7 @@ SEC_PKCS5GetIV(SECAlgorithmID *algid, SECItem *pwitem, PRBool faulty3DES)
     CK_MECHANISM_TYPE type;
     SECItem *param = NULL;
     SECItem *iv = NULL;
-    SECItem src;
+    SECItem src = { siBuffer, NULL, 0 };
     int iv_len = 0;
     PK11SymKey *symKey;
     PK11SlotInfo *slot;
@@ -1143,7 +1129,7 @@ SEC_PKCS5GetIV(SECAlgorithmID *algid, SECItem *pwitem, PRBool faulty3DES)
     type = PK11_AlgtagToMechanism(pbeAlg);
     param = PK11_ParamFromAlgid(algid);
     if (param == NULL) {
-        goto done;
+        goto loser;
     }
     slot = PK11_GetInternalSlot();
     symKey = PK11_RawPBEKeyGen(slot, type, param, pwitem, faulty3DES, NULL);
@@ -1243,7 +1229,9 @@ PK11_CreatePBEParams(SECItem *salt, SECItem *pwd, unsigned int iterations)
     if (!pbe_params->pPassword) {
         goto loser;
     }
-    PORT_Memcpy(pbe_params->pPassword, pwd->data, pwd->len);
+    if (pwd->data) {
+        PORT_Memcpy(pbe_params->pPassword, pwd->data, pwd->len);
+    }
     pbe_params->ulPasswordLen = pwd->len;
 
     pbe_params->pSalt = (CK_CHAR_PTR)PORT_ZAlloc(salt->len);
@@ -1363,8 +1351,8 @@ PK11SymKey *
 PK11_RawPBEKeyGen(PK11SlotInfo *slot, CK_MECHANISM_TYPE type, SECItem *mech,
                   SECItem *pwitem, PRBool faulty3DES, void *wincx)
 {
-    if (faulty3DES && (type == CKM_NETSCAPE_PBE_SHA1_TRIPLE_DES_CBC)) {
-        type = CKM_NETSCAPE_PBE_SHA1_FAULTY_3DES_CBC;
+    if (faulty3DES && (type == CKM_NSS_PBE_SHA1_TRIPLE_DES_CBC)) {
+        type = CKM_NSS_PBE_SHA1_FAULTY_3DES_CBC;
     }
     return pk11_RawPBEKeyGenWithKeyType(slot, type, mech, -1, 0, pwitem, wincx);
 }
@@ -1421,8 +1409,8 @@ PK11_PBEKeyGen(PK11SlotInfo *slot, SECAlgorithmID *algid, SECItem *pwitem,
         PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
         goto loser;
     }
-    if (faulty3DES && (type == CKM_NETSCAPE_PBE_SHA1_TRIPLE_DES_CBC)) {
-        type = CKM_NETSCAPE_PBE_SHA1_FAULTY_3DES_CBC;
+    if (faulty3DES && (type == CKM_NSS_PBE_SHA1_TRIPLE_DES_CBC)) {
+        type = CKM_NSS_PBE_SHA1_FAULTY_3DES_CBC;
     }
     symKey = pk11_RawPBEKeyGenWithKeyType(slot, type, param, keyType, keyLen,
                                           pwitem, wincx);

@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -69,8 +70,9 @@ private:
     return Success;
   }
 
-  Result CheckRevocation(EndEntityOrCA, const CertID&, Time, Time, Duration,
-                         /*optional*/ const Input*, /*optional*/ const Input*)
+  Result CheckRevocation(EndEntityOrCA, const CertID&, Time, Duration,
+                         /*optional*/ const Input*, /*optional*/ const Input*,
+                         /*optional*/ const Input*)
                          override
   {
     return Success;
@@ -242,7 +244,7 @@ TEST_P(pkixcert_extension, ExtensionHandledProperly)
                            nullptr/*stapledOCSPResponse*/));
 }
 
-INSTANTIATE_TEST_CASE_P(pkixcert_extension,
+INSTANTIATE_TEST_SUITE_P(pkixcert_extension,
                         pkixcert_extension,
                         testing::ValuesIn(EXTENSION_TESTCASES));
 

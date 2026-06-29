@@ -6,6 +6,8 @@
  * Interfaces.
  */
 
+#include <stddef.h>
+
 #include "seccomon.h"
 #include "secmod.h"
 #include "nssilock.h"
@@ -29,7 +31,7 @@ pk11_FindRSAPubKey(PK11SlotInfo *slot)
     CK_KEY_TYPE key_type = CKK_RSA;
     CK_OBJECT_CLASS class_type = CKO_PUBLIC_KEY;
     CK_ATTRIBUTE theTemplate[2];
-    int template_count = sizeof(theTemplate) / sizeof(theTemplate[0]);
+    size_t template_count = sizeof(theTemplate) / sizeof(theTemplate[0]);
     CK_ATTRIBUTE *attrs = theTemplate;
 
     PK11_SETATTRS(attrs, CKA_CLASS, &class_type, sizeof(class_type));
@@ -76,15 +78,14 @@ pk11_KeyExchange(PK11SlotInfo *slot, CK_MECHANISM_TYPE type,
         if (privKeyHandle == CK_INVALID_HANDLE) {
             PK11RSAGenParams rsaParams;
 
-            if (symKeyLength > 53) /* bytes */ {
-                /* we'd have to generate an RSA key pair > 512 bits long,
+            if (symKeyLength > 120) /* bytes */ {
+                /* we'd have to generate an RSA key pair > 1024 bits long,
                 ** and that's too costly.  Don't even try.
                 */
                 PORT_SetError(SEC_ERROR_CANNOT_MOVE_SENSITIVE_KEY);
                 goto rsa_failed;
             }
-            rsaParams.keySizeInBits =
-                (symKeyLength > 21 || symKeyLength == 0) ? 512 : 256;
+            rsaParams.keySizeInBits = 1024;
             rsaParams.pe = 0x10001;
             privKey = PK11_GenerateKeyPair(slot, CKM_RSA_PKCS_KEY_PAIR_GEN,
                                            &rsaParams, &pubKey, PR_FALSE, PR_TRUE, symKey->cx);

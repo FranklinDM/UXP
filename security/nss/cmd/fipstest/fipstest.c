@@ -589,7 +589,7 @@ tdea_mct_test(int mode, unsigned char *key, unsigned int numKeys,
     for (i = 0; i < 400; i++) {
         /* if i == 0 CV[0] = IV  not necessary */
         /* record the count and key values and plainText */
-        sprintf(buf, "COUNT = %d\n", i);
+        snprintf(buf, sizeof(buf), "COUNT = %d\n", i);
         fputs(buf, resp);
         /* Output KEY1[i] */
         fputs("KEY1 = ", resp);
@@ -1027,7 +1027,7 @@ aes_gcm(char *reqfn, int encrypt)
     unsigned int tagbits;
     unsigned int taglen = 0;
     unsigned int ivlen;
-    CK_GCM_PARAMS params;
+    CK_NSS_GCM_PARAMS params;
     SECStatus rv;
 
     aesreq = fopen(reqfn, "r");
@@ -1511,7 +1511,7 @@ aes_ecb_mct(char *reqfn)
             }
 
             for (i = 0; i < 100; i++) {
-                sprintf(buf, "COUNT = %d\n", i);
+                snprintf(buf, sizeof(buf), "COUNT = %d\n", i);
                 fputs(buf, aesresp);
                 /* Output Key[i] */
                 fputs("KEY = ", aesresp);
@@ -1609,7 +1609,7 @@ aes_ecb_mct(char *reqfn)
             }
 
             for (i = 0; i < 100; i++) {
-                sprintf(buf, "COUNT = %d\n", i);
+                snprintf(buf, sizeof(buf), "COUNT = %d\n", i);
                 fputs(buf, aesresp);
                 /* Output Key[i] */
                 fputs("KEY = ", aesresp);
@@ -1808,7 +1808,7 @@ aes_cbc_mct(char *reqfn)
             }
 
             for (i = 0; i < 100; i++) {
-                sprintf(buf, "COUNT = %d\n", i);
+                snprintf(buf, sizeof(buf), "COUNT = %d\n", i);
                 fputs(buf, aesresp);
                 /* Output Key[i] */
                 fputs("KEY = ", aesresp);
@@ -1920,7 +1920,7 @@ aes_cbc_mct(char *reqfn)
             }
 
             for (i = 0; i < 100; i++) {
-                sprintf(buf, "COUNT = %d\n", i);
+                snprintf(buf, sizeof(buf), "COUNT = %d\n", i);
                 fputs(buf, aesresp);
                 /* Output Key[i] */
                 fputs("KEY = ", aesresp);
@@ -2105,87 +2105,86 @@ typedef struct curveNameTagPairStr {
 #define DEFAULT_CURVE_OID_TAG SEC_OID_SECG_EC_SECP192R1
 /* #define DEFAULT_CURVE_OID_TAG  SEC_OID_SECG_EC_SECP160R1 */
 
-static CurveNameTagPair nameTagPair[] =
-    {
-      { "sect163k1", SEC_OID_SECG_EC_SECT163K1 },
-      { "nistk163", SEC_OID_SECG_EC_SECT163K1 },
-      { "sect163r1", SEC_OID_SECG_EC_SECT163R1 },
-      { "sect163r2", SEC_OID_SECG_EC_SECT163R2 },
-      { "nistb163", SEC_OID_SECG_EC_SECT163R2 },
-      { "sect193r1", SEC_OID_SECG_EC_SECT193R1 },
-      { "sect193r2", SEC_OID_SECG_EC_SECT193R2 },
-      { "sect233k1", SEC_OID_SECG_EC_SECT233K1 },
-      { "nistk233", SEC_OID_SECG_EC_SECT233K1 },
-      { "sect233r1", SEC_OID_SECG_EC_SECT233R1 },
-      { "nistb233", SEC_OID_SECG_EC_SECT233R1 },
-      { "sect239k1", SEC_OID_SECG_EC_SECT239K1 },
-      { "sect283k1", SEC_OID_SECG_EC_SECT283K1 },
-      { "nistk283", SEC_OID_SECG_EC_SECT283K1 },
-      { "sect283r1", SEC_OID_SECG_EC_SECT283R1 },
-      { "nistb283", SEC_OID_SECG_EC_SECT283R1 },
-      { "sect409k1", SEC_OID_SECG_EC_SECT409K1 },
-      { "nistk409", SEC_OID_SECG_EC_SECT409K1 },
-      { "sect409r1", SEC_OID_SECG_EC_SECT409R1 },
-      { "nistb409", SEC_OID_SECG_EC_SECT409R1 },
-      { "sect571k1", SEC_OID_SECG_EC_SECT571K1 },
-      { "nistk571", SEC_OID_SECG_EC_SECT571K1 },
-      { "sect571r1", SEC_OID_SECG_EC_SECT571R1 },
-      { "nistb571", SEC_OID_SECG_EC_SECT571R1 },
-      { "secp160k1", SEC_OID_SECG_EC_SECP160K1 },
-      { "secp160r1", SEC_OID_SECG_EC_SECP160R1 },
-      { "secp160r2", SEC_OID_SECG_EC_SECP160R2 },
-      { "secp192k1", SEC_OID_SECG_EC_SECP192K1 },
-      { "secp192r1", SEC_OID_SECG_EC_SECP192R1 },
-      { "nistp192", SEC_OID_SECG_EC_SECP192R1 },
-      { "secp224k1", SEC_OID_SECG_EC_SECP224K1 },
-      { "secp224r1", SEC_OID_SECG_EC_SECP224R1 },
-      { "nistp224", SEC_OID_SECG_EC_SECP224R1 },
-      { "secp256k1", SEC_OID_SECG_EC_SECP256K1 },
-      { "secp256r1", SEC_OID_SECG_EC_SECP256R1 },
-      { "nistp256", SEC_OID_SECG_EC_SECP256R1 },
-      { "secp384r1", SEC_OID_SECG_EC_SECP384R1 },
-      { "nistp384", SEC_OID_SECG_EC_SECP384R1 },
-      { "secp521r1", SEC_OID_SECG_EC_SECP521R1 },
-      { "nistp521", SEC_OID_SECG_EC_SECP521R1 },
+static CurveNameTagPair nameTagPair[] = {
+    { "sect163k1", SEC_OID_SECG_EC_SECT163K1 },
+    { "nistk163", SEC_OID_SECG_EC_SECT163K1 },
+    { "sect163r1", SEC_OID_SECG_EC_SECT163R1 },
+    { "sect163r2", SEC_OID_SECG_EC_SECT163R2 },
+    { "nistb163", SEC_OID_SECG_EC_SECT163R2 },
+    { "sect193r1", SEC_OID_SECG_EC_SECT193R1 },
+    { "sect193r2", SEC_OID_SECG_EC_SECT193R2 },
+    { "sect233k1", SEC_OID_SECG_EC_SECT233K1 },
+    { "nistk233", SEC_OID_SECG_EC_SECT233K1 },
+    { "sect233r1", SEC_OID_SECG_EC_SECT233R1 },
+    { "nistb233", SEC_OID_SECG_EC_SECT233R1 },
+    { "sect239k1", SEC_OID_SECG_EC_SECT239K1 },
+    { "sect283k1", SEC_OID_SECG_EC_SECT283K1 },
+    { "nistk283", SEC_OID_SECG_EC_SECT283K1 },
+    { "sect283r1", SEC_OID_SECG_EC_SECT283R1 },
+    { "nistb283", SEC_OID_SECG_EC_SECT283R1 },
+    { "sect409k1", SEC_OID_SECG_EC_SECT409K1 },
+    { "nistk409", SEC_OID_SECG_EC_SECT409K1 },
+    { "sect409r1", SEC_OID_SECG_EC_SECT409R1 },
+    { "nistb409", SEC_OID_SECG_EC_SECT409R1 },
+    { "sect571k1", SEC_OID_SECG_EC_SECT571K1 },
+    { "nistk571", SEC_OID_SECG_EC_SECT571K1 },
+    { "sect571r1", SEC_OID_SECG_EC_SECT571R1 },
+    { "nistb571", SEC_OID_SECG_EC_SECT571R1 },
+    { "secp160k1", SEC_OID_SECG_EC_SECP160K1 },
+    { "secp160r1", SEC_OID_SECG_EC_SECP160R1 },
+    { "secp160r2", SEC_OID_SECG_EC_SECP160R2 },
+    { "secp192k1", SEC_OID_SECG_EC_SECP192K1 },
+    { "secp192r1", SEC_OID_SECG_EC_SECP192R1 },
+    { "nistp192", SEC_OID_SECG_EC_SECP192R1 },
+    { "secp224k1", SEC_OID_SECG_EC_SECP224K1 },
+    { "secp224r1", SEC_OID_SECG_EC_SECP224R1 },
+    { "nistp224", SEC_OID_SECG_EC_SECP224R1 },
+    { "secp256k1", SEC_OID_SECG_EC_SECP256K1 },
+    { "secp256r1", SEC_OID_SECG_EC_SECP256R1 },
+    { "nistp256", SEC_OID_SECG_EC_SECP256R1 },
+    { "secp384r1", SEC_OID_SECG_EC_SECP384R1 },
+    { "nistp384", SEC_OID_SECG_EC_SECP384R1 },
+    { "secp521r1", SEC_OID_SECG_EC_SECP521R1 },
+    { "nistp521", SEC_OID_SECG_EC_SECP521R1 },
 
-      { "prime192v1", SEC_OID_ANSIX962_EC_PRIME192V1 },
-      { "prime192v2", SEC_OID_ANSIX962_EC_PRIME192V2 },
-      { "prime192v3", SEC_OID_ANSIX962_EC_PRIME192V3 },
-      { "prime239v1", SEC_OID_ANSIX962_EC_PRIME239V1 },
-      { "prime239v2", SEC_OID_ANSIX962_EC_PRIME239V2 },
-      { "prime239v3", SEC_OID_ANSIX962_EC_PRIME239V3 },
+    { "prime192v1", SEC_OID_ANSIX962_EC_PRIME192V1 },
+    { "prime192v2", SEC_OID_ANSIX962_EC_PRIME192V2 },
+    { "prime192v3", SEC_OID_ANSIX962_EC_PRIME192V3 },
+    { "prime239v1", SEC_OID_ANSIX962_EC_PRIME239V1 },
+    { "prime239v2", SEC_OID_ANSIX962_EC_PRIME239V2 },
+    { "prime239v3", SEC_OID_ANSIX962_EC_PRIME239V3 },
 
-      { "c2pnb163v1", SEC_OID_ANSIX962_EC_C2PNB163V1 },
-      { "c2pnb163v2", SEC_OID_ANSIX962_EC_C2PNB163V2 },
-      { "c2pnb163v3", SEC_OID_ANSIX962_EC_C2PNB163V3 },
-      { "c2pnb176v1", SEC_OID_ANSIX962_EC_C2PNB176V1 },
-      { "c2tnb191v1", SEC_OID_ANSIX962_EC_C2TNB191V1 },
-      { "c2tnb191v2", SEC_OID_ANSIX962_EC_C2TNB191V2 },
-      { "c2tnb191v3", SEC_OID_ANSIX962_EC_C2TNB191V3 },
-      { "c2onb191v4", SEC_OID_ANSIX962_EC_C2ONB191V4 },
-      { "c2onb191v5", SEC_OID_ANSIX962_EC_C2ONB191V5 },
-      { "c2pnb208w1", SEC_OID_ANSIX962_EC_C2PNB208W1 },
-      { "c2tnb239v1", SEC_OID_ANSIX962_EC_C2TNB239V1 },
-      { "c2tnb239v2", SEC_OID_ANSIX962_EC_C2TNB239V2 },
-      { "c2tnb239v3", SEC_OID_ANSIX962_EC_C2TNB239V3 },
-      { "c2onb239v4", SEC_OID_ANSIX962_EC_C2ONB239V4 },
-      { "c2onb239v5", SEC_OID_ANSIX962_EC_C2ONB239V5 },
-      { "c2pnb272w1", SEC_OID_ANSIX962_EC_C2PNB272W1 },
-      { "c2pnb304w1", SEC_OID_ANSIX962_EC_C2PNB304W1 },
-      { "c2tnb359v1", SEC_OID_ANSIX962_EC_C2TNB359V1 },
-      { "c2pnb368w1", SEC_OID_ANSIX962_EC_C2PNB368W1 },
-      { "c2tnb431r1", SEC_OID_ANSIX962_EC_C2TNB431R1 },
+    { "c2pnb163v1", SEC_OID_ANSIX962_EC_C2PNB163V1 },
+    { "c2pnb163v2", SEC_OID_ANSIX962_EC_C2PNB163V2 },
+    { "c2pnb163v3", SEC_OID_ANSIX962_EC_C2PNB163V3 },
+    { "c2pnb176v1", SEC_OID_ANSIX962_EC_C2PNB176V1 },
+    { "c2tnb191v1", SEC_OID_ANSIX962_EC_C2TNB191V1 },
+    { "c2tnb191v2", SEC_OID_ANSIX962_EC_C2TNB191V2 },
+    { "c2tnb191v3", SEC_OID_ANSIX962_EC_C2TNB191V3 },
+    { "c2onb191v4", SEC_OID_ANSIX962_EC_C2ONB191V4 },
+    { "c2onb191v5", SEC_OID_ANSIX962_EC_C2ONB191V5 },
+    { "c2pnb208w1", SEC_OID_ANSIX962_EC_C2PNB208W1 },
+    { "c2tnb239v1", SEC_OID_ANSIX962_EC_C2TNB239V1 },
+    { "c2tnb239v2", SEC_OID_ANSIX962_EC_C2TNB239V2 },
+    { "c2tnb239v3", SEC_OID_ANSIX962_EC_C2TNB239V3 },
+    { "c2onb239v4", SEC_OID_ANSIX962_EC_C2ONB239V4 },
+    { "c2onb239v5", SEC_OID_ANSIX962_EC_C2ONB239V5 },
+    { "c2pnb272w1", SEC_OID_ANSIX962_EC_C2PNB272W1 },
+    { "c2pnb304w1", SEC_OID_ANSIX962_EC_C2PNB304W1 },
+    { "c2tnb359v1", SEC_OID_ANSIX962_EC_C2TNB359V1 },
+    { "c2pnb368w1", SEC_OID_ANSIX962_EC_C2PNB368W1 },
+    { "c2tnb431r1", SEC_OID_ANSIX962_EC_C2TNB431R1 },
 
-      { "secp112r1", SEC_OID_SECG_EC_SECP112R1 },
-      { "secp112r2", SEC_OID_SECG_EC_SECP112R2 },
-      { "secp128r1", SEC_OID_SECG_EC_SECP128R1 },
-      { "secp128r2", SEC_OID_SECG_EC_SECP128R2 },
+    { "secp112r1", SEC_OID_SECG_EC_SECP112R1 },
+    { "secp112r2", SEC_OID_SECG_EC_SECP112R2 },
+    { "secp128r1", SEC_OID_SECG_EC_SECP128R1 },
+    { "secp128r2", SEC_OID_SECG_EC_SECP128R2 },
 
-      { "sect113r1", SEC_OID_SECG_EC_SECT113R1 },
-      { "sect113r2", SEC_OID_SECG_EC_SECT113R2 },
-      { "sect131r1", SEC_OID_SECG_EC_SECT131R1 },
-      { "sect131r2", SEC_OID_SECG_EC_SECT131R2 },
-    };
+    { "sect113r1", SEC_OID_SECG_EC_SECT113R1 },
+    { "sect113r2", SEC_OID_SECG_EC_SECT113R2 },
+    { "sect131r1", SEC_OID_SECG_EC_SECT131R1 },
+    { "sect131r2", SEC_OID_SECG_EC_SECT131R2 },
+};
 
 static SECItem *
 getECParams(const char *curve)
@@ -4663,7 +4662,7 @@ sha_mct_test(unsigned int MDLen, unsigned char *seed, FILE *resp)
         /* seed = MD_i */
         memcpy(seed, MD_i, MDLen);
 
-        sprintf(buf, "COUNT = %d\n", j);
+        snprintf(buf, sizeof(buf), "COUNT = %d\n", j);
         fputs(buf, resp);
 
         /* output MD_i */
@@ -6660,12 +6659,9 @@ tls(char *reqfn)
     };
     CK_ULONG derive_template_count =
         sizeof(derive_template) / sizeof(derive_template[0]);
-    CK_ATTRIBUTE master_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE kb1_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE kb2_template =
-        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE master_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE kb1_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE kb2_template = { CKA_VALUE, NULL, 0 };
 
     CK_MECHANISM master_mech = { CKM_TLS_MASTER_KEY_DERIVE, NULL, 0 };
     CK_MECHANISM key_block_mech = { CKM_TLS_KEY_AND_MAC_DERIVE, NULL, 0 };
@@ -6990,14 +6986,10 @@ ikev1(char *reqfn)
     };
     CK_ULONG derive_template_count =
         sizeof(derive_template) / sizeof(derive_template[0]);
-    CK_ATTRIBUTE skeyid_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE skeyid_d_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE skeyid_a_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE skeyid_e_template =
-        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_d_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_a_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_e_template = { CKA_VALUE, NULL, 0 };
     unsigned char skeyid_secret[HASH_LENGTH_MAX];
     unsigned char skeyid_d_secret[HASH_LENGTH_MAX];
     unsigned char skeyid_a_secret[HASH_LENGTH_MAX];
@@ -7384,14 +7376,10 @@ ikev1_psk(char *reqfn)
     };
     CK_ULONG derive_template_count =
         sizeof(derive_template) / sizeof(derive_template[0]);
-    CK_ATTRIBUTE skeyid_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE skeyid_d_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE skeyid_a_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE skeyid_e_template =
-        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_d_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_a_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_e_template = { CKA_VALUE, NULL, 0 };
     unsigned char skeyid_secret[HASH_LENGTH_MAX];
     unsigned char skeyid_d_secret[HASH_LENGTH_MAX];
     unsigned char skeyid_a_secret[HASH_LENGTH_MAX];
@@ -7817,12 +7805,9 @@ ikev2(char *reqfn)
     };
     CK_ULONG derive_template_count =
         sizeof(derive_template) / sizeof(derive_template[0]);
-    CK_ATTRIBUTE skeyseed_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE dkm_template =
-        { CKA_VALUE, NULL, 0 };
-    CK_ATTRIBUTE dkm_child_template =
-        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyseed_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE dkm_template = { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE dkm_child_template = { CKA_VALUE, NULL, 0 };
     unsigned char skeyseed_secret[HASH_LENGTH_MAX];
 
     CK_MECHANISM ike_mech = { CKM_NSS_IKE_PRF_DERIVE, NULL, 0 };
@@ -8231,6 +8216,527 @@ loser:
         fclose(ikereq);
 }
 
+void
+kbkdf(char *path)
+{
+    /* == Parser data == */
+    char buf[610]; /* holds one line from the input REQUEST file. Needs to
+                    * be large enough to hold the longest line:
+                    * "KO = <600 hex digits>\n". */
+    CK_ULONG L;
+    unsigned char KI[64];
+    unsigned int KI_len = 64;
+    unsigned char KO[300];
+    unsigned int KO_len = 300;
+    /* This is used only with feedback mode. */
+    unsigned char IV[64];
+    unsigned int IV_len = 64;
+    /* These are only used in counter mode with counter location as
+     * MIDDLE_FIXED. */
+    unsigned char BeforeFixedInputData[50];
+    unsigned int BeforeFixedInputData_len = 50;
+    unsigned char AfterFixedInputData[10];
+    unsigned int AfterFixedInputData_len = 10;
+    /* These are used with every KDF type. */
+    unsigned char FixedInputData[60];
+    unsigned int FixedInputData_len = 60;
+
+    /* Counter locations:
+     *
+     * 0: not used
+     * 1: beginning
+     * 2: middle
+     * 3: end */
+    int ctr_location = 0;
+    CK_ULONG counter_bitlen = 0;
+
+    size_t buf_offset;
+    size_t offset;
+
+    FILE *kbkdf_req = NULL;
+    FILE *kbkdf_resp = NULL;
+
+    /* == PKCS#11 data == */
+    CK_RV crv;
+
+    CK_SLOT_ID slotList[10];
+    CK_SLOT_ID slotID;
+    CK_ULONG slotListCount = sizeof(slotList) / sizeof(slotList[0]);
+    CK_ULONG slotCount = 0;
+
+    CK_MECHANISM kdf = { 0 };
+
+    CK_MECHANISM_TYPE prf_mech = 0;
+    CK_BBOOL ck_true = CK_TRUE;
+
+    /* We never need more than 3 data parameters. */
+    CK_PRF_DATA_PARAM dataParams[3];
+    CK_ULONG dataParams_len = 3;
+
+    CK_SP800_108_COUNTER_FORMAT iterator = { CK_FALSE, 0 };
+
+    CK_SP800_108_KDF_PARAMS kdfParams = { 0 };
+    CK_SP800_108_FEEDBACK_KDF_PARAMS feedbackParams = { 0 };
+
+    CK_OBJECT_CLASS ck_secret_key = CKO_SECRET_KEY;
+    CK_KEY_TYPE ck_generic = CKK_GENERIC_SECRET;
+
+    CK_ATTRIBUTE prf_template[] = {
+        { CKA_VALUE, &KI, sizeof(KI) },
+        { CKA_CLASS, &ck_secret_key, sizeof(ck_secret_key) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) }
+    };
+    CK_ULONG prf_template_count = sizeof(prf_template) / sizeof(prf_template[0]);
+
+    CK_ATTRIBUTE derive_template[] = {
+        { CKA_CLASS, &ck_secret_key, sizeof(ck_secret_key) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+        { CKA_VALUE_LEN, &L, sizeof(L) }
+    };
+    CK_ULONG derive_template_count = sizeof(derive_template) / sizeof(derive_template[0]);
+
+    CK_ATTRIBUTE output_key = { CKA_VALUE, KO, KO_len };
+
+    const CK_C_INITIALIZE_ARGS pk11args = {
+        NULL, NULL, NULL, NULL, CKF_LIBRARY_CANT_CREATE_OS_THREADS,
+        (void *)"flags=readOnly,noCertDB,noModDB", NULL
+    };
+
+    /* == Start up PKCS#11 == */
+    crv = NSC_Initialize((CK_VOID_PTR)&pk11args);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_Initialize failed crv=0x%x\n", (unsigned int)crv);
+        goto done;
+    }
+
+    slotCount = slotListCount;
+    crv = NSC_GetSlotList(PR_TRUE, slotList, &slotCount);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_GetSlotList failed crv=0x%x\n", (unsigned int)crv);
+        goto done;
+    }
+    if ((slotCount > slotListCount) || slotCount < 1) {
+        fprintf(stderr,
+                "NSC_GetSlotList returned too many or too few slots: %d slots max=%d min=1\n",
+                (int)slotCount, (int)slotListCount);
+        goto done;
+    }
+    slotID = slotList[0];
+
+    /* == Start parsing the file == */
+    kbkdf_req = fopen(path, "r");
+    kbkdf_resp = stdout;
+
+    while (fgets(buf, sizeof buf, kbkdf_req) != NULL) {
+        /* If we have a comment, check if it tells us the type of KDF to use.
+         * This differs per-file, so we have to parse it. */
+        if (buf[0] == '#' || buf[0] == '\n' || buf[0] == '\r') {
+            if (strncmp(buf, "# KDF Mode Supported: Counter Mode", 34) == 0) {
+                kdf.mechanism = CKM_SP800_108_COUNTER_KDF;
+            }
+            if (strncmp(buf, "# KDF Mode Supported: Feedback Mode", 35) == 0) {
+                kdf.mechanism = CKM_SP800_108_FEEDBACK_KDF;
+            }
+            if (strncmp(buf, "# KDF Mode Supported: DblPipeline Mode", 38) == 0) {
+                kdf.mechanism = CKM_SP800_108_DOUBLE_PIPELINE_KDF;
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* [....] - context directive */
+        if (buf[0] == '[') {
+            /* PRF begins each new section. */
+            if (strncmp(buf, "[PRF=CMAC_AES128]", 17) == 0) {
+                prf_mech = CKM_AES_CMAC;
+                KI_len = 16;
+            } else if (strncmp(buf, "[PRF=CMAC_AES192]", 17) == 0) {
+                prf_mech = CKM_AES_CMAC;
+                KI_len = 24;
+            } else if (strncmp(buf, "[PRF=CMAC_AES256]", 17) == 0) {
+                prf_mech = CKM_AES_CMAC;
+                KI_len = 32;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA1]", 15) == 0) {
+                prf_mech = CKM_SHA_1_HMAC;
+                KI_len = 20;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA224]", 17) == 0) {
+                prf_mech = CKM_SHA224_HMAC;
+                KI_len = 28;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA256]", 17) == 0) {
+                prf_mech = CKM_SHA256_HMAC;
+                KI_len = 32;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA384]", 17) == 0) {
+                prf_mech = CKM_SHA384_HMAC;
+                KI_len = 48;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA512]", 17) == 0) {
+                prf_mech = CKM_SHA512_HMAC;
+                KI_len = 64;
+            } else if (strncmp(buf, "[PRF=", 5) == 0) {
+                fprintf(stderr, "Invalid or unsupported PRF mechanism: %s\n", buf);
+                goto done;
+            }
+
+            /* Then comes counter, if present. */
+            if (strncmp(buf, "[CTRLOCATION=BEFORE_FIXED]", 26) == 0 ||
+                strncmp(buf, "[CTRLOCATION=BEFORE_ITER]", 24) == 0) {
+                ctr_location = 1;
+            }
+            if (strncmp(buf, "[CTRLOCATION=MIDDLE_FIXED]", 26) == 0 ||
+                strncmp(buf, "[CTRLOCATION=AFTER_ITER]", 24) == 0) {
+                ctr_location = 2;
+            }
+            if (strncmp(buf, "[CTRLOCATION=AFTER_FIXED]", 25) == 0) {
+                ctr_location = 3;
+            }
+
+            /* If counter is present, then we need to know its size. */
+            if (strncmp(buf, "[RLEN=", 6) == 0) {
+                if (sscanf(buf, "[RLEN=%lu_BITS]", &counter_bitlen) != 1) {
+                    goto done;
+                }
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Each test contains a counter, an output length L, an input key KI,
+         * maybe an initialization vector IV, one of a couple of fixed data
+         * buffers, and finally the output key KO. */
+
+        /* First comes COUNT. */
+        if (strncmp(buf, "COUNT=", 6) == 0) {
+            /* Clear all out data fields on each test. */
+            memset(KI, 0, sizeof KI);
+            memset(KO, 0, sizeof KO);
+            memset(IV, 0, sizeof IV);
+            memset(BeforeFixedInputData, 0, sizeof BeforeFixedInputData);
+            memset(AfterFixedInputData, 0, sizeof AfterFixedInputData);
+            memset(FixedInputData, 0, sizeof FixedInputData);
+
+            /* Then reset lengths except KI: it was determined by PRF
+             * selection above. */
+            KO_len = 0;
+            IV_len = 0;
+            BeforeFixedInputData_len = 0;
+            AfterFixedInputData_len = 0;
+            FixedInputData_len = 0;
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Then comes L. */
+        if (strncmp(buf, "L = ", 4) == 0) {
+            if (sscanf(buf, "L = %lu", &L) != 1) {
+                goto done;
+            }
+
+            if ((L % 8) != 0) {
+                fprintf(stderr, "Assumption that L was length in bits incorrect: %lu - %s", L, buf);
+                fprintf(stderr, "Note that NSS only supports byte-aligned outputs and not bit-aligned outputs.\n");
+                goto done;
+            }
+
+            L = L / 8;
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Then comes KI. */
+        if (strncmp(buf, "KI = ", 5) == 0) {
+            buf_offset = 5;
+
+            for (offset = 0; offset < KI_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, KI + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Then comes IVlen and IV, if present. */
+        if (strncmp(buf, "IVlen = ", 8) == 0) {
+            if (sscanf(buf, "IVlen = %u", &IV_len) != 1) {
+                goto done;
+            }
+
+            if ((IV_len % 8) != 0) {
+                fprintf(stderr, "Assumption that IV_len was length in bits incorrect: %u - %s. ", IV_len, buf);
+                fprintf(stderr, "Note that NSS only supports byte-aligned inputs and not bit-aligned inputs.\n");
+                goto done;
+            }
+
+            /* Need the IV length in bytes, not bits. */
+            IV_len = IV_len / 8;
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "IV = ", 5) == 0) {
+            buf_offset = 5;
+
+            for (offset = 0; offset < IV_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, IV + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* We might have DataBeforeCtr and DataAfterCtr if present. */
+        if (strncmp(buf, "DataBeforeCtrLen = ", 19) == 0) {
+            if (sscanf(buf, "DataBeforeCtrLen = %u", &BeforeFixedInputData_len) != 1) {
+                goto done;
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "DataBeforeCtrData = ", 20) == 0) {
+            buf_offset = 20;
+
+            for (offset = 0; offset < BeforeFixedInputData_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, BeforeFixedInputData + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "DataAfterCtrLen = ", 18) == 0) {
+            if (sscanf(buf, "DataAfterCtrLen = %u", &AfterFixedInputData_len) != 1) {
+                goto done;
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "DataAfterCtrData = ", 19) == 0) {
+            buf_offset = 19;
+
+            for (offset = 0; offset < AfterFixedInputData_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, AfterFixedInputData + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Otherwise, we might have FixedInputData, if present. */
+        if (strncmp(buf, "FixedInputDataByteLen = ", 24) == 0) {
+            if (sscanf(buf, "FixedInputDataByteLen = %u", &FixedInputData_len) != 1) {
+                goto done;
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "FixedInputData = ", 17) == 0) {
+            buf_offset = 17;
+
+            for (offset = 0; offset < FixedInputData_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, FixedInputData + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Finally, run the KBKDF calculation when KO is passed. */
+        if (strncmp(buf, "KO = ", 5) == 0) {
+            CK_SESSION_HANDLE session;
+            CK_OBJECT_HANDLE prf_key;
+            CK_OBJECT_HANDLE derived_key;
+
+            /* Open the session. */
+            crv = NSC_OpenSession(slotID, 0, NULL, NULL, &session);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_OpenSession failed crv=0x%x\n", (unsigned int)crv);
+                goto done;
+            }
+
+            /* Create the PRF key object. */
+            prf_template[0].ulValueLen = KI_len;
+            crv = NSC_CreateObject(session, prf_template, prf_template_count, &prf_key);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_CreateObject (prf_key) failed crv=0x%x\n", (unsigned int)crv);
+                goto done;
+            }
+
+            /* Set up the KDF parameters. */
+            if (kdf.mechanism == CKM_SP800_108_COUNTER_KDF) {
+                /* Counter operates in one of three ways: counter before fixed
+                 * input data, counter between fixed input data, and counter
+                 * after fixed input data. In all cases, we have an iterator.
+                 */
+                iterator.ulWidthInBits = counter_bitlen;
+
+                if (ctr_location == 0 || ctr_location > 3) {
+                    fprintf(stderr, "Expected ctr_location != 0 for Counter Mode KDF but got 0.\n");
+                    goto done;
+                } else if (ctr_location == 1) {
+                    /* Counter before */
+                    dataParams[0].type = CK_SP800_108_ITERATION_VARIABLE;
+                    dataParams[0].pValue = &iterator;
+                    dataParams[0].ulValueLen = sizeof(iterator);
+
+                    dataParams[1].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[1].pValue = FixedInputData;
+                    dataParams[1].ulValueLen = FixedInputData_len;
+
+                    dataParams_len = 2;
+                } else if (ctr_location == 2) {
+                    /* Counter between */
+                    dataParams[0].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[0].pValue = BeforeFixedInputData;
+                    dataParams[0].ulValueLen = BeforeFixedInputData_len;
+
+                    dataParams[1].type = CK_SP800_108_ITERATION_VARIABLE;
+                    dataParams[1].pValue = &iterator;
+                    dataParams[1].ulValueLen = sizeof(iterator);
+
+                    dataParams[2].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[2].pValue = AfterFixedInputData;
+                    dataParams[2].ulValueLen = AfterFixedInputData_len;
+
+                    dataParams_len = 3;
+                } else {
+                    /* Counter after */
+                    dataParams[0].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[0].pValue = FixedInputData;
+                    dataParams[0].ulValueLen = FixedInputData_len;
+
+                    dataParams[1].type = CK_SP800_108_ITERATION_VARIABLE;
+                    dataParams[1].pValue = &iterator;
+                    dataParams[1].ulValueLen = sizeof(iterator);
+
+                    dataParams_len = 2;
+                }
+            } else if (kdf.mechanism == CKM_SP800_108_FEEDBACK_KDF || kdf.mechanism == CKM_SP800_108_DOUBLE_PIPELINE_KDF) {
+                /* When counter_bitlen != 0, we have an optional counter. */
+                if (counter_bitlen != 0) {
+                    iterator.ulWidthInBits = counter_bitlen;
+
+                    if (ctr_location == 0 || ctr_location > 3) {
+                        fprintf(stderr, "Expected ctr_location != 0 for Counter Mode KDF but got 0.\n");
+                        goto done;
+                    } else if (ctr_location == 1) {
+                        /* Counter before */
+                        dataParams[0].type = CK_SP800_108_OPTIONAL_COUNTER;
+                        dataParams[0].pValue = &iterator;
+                        dataParams[0].ulValueLen = sizeof(iterator);
+
+                        dataParams[1].type = CK_SP800_108_ITERATION_VARIABLE;
+                        dataParams[1].pValue = NULL;
+                        dataParams[1].ulValueLen = 0;
+
+                        dataParams[2].type = CK_SP800_108_BYTE_ARRAY;
+                        dataParams[2].pValue = FixedInputData;
+                        dataParams[2].ulValueLen = FixedInputData_len;
+
+                        dataParams_len = 3;
+                    } else if (ctr_location == 2) {
+                        /* Counter between */
+                        dataParams[0].type = CK_SP800_108_ITERATION_VARIABLE;
+                        dataParams[0].pValue = NULL;
+                        dataParams[0].ulValueLen = 0;
+
+                        dataParams[1].type = CK_SP800_108_OPTIONAL_COUNTER;
+                        dataParams[1].pValue = &iterator;
+                        dataParams[1].ulValueLen = sizeof(iterator);
+
+                        dataParams[2].type = CK_SP800_108_BYTE_ARRAY;
+                        dataParams[2].pValue = FixedInputData;
+                        dataParams[2].ulValueLen = FixedInputData_len;
+
+                        dataParams_len = 3;
+                    } else {
+                        /* Counter after */
+                        dataParams[0].type = CK_SP800_108_ITERATION_VARIABLE;
+                        dataParams[0].pValue = NULL;
+                        dataParams[0].ulValueLen = 0;
+
+                        dataParams[1].type = CK_SP800_108_BYTE_ARRAY;
+                        dataParams[1].pValue = FixedInputData;
+                        dataParams[1].ulValueLen = FixedInputData_len;
+
+                        dataParams[2].type = CK_SP800_108_OPTIONAL_COUNTER;
+                        dataParams[2].pValue = &iterator;
+                        dataParams[2].ulValueLen = sizeof(iterator);
+
+                        dataParams_len = 3;
+                    }
+                } else {
+                    dataParams[0].type = CK_SP800_108_ITERATION_VARIABLE;
+                    dataParams[0].pValue = NULL;
+                    dataParams[0].ulValueLen = 0;
+
+                    dataParams[1].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[1].pValue = FixedInputData;
+                    dataParams[1].ulValueLen = FixedInputData_len;
+
+                    dataParams_len = 2;
+                }
+            }
+
+            if (kdf.mechanism != CKM_SP800_108_FEEDBACK_KDF) {
+                kdfParams.prfType = prf_mech;
+                kdfParams.ulNumberOfDataParams = dataParams_len;
+                kdfParams.pDataParams = dataParams;
+
+                kdf.pParameter = &kdfParams;
+                kdf.ulParameterLen = sizeof(kdfParams);
+            } else {
+                feedbackParams.prfType = prf_mech;
+                feedbackParams.ulNumberOfDataParams = dataParams_len;
+                feedbackParams.pDataParams = dataParams;
+                feedbackParams.ulIVLen = IV_len;
+                if (IV_len == 0) {
+                    feedbackParams.pIV = NULL;
+                } else {
+                    feedbackParams.pIV = IV;
+                }
+
+                kdf.pParameter = &feedbackParams;
+                kdf.ulParameterLen = sizeof(feedbackParams);
+            }
+
+            crv = NSC_DeriveKey(session, &kdf, prf_key, derive_template, derive_template_count, &derived_key);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(derived_key) failed crv=0x%x\n", (unsigned int)crv);
+                goto done;
+            }
+
+            crv = NSC_GetAttributeValue(session, derived_key, &output_key, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(derived_value) failed crv=0x%x\n", (unsigned int)crv);
+                goto done;
+            }
+
+            fputs("KO = ", kbkdf_resp);
+            to_hex_str(buf, KO, output_key.ulValueLen);
+            fputs(buf, kbkdf_resp);
+            fputs("\r\n", kbkdf_resp);
+
+            continue;
+        }
+    }
+
+done:
+    if (kbkdf_req != NULL) {
+        fclose(kbkdf_req);
+    }
+    if (kbkdf_resp != stdout && kbkdf_resp != NULL) {
+        fclose(kbkdf_resp);
+    }
+
+    return;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -8410,6 +8916,8 @@ main(int argc, char **argv)
         ikev1_psk(argv[2]);
     } else if (strcmp(argv[1], "ikev2") == 0) {
         ikev2(argv[2]);
+    } else if (strcmp(argv[1], "kbkdf") == 0) {
+        kbkdf(argv[2]);
     }
     return 0;
 }

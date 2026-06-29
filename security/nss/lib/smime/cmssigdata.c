@@ -476,7 +476,7 @@ NSS_CMSSignedData_SignerInfoCount(NSSCMSSignedData *sigd)
 NSSCMSSignerInfo *
 NSS_CMSSignedData_GetSignerInfo(NSSCMSSignedData *sigd, int i)
 {
-    if (!sigd) {
+    if (!sigd || !sigd->signerInfos) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return NULL;
     }
@@ -619,7 +619,7 @@ NSS_CMSSignedData_ImportCerts(NSSCMSSignedData *sigd, CERTCertDBHandle *certdb,
 
     rv = SECSuccess;
 
-/* XXX CRL handling */
+    /* XXX CRL handling */
 
 done:
     if (sigd->signerInfos != NULL) {
@@ -666,7 +666,7 @@ NSS_CMSSignedData_VerifySignerInfo(NSSCMSSignedData *sigd, int i,
     SECOidTag oidTag;
     SECStatus rv;
 
-    if (!sigd) {
+    if (!sigd || !sigd->signerInfos) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return SECFailure;
     }

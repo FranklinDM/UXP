@@ -37,7 +37,7 @@ SYNOPSIS
        interlinked wiki files.  When we release a new version of
        Google Test or Google Mock, we need to branch the wiki files
        such that users of a specific version of Google Test/Mock can
-       look up documenation relevant for that version.  This script
+       look up documentation relevant for that version.  This script
        automates that process by:
 
          - branching the current wiki pages (which document the
@@ -127,11 +127,11 @@ class WikiBrancher(object):
   def BranchFiles(self):
     """Branches the .wiki files needed to be branched."""
 
-    print 'Branching %d .wiki files:' % (len(self.files_to_branch),)
+    print('Branching %d .wiki files:' % (len(self.files_to_branch),))
     os.chdir(self.wiki_dir)
     for f in self.files_to_branch:
       command = 'svn cp %s %s%s' % (f, self.version_prefix, f)
-      print command
+      print(command)
       os.system(command)
 
   def UpdateLinksInBranchedFiles(self):
@@ -139,7 +139,7 @@ class WikiBrancher(object):
     for f in self.files_to_branch:
       source_file = os.path.join(self.wiki_dir, f)
       versioned_file = os.path.join(self.wiki_dir, self.version_prefix + f)
-      print 'Updating links in %s.' % (versioned_file,)
+      print('Updating links in %s.' % (versioned_file,))
       text = file(source_file, 'r').read()
       new_text = self.search_for_re.sub(self.replace_with, text)
       file(versioned_file, 'w').write(new_text)

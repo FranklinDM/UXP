@@ -7,6 +7,7 @@
 #endif
 
 #include "blapi.h"
+#include "blapii.h"
 #include "prerr.h"
 #include "secerr.h"
 #include "secmpi.h"
@@ -14,6 +15,8 @@
 #include "mplogic.h"
 #include "ec.h"
 #include "ecl.h"
+
+#define EC_DOUBLECHECK PR_FALSE
 
 static const ECMethod kMethods[] = {
     { ECCurve25519,
@@ -62,7 +65,7 @@ ec_points_mul(const ECParams *params, const mp_int *k1, const mp_int *k2,
     ECGroup *group = NULL;
     SECStatus rv = SECFailure;
     mp_err err = MP_OKAY;
-    int len;
+    unsigned int len;
 
 #if EC_DEBUG
     int i;
@@ -96,7 +99,7 @@ ec_points_mul(const ECParams *params, const mp_int *k1, const mp_int *k2,
 #endif
 
     /* NOTE: We only support uncompressed points for now */
-    len = (params->fieldID.size + 7) >> 3;
+    len = (((unsigned int)params->fieldID.size) + 7) >> 3;
     if (pointP != NULL) {
         if ((pointP->data[0] != EC_POINT_FORM_UNCOMPRESSED) ||
             (pointP->len != (2 * len + 1))) {
@@ -145,6 +148,10 @@ ec_points_mul(const ECParams *params, const mp_int *k1, const mp_int *k2,
     } else {
         CHECK_MPI_OK(ECPoints_mul(group, k1, NULL, NULL, NULL, &Qx, &Qy));
     }
+
+    /* our ECC codes uses large stack variables to store intermediate results,
+     * clear our stack before returning to prevent CSP leakage */
+    BLAPI_CLEAR_STACK(2048)
 
     /* Construct the SECItem representation of point Q */
     pointQ->data[0] = EC_POINT_FORM_UNCOMPRESSED;
@@ -428,7 +435,7 @@ EC_ValidatePublicKey(ECParams *ecParams, SECItem *publicValue)
     ECGroup *group = NULL;
     SECStatus rv = SECFailure;
     mp_err err = MP_OKAY;
-    int len;
+    unsigned int len;
 
     if (!ecParams || ecParams->name == ECCurve_noName ||
         !publicValue || !publicValue->len) {
@@ -448,7 +455,7 @@ EC_ValidatePublicKey(ECParams *ecParams, SECItem *publicValue)
     }
 
     /* NOTE: We only support uncompressed points for now */
-    len = (ecParams->fieldID.size + 7) >> 3;
+    len = (((unsigned int)ecParams->fieldID.size) + 7) >> 3;
     if (publicValue->data[0] != EC_POINT_FORM_UNCOMPRESSED) {
         PORT_SetError(SEC_ERROR_UNSUPPORTED_EC_POINT_FORM);
         return SECFailure;
@@ -531,7 +538,6 @@ ECDH_Derive(SECItem *publicValue,
     unsigned int len = 0;
     SECItem pointQ = { siBuffer, NULL, 0 };
     mp_int k; /* to hold the private value */
-    mp_int cofactor;
     mp_err err = MP_OKAY;
 #if EC_DEBUG
     int i;
@@ -596,11 +602,13 @@ ECDH_Derive(SECItem *publicValue,
                                          (mp_size)privateValue->len));
 
     if (withCofactor && (ecParams->cofactor != 1)) {
+        mp_int cofactor;
         /* multiply k with the cofactor */
         MP_DIGITS(&cofactor) = 0;
         CHECK_MPI_OK(mp_init(&cofactor));
         mp_set(&cofactor, ecParams->cofactor);
         CHECK_MPI_OK(mp_mul(&k, &cofactor, &k));
+        mp_clear(&cofactor);
     }
 
     /* Multiply our private key and peer's public point */
@@ -645,9 +653,10 @@ cleanup:
  * on the digest using the given key and the random value kb (used in
  * computing s).
  */
-SECStatus
-ECDSA_SignDigestWithSeed(ECPrivateKey *key, SECItem *signature,
-                         const SECItem *digest, const unsigned char *kb, const int kblen)
+
+static SECStatus
+ec_SignDigestWithSeed(ECPrivateKey *key, SECItem *signature,
+                      const SECItem *digest, const unsigned char *kb, const int kblen)
 {
     SECStatus rv = SECFailure;
     mp_int x1;
@@ -858,7 +867,7 @@ cleanup:
     mp_clear(&ar);
 
     if (t2) {
-        PORT_Free(t2);
+        PORT_ZFree(t2, 2 * ecParams->order.len);
     }
 
     if (kGpoint.data) {
@@ -876,6 +885,34 @@ cleanup:
 #endif
 
     return rv;
+}
+
+SECStatus
+ECDSA_SignDigestWithSeed(ECPrivateKey *key, SECItem *signature,
+                         const SECItem *digest, const unsigned char *kb, const int kblen)
+{
+#if EC_DEBUG || EC_DOUBLECHECK
+
+    SECItem *signature2 = SECITEM_AllocItem(NULL, NULL, signature->len);
+    SECStatus signSuccess = ec_SignDigestWithSeed(key, signature, digest, kb, kblen);
+    SECStatus signSuccessDouble = ec_SignDigestWithSeed(key, signature2, digest, kb, kblen);
+    int signaturesEqual = NSS_SecureMemcmp(signature, signature2, signature->len);
+    SECStatus rv;
+    if ((signaturesEqual == 0) && (signSuccess == SECSuccess) && (signSuccessDouble == SECSuccess)) {
+        rv = SECSuccess;
+    } else {
+        rv = SECFailure;
+    }
+
+#if EC_DEBUG
+    printf("ECDSA signing with seed %s after signing twice\n", (rv == SECSuccess) ? "succeeded" : "failed");
+#endif
+
+    SECITEM_FreeItem(signature2, PR_TRUE);
+    return rv;
+#else
+    return ec_SignDigestWithSeed(key, signature, digest, kb, kblen);
+#endif
 }
 
 /*

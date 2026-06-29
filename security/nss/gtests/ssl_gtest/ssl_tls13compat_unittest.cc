@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -211,6 +212,29 @@ TEST_F(Tls13CompatTest, EnabledHrrZeroRtt) {
   ExpectEarlyDataAccepted(false);
   CheckConnected();
   CheckForCompatHandshake();
+}
+
+TEST_F(Tls13CompatTest, EnabledAcceptedEch) {
+  EnsureTlsSetup();
+  SetupEch(client_, server_);
+  EnableCompatMode();
+  InstallFilters();
+  Connect();
+  CheckForCompatHandshake();
+}
+
+TEST_F(Tls13CompatTest, EnabledRejectedEch) {
+  EnsureTlsSetup();
+  // Configure ECH on the client only, and expect CCS.
+  SetupEch(client_, server_, HpkeDhKemX25519Sha256, false, true, false);
+  EnableCompatMode();
+  InstallFilters();
+  ExpectAlert(client_, kTlsAlertEchRequired);
+  ConnectExpectFailOneSide(TlsAgent::CLIENT);
+  client_->CheckErrorCode(SSL_ERROR_ECH_RETRY_WITHOUT_ECH);
+  CheckForCompatHandshake();
+  // Reset expectations for the TlsAgent dtor.
+  server_->ExpectReceiveAlert(kTlsAlertCloseNotify, kTlsAlertWarning);
 }
 
 class TlsSessionIDEchoFilter : public TlsHandshakeFilter {
@@ -462,14 +486,16 @@ TEST_F(TlsConnectDatagram13, CompatModeDtlsClient) {
 
   ASSERT_EQ(2U, client_records->count());  // CH, Fin
   EXPECT_EQ(ssl_ct_handshake, client_records->record(0).header.content_type());
-  EXPECT_EQ(ssl_ct_application_data,
-            client_records->record(1).header.content_type());
+  EXPECT_EQ(kCtDtlsCiphertext,
+            (client_records->record(1).header.content_type() &
+             kCtDtlsCiphertextMask));
 
   ASSERT_EQ(6U, server_records->count());  // SH, EE, CT, CV, Fin, Ack
   EXPECT_EQ(ssl_ct_handshake, server_records->record(0).header.content_type());
   for (size_t i = 1; i < server_records->count(); ++i) {
-    EXPECT_EQ(ssl_ct_application_data,
-              server_records->record(i).header.content_type());
+    EXPECT_EQ(kCtDtlsCiphertext,
+              (server_records->record(i).header.content_type() &
+               kCtDtlsCiphertextMask));
   }
 }
 
@@ -518,8 +544,9 @@ TEST_F(TlsConnectDatagram13, CompatModeDtlsServer) {
   ASSERT_EQ(5U, server_records->count());  // SH, EE, CT, CV, Fin
   EXPECT_EQ(ssl_ct_handshake, server_records->record(0).header.content_type());
   for (size_t i = 1; i < server_records->count(); ++i) {
-    EXPECT_EQ(ssl_ct_application_data,
-              server_records->record(i).header.content_type());
+    EXPECT_EQ(kCtDtlsCiphertext,
+              (server_records->record(i).header.content_type() &
+               kCtDtlsCiphertextMask));
   }
 
   uint32_t session_id_len = 0;

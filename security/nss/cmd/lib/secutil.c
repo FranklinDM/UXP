@@ -20,6 +20,7 @@
 #include "secpkcs7.h"
 #include "secpkcs5.h"
 #include <stdarg.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <limits.h>
@@ -232,15 +233,15 @@ SECU_GetModulePassword(PK11SlotInfo *slot, PRBool retry, void *arg)
 
     switch (pwdata->source) {
         case PW_NONE:
-            sprintf(prompt, "Enter Password or Pin for \"%s\":",
-                    PK11_GetTokenName(slot));
+            snprintf(prompt, sizeof(prompt), "Enter Password or Pin for \"%s\":",
+                     PK11_GetTokenName(slot));
             return SECU_GetPasswordString(NULL, prompt);
         case PW_FROMFILE:
             return SECU_FilePasswd(slot, retry, pwdata->data);
         case PW_EXTERNAL:
-            sprintf(prompt,
-                    "Press Enter, then enter PIN for \"%s\" on external device.\n",
-                    PK11_GetTokenName(slot));
+            snprintf(prompt, sizeof(prompt),
+                     "Press Enter, then enter PIN for \"%s\" on external device.\n",
+                     PK11_GetTokenName(slot));
             char *pw = SECU_GetPasswordString(NULL, prompt);
             PORT_Free(pw);
         /* Fall Through */
@@ -436,7 +437,7 @@ SECU_DefaultSSLDir(void)
     if (strlen(dir) >= PR_ARRAY_SIZE(sslDir)) {
         return NULL;
     }
-    sprintf(sslDir, "%s", dir);
+    snprintf(sslDir, sizeof(sslDir), "%s", dir);
 
     if (sslDir[strlen(sslDir) - 1] == '/')
         sslDir[strlen(sslDir) - 1] = 0;
@@ -450,9 +451,9 @@ SECU_AppendFilenameToDir(char *dir, char *filename)
     static char path[1000];
 
     if (dir[strlen(dir) - 1] == '/')
-        sprintf(path, "%s%s", dir, filename);
+        snprintf(path, sizeof(path), "%s%s", dir, filename);
     else
-        sprintf(path, "%s/%s", dir, filename);
+        snprintf(path, sizeof(path), "%s/%s", dir, filename);
     return path;
 }
 
@@ -473,11 +474,11 @@ SECU_ConfigDirectory(const char *base)
             home = "";
 
         if (*home && home[strlen(home) - 1] == '/')
-            sprintf(buf, "%.900s%s", home, dir);
+            snprintf(buf, sizeof(buf), "%.900s%s", home, dir);
         else
-            sprintf(buf, "%.900s/%s", home, dir);
+            snprintf(buf, sizeof(buf), "%.900s/%s", home, dir);
     } else {
-        sprintf(buf, "%.900s", base);
+        snprintf(buf, sizeof(buf), "%.900s", base);
         if (buf[strlen(buf) - 1] == '/')
             buf[strlen(buf) - 1] = 0;
     }
@@ -562,20 +563,110 @@ SECU_ReadDERFromFile(SECItem *der, PRFileDesc *inFile, PRBool ascii,
 
 #define INDENT_MULT 4
 
+/*
+ * remove the tag and length and just leave the bare BER data
+ */
 SECStatus
 SECU_StripTagAndLength(SECItem *i)
 {
     unsigned int start;
+    PRBool isIndefinite;
 
     if (!i || !i->data || i->len < 2) { /* must be at least tag and length */
+        PORT_SetError(SEC_ERROR_BAD_DER);
         return SECFailure;
     }
+    isIndefinite = (i->data[1] == 0x80);
     start = ((i->data[1] & 0x80) ? (i->data[1] & 0x7f) + 2 : 2);
     if (i->len < start) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
         return SECFailure;
     }
     i->data += start;
     i->len -= start;
+    /* we are using indefinite encoding, drop the trailing zero */
+    if (isIndefinite) {
+        if (i->len <= 1) {
+            PORT_SetError(SEC_ERROR_BAD_DER);
+            return SECFailure;
+        }
+        /* verify tags are zero */
+        if ((i->data[i->len - 1] != 0) || (i->data[i->len - 2] != 0)) {
+            PORT_SetError(SEC_ERROR_BAD_DER);
+            return SECFailure;
+        }
+        i->len -= 2;
+    }
+
+    return SECSuccess;
+}
+
+/*
+ * Create a new SECItem which points to the current BER tag and length with
+ * all it's data. For indefinite encoding, this will also include the trailing
+ * indefinite markers
+ * The 'in' item is advanced to point to the next BER tag.
+ * You don't want to use this in an actual BER/DER parser as NSS already
+ * has 3 to choose from)
+ */
+SECStatus
+SECU_ExtractBERAndStep(SECItem *in, SECItem *out)
+{
+    if (!in || !in->data || in->len < 2) { /* must be at least tag and length */
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+
+    *out = *in;
+
+    /* first handle indefinite encoding */
+    if (out->data[1] == 0x80) {
+        SECItem this = *out;
+        SECItem next;
+        this.data += 2;
+        this.len -= 2;
+        out->len = 2;
+        /* walk through all the entries until we find the '0' */
+        while ((this.len >= 2) && (this.data[0] != 0)) {
+            SECStatus rv = SECU_ExtractBERAndStep(&this, &next);
+            if (rv != SECSuccess) {
+                return rv;
+            }
+            out->len += next.len;
+        }
+        if ((this.len < 2) || ((this.data[0] != 0) && (this.data[1] != 0))) {
+            PORT_SetError(SEC_ERROR_BAD_DER);
+            return SECFailure;
+        }
+        out->len += 2; /* include the trailing zeros */
+        in->data += out->len;
+        in->len -= out->len;
+        return SECSuccess;
+    }
+
+    /* now handle normal DER encoding */
+    if (out->data[1] & 0x80) {
+        unsigned int i;
+        unsigned int lenlen = out->data[1] & 0x7f;
+        unsigned int len = 0;
+        if (lenlen > sizeof out->len) {
+            PORT_SetError(SEC_ERROR_BAD_DER);
+            return SECFailure;
+        }
+        for (i = 0; i < lenlen; i++) {
+            len = (len << 8) | out->data[2 + i];
+        }
+        out->len = len + lenlen + 2;
+    } else {
+        out->len = out->data[1] + 2;
+    }
+    if (out->len > in->len) {
+        /* we've ran into a truncated file */
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+    in->data += out->len;
+    in->len -= out->len;
     return SECSuccess;
 }
 
@@ -786,26 +877,10 @@ SECU_PrintSet(FILE *out, const SECItem *t, const char *m, int level)
     fprintf(out, "%s{\n", label); /* } */
 
     while (my.len >= 2) {
-        SECItem tmp = my;
-
-        if (tmp.data[1] & 0x80) {
-            unsigned int i;
-            unsigned int lenlen = tmp.data[1] & 0x7f;
-            if (lenlen > sizeof tmp.len)
-                break;
-            tmp.len = 0;
-            for (i = 0; i < lenlen; i++) {
-                tmp.len = (tmp.len << 8) | tmp.data[2 + i];
-            }
-            tmp.len += lenlen + 2;
-        } else {
-            tmp.len = tmp.data[1] + 2;
+        SECItem tmp;
+        if (SECSuccess != SECU_ExtractBERAndStep(&my, &tmp)) {
+            break;
         }
-        if (tmp.len > my.len) {
-            tmp.len = my.len;
-        }
-        my.data += tmp.len;
-        my.len -= tmp.len;
         SECU_PrintAny(out, &tmp, NULL, level + 1);
     }
     SECU_Indent(out, level);
@@ -906,12 +981,14 @@ SECU_PrintEncodedInteger(FILE *out, const SECItem *i, const char *m, int level)
 }
 
 /* Print a DER encoded OID */
-void
+SECOidTag
 SECU_PrintEncodedObjectID(FILE *out, const SECItem *i, const char *m, int level)
 {
     SECItem my = *i;
+    SECOidTag tag = SEC_OID_UNKNOWN;
     if (SECSuccess == SECU_StripTagAndLength(&my))
-        SECU_PrintObjectID(out, &my, m, level);
+        tag = SECU_PrintObjectID(out, &my, m, level);
+    return tag;
 }
 
 static void
@@ -1343,7 +1420,7 @@ secu_PrintAttribute(FILE *out, SEC_PKCS7Attribute *attr, char *m, int level)
     if (attr->values != NULL) {
         i = 0;
         while ((value = attr->values[i++]) != NULL) {
-            sprintf(om, "Value (%d)%s", i, attr->encoded ? " (encoded)" : "");
+            snprintf(om, sizeof(om), "Value (%d)%s", i, attr->encoded ? " (encoded)" : "");
             if (attr->encoded || attr->typeTag == NULL) {
                 SECU_PrintAny(out, value, om, level + 1);
             } else {
@@ -1378,6 +1455,7 @@ secu_PrintECPublicKey(FILE *out, SECKEYPublicKey *pk, char *m, int level)
         (pk->u.ec.DEREncodedParams.data[0] == 0x06)) {
         curveOID.len = pk->u.ec.DEREncodedParams.data[1];
         curveOID.data = pk->u.ec.DEREncodedParams.data + 2;
+        curveOID.len = PR_MIN(curveOID.len, pk->u.ec.DEREncodedParams.len - 2);
         SECU_PrintObjectID(out, &curveOID, "Curve", level + 1);
     }
 }
@@ -2454,7 +2532,6 @@ SECU_PrintSubjectPublicKeyInfo(FILE *out, SECItem *der, char *m, int level)
     return rv;
 }
 
-#ifdef HAVE_EPV_TEMPLATE
 int
 SECU_PrintPrivateKey(FILE *out, SECItem *der, char *m, int level)
 {
@@ -2481,7 +2558,6 @@ loser:
     PORT_FreeArena(arena, PR_TRUE);
     return rv;
 }
-#endif
 
 int
 SECU_PrintFingerprints(FILE *out, SECItem *derCert, char *m, int level)
@@ -2544,16 +2620,26 @@ SECU_PrintFingerprints(FILE *out, SECItem *derCert, char *m, int level)
 */
 
 /* forward declaration */
+typedef enum {
+    secuPKCS7Unknown = 0,
+    secuPKCS7PKCS12AuthSafe,
+    secuPKCS7PKCS12Safe
+} secuPKCS7State;
+
 static int
-secu_PrintPKCS7ContentInfo(FILE *, SEC_PKCS7ContentInfo *, char *, int);
+secu_PrintPKCS7ContentInfo(FILE *, SEC_PKCS7ContentInfo *, secuPKCS7State,
+                           const char *, int);
+static int
+secu_PrintDERPKCS7ContentInfo(FILE *, SECItem *, secuPKCS7State,
+                              const char *, int);
 
 /*
 ** secu_PrintPKCS7EncContent
 **   Prints a SEC_PKCS7EncryptedContentInfo (without decrypting it)
 */
-static void
+static int
 secu_PrintPKCS7EncContent(FILE *out, SEC_PKCS7EncryptedContentInfo *src,
-                          char *m, int level)
+                          secuPKCS7State state, const char *m, int level)
 {
     if (src->contentTypeTag == NULL)
         src->contentTypeTag = SECOID_FindOID(&(src->contentType));
@@ -2568,6 +2654,7 @@ secu_PrintPKCS7EncContent(FILE *out, SEC_PKCS7EncryptedContentInfo *src,
                           "Content Encryption Algorithm", level + 1);
     SECU_PrintAsHex(out, &(src->encContent),
                     "Encrypted Content", level + 1);
+    return 0;
 }
 
 /*
@@ -2575,8 +2662,8 @@ secu_PrintPKCS7EncContent(FILE *out, SEC_PKCS7EncryptedContentInfo *src,
 **   Prints a PKCS7RecipientInfo type
 */
 static void
-secu_PrintRecipientInfo(FILE *out, SEC_PKCS7RecipientInfo *info, char *m,
-                        int level)
+secu_PrintRecipientInfo(FILE *out, SEC_PKCS7RecipientInfo *info,
+                        const char *m, int level)
 {
     SECU_Indent(out, level);
     fprintf(out, "%s:\n", m);
@@ -2598,7 +2685,8 @@ secu_PrintRecipientInfo(FILE *out, SEC_PKCS7RecipientInfo *info, char *m,
 **   Prints a PKCS7SingerInfo type
 */
 static void
-secu_PrintSignerInfo(FILE *out, SEC_PKCS7SignerInfo *info, char *m, int level)
+secu_PrintSignerInfo(FILE *out, SEC_PKCS7SignerInfo *info,
+                     const char *m, int level)
 {
     SEC_PKCS7Attribute *attr;
     int iv;
@@ -2621,7 +2709,7 @@ secu_PrintSignerInfo(FILE *out, SEC_PKCS7SignerInfo *info, char *m, int level)
         fprintf(out, "Authenticated Attributes:\n");
         iv = 0;
         while ((attr = info->authAttr[iv++]) != NULL) {
-            sprintf(om, "Attribute (%d)", iv);
+            snprintf(om, sizeof(om), "Attribute (%d)", iv);
             secu_PrintAttribute(out, attr, om, level + 2);
         }
     }
@@ -2636,7 +2724,7 @@ secu_PrintSignerInfo(FILE *out, SEC_PKCS7SignerInfo *info, char *m, int level)
         fprintf(out, "Unauthenticated Attributes:\n");
         iv = 0;
         while ((attr = info->unAuthAttr[iv++]) != NULL) {
-            sprintf(om, "Attribute (%x)", iv);
+            snprintf(om, sizeof(om), "Attribute (%x)", iv);
             secu_PrintAttribute(out, attr, om, level + 2);
         }
     }
@@ -2670,7 +2758,7 @@ SECU_PrintCRLInfo(FILE *out, CERTCrl *crl, char *m, int level)
     if (crl->entries != NULL) {
         iv = 0;
         while ((entry = crl->entries[iv++]) != NULL) {
-            sprintf(om, "Entry %d (0x%x):\n", iv, iv);
+            snprintf(om, sizeof(om), "Entry %d (0x%x):\n", iv, iv);
             SECU_Indent(out, level + 1);
             fputs(om, out);
             SECU_PrintInteger(out, &(entry->serialNumber), "Serial Number",
@@ -2690,7 +2778,7 @@ SECU_PrintCRLInfo(FILE *out, CERTCrl *crl, char *m, int level)
 */
 static int
 secu_PrintPKCS7Signed(FILE *out, SEC_PKCS7SignedData *src,
-                      const char *m, int level)
+                      secuPKCS7State state, const char *m, int level)
 {
     SECAlgorithmID *digAlg;       /* digest algorithms */
     SECItem *aCert;               /* certificate */
@@ -2709,14 +2797,14 @@ secu_PrintPKCS7Signed(FILE *out, SEC_PKCS7SignedData *src,
         fprintf(out, "Digest Algorithm List:\n");
         iv = 0;
         while ((digAlg = src->digestAlgorithms[iv++]) != NULL) {
-            sprintf(om, "Digest Algorithm (%x)", iv);
+            snprintf(om, sizeof(om), "Digest Algorithm (%x)", iv);
             SECU_PrintAlgorithmID(out, digAlg, om, level + 2);
         }
     }
 
     /* Now for the content */
     rv = secu_PrintPKCS7ContentInfo(out, &(src->contentInfo),
-                                    "Content Information", level + 1);
+                                    state, "Content Information", level + 1);
     if (rv != 0)
         return rv;
 
@@ -2726,7 +2814,7 @@ secu_PrintPKCS7Signed(FILE *out, SEC_PKCS7SignedData *src,
         fprintf(out, "Certificate List:\n");
         iv = 0;
         while ((aCert = src->rawCerts[iv++]) != NULL) {
-            sprintf(om, "Certificate (%x)", iv);
+            snprintf(om, sizeof(om), "Certificate (%x)", iv);
             rv = SECU_PrintSignedData(out, aCert, om, level + 2,
                                       (SECU_PPFunc)SECU_PrintCertificate);
             if (rv)
@@ -2740,7 +2828,7 @@ secu_PrintPKCS7Signed(FILE *out, SEC_PKCS7SignedData *src,
         fprintf(out, "Signed Revocation Lists:\n");
         iv = 0;
         while ((aCrl = src->crls[iv++]) != NULL) {
-            sprintf(om, "Signed Revocation List (%x)", iv);
+            snprintf(om, sizeof(om), "Signed Revocation List (%x)", iv);
             SECU_Indent(out, level + 2);
             fprintf(out, "%s:\n", om);
             SECU_PrintAlgorithmID(out, &aCrl->signatureWrap.signatureAlgorithm,
@@ -2759,7 +2847,7 @@ secu_PrintPKCS7Signed(FILE *out, SEC_PKCS7SignedData *src,
         fprintf(out, "Signer Information List:\n");
         iv = 0;
         while ((sigInfo = src->signerInfos[iv++]) != NULL) {
-            sprintf(om, "Signer Information (%x)", iv);
+            snprintf(om, sizeof(om), "Signer Information (%x)", iv);
             secu_PrintSignerInfo(out, sigInfo, om, level + 2);
         }
     }
@@ -2771,9 +2859,9 @@ secu_PrintPKCS7Signed(FILE *out, SEC_PKCS7SignedData *src,
 ** secu_PrintPKCS7Enveloped
 **  Pretty print a PKCS7 enveloped data type (up to version 1).
 */
-static void
+static int
 secu_PrintPKCS7Enveloped(FILE *out, SEC_PKCS7EnvelopedData *src,
-                         const char *m, int level)
+                         secuPKCS7State state, const char *m, int level)
 {
     SEC_PKCS7RecipientInfo *recInfo; /* pointer for signer information */
     int iv;
@@ -2789,13 +2877,13 @@ secu_PrintPKCS7Enveloped(FILE *out, SEC_PKCS7EnvelopedData *src,
         fprintf(out, "Recipient Information List:\n");
         iv = 0;
         while ((recInfo = src->recipientInfos[iv++]) != NULL) {
-            sprintf(om, "Recipient Information (%x)", iv);
+            snprintf(om, sizeof(om), "Recipient Information (%x)", iv);
             secu_PrintRecipientInfo(out, recInfo, om, level + 2);
         }
     }
 
-    secu_PrintPKCS7EncContent(out, &src->encContentInfo,
-                              "Encrypted Content Information", level + 1);
+    return secu_PrintPKCS7EncContent(out, &src->encContentInfo, state,
+                                     "Encrypted Content Information", level + 1);
 }
 
 /*
@@ -2805,7 +2893,8 @@ secu_PrintPKCS7Enveloped(FILE *out, SEC_PKCS7EnvelopedData *src,
 static int
 secu_PrintPKCS7SignedAndEnveloped(FILE *out,
                                   SEC_PKCS7SignedAndEnvelopedData *src,
-                                  const char *m, int level)
+                                  secuPKCS7State state, const char *m,
+                                  int level)
 {
     SECAlgorithmID *digAlg;          /* pointer for digest algorithms */
     SECItem *aCert;                  /* pointer for certificate */
@@ -2825,7 +2914,7 @@ secu_PrintPKCS7SignedAndEnveloped(FILE *out,
         fprintf(out, "Recipient Information List:\n");
         iv = 0;
         while ((recInfo = src->recipientInfos[iv++]) != NULL) {
-            sprintf(om, "Recipient Information (%x)", iv);
+            snprintf(om, sizeof(om), "Recipient Information (%x)", iv);
             secu_PrintRecipientInfo(out, recInfo, om, level + 2);
         }
     }
@@ -2836,13 +2925,15 @@ secu_PrintPKCS7SignedAndEnveloped(FILE *out,
         fprintf(out, "Digest Algorithm List:\n");
         iv = 0;
         while ((digAlg = src->digestAlgorithms[iv++]) != NULL) {
-            sprintf(om, "Digest Algorithm (%x)", iv);
+            snprintf(om, sizeof(om), "Digest Algorithm (%x)", iv);
             SECU_PrintAlgorithmID(out, digAlg, om, level + 2);
         }
     }
 
-    secu_PrintPKCS7EncContent(out, &src->encContentInfo,
-                              "Encrypted Content Information", level + 1);
+    rv = secu_PrintPKCS7EncContent(out, &src->encContentInfo, state,
+                                   "Encrypted Content Information", level + 1);
+    if (rv)
+        return rv;
 
     /* Parse and list certificates (if any) */
     if (src->rawCerts != NULL) {
@@ -2850,7 +2941,7 @@ secu_PrintPKCS7SignedAndEnveloped(FILE *out,
         fprintf(out, "Certificate List:\n");
         iv = 0;
         while ((aCert = src->rawCerts[iv++]) != NULL) {
-            sprintf(om, "Certificate (%x)", iv);
+            snprintf(om, sizeof(om), "Certificate (%x)", iv);
             rv = SECU_PrintSignedData(out, aCert, om, level + 2,
                                       (SECU_PPFunc)SECU_PrintCertificate);
             if (rv)
@@ -2864,7 +2955,7 @@ secu_PrintPKCS7SignedAndEnveloped(FILE *out,
         fprintf(out, "Signed Revocation Lists:\n");
         iv = 0;
         while ((aCrl = src->crls[iv++]) != NULL) {
-            sprintf(om, "Signed Revocation List (%x)", iv);
+            snprintf(om, sizeof(om), "Signed Revocation List (%x)", iv);
             SECU_Indent(out, level + 2);
             fprintf(out, "%s:\n", om);
             SECU_PrintAlgorithmID(out, &aCrl->signatureWrap.signatureAlgorithm,
@@ -2883,7 +2974,7 @@ secu_PrintPKCS7SignedAndEnveloped(FILE *out,
         fprintf(out, "Signer Information List:\n");
         iv = 0;
         while ((sigInfo = src->signerInfos[iv++]) != NULL) {
-            sprintf(om, "Signer Information (%x)", iv);
+            snprintf(om, sizeof(om), "Signer Information (%x)", iv);
             secu_PrintSignerInfo(out, sigInfo, om, level + 2);
         }
     }
@@ -2919,25 +3010,25 @@ SECU_PrintCrl(FILE *out, SECItem *der, char *m, int level)
 ** secu_PrintPKCS7Encrypted
 **   Pretty print a PKCS7 encrypted data type (up to version 1).
 */
-static void
+static int
 secu_PrintPKCS7Encrypted(FILE *out, SEC_PKCS7EncryptedData *src,
-                         const char *m, int level)
+                         secuPKCS7State state, const char *m, int level)
 {
     SECU_Indent(out, level);
     fprintf(out, "%s:\n", m);
     SECU_PrintInteger(out, &(src->version), "Version", level + 1);
 
-    secu_PrintPKCS7EncContent(out, &src->encContentInfo,
-                              "Encrypted Content Information", level + 1);
+    return secu_PrintPKCS7EncContent(out, &src->encContentInfo, state,
+                                     "Encrypted Content Information", level + 1);
 }
 
 /*
 ** secu_PrintPKCS7Digested
 **   Pretty print a PKCS7 digested data type (up to version 1).
 */
-static void
+static int
 secu_PrintPKCS7Digested(FILE *out, SEC_PKCS7DigestedData *src,
-                        const char *m, int level)
+                        secuPKCS7State state, const char *m, int level)
 {
     SECU_Indent(out, level);
     fprintf(out, "%s:\n", m);
@@ -2945,9 +3036,257 @@ secu_PrintPKCS7Digested(FILE *out, SEC_PKCS7DigestedData *src,
 
     SECU_PrintAlgorithmID(out, &src->digestAlg, "Digest Algorithm",
                           level + 1);
-    secu_PrintPKCS7ContentInfo(out, &src->contentInfo, "Content Information",
-                               level + 1);
+    secu_PrintPKCS7ContentInfo(out, &src->contentInfo, state,
+                               "Content Information", level + 1);
     SECU_PrintAsHex(out, &src->digest, "Digest", level + 1);
+    return 0;
+}
+
+static int
+secu_PrintPKCS12Attributes(FILE *out, SECItem *item, const char *m, int level)
+{
+    SECItem my = *item;
+    SECItem attribute;
+    SECItem attributeID;
+    SECItem attributeValues;
+
+    if ((my.data[0] != (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SET)) ||
+        SECSuccess != SECU_StripTagAndLength(&my)) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+    SECU_Indent(out, level);
+    fprintf(out, "%s:\n", m);
+    level++;
+
+    while (my.len) {
+        if (SECSuccess != SECU_ExtractBERAndStep(&my, &attribute)) {
+            return SECFailure;
+        }
+        if ((attribute.data[0] != (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SEQUENCE)) ||
+            SECSuccess != SECU_StripTagAndLength(&attribute)) {
+            PORT_SetError(SEC_ERROR_BAD_DER);
+            return SECFailure;
+        }
+
+        /* attribute ID */
+        if (SECSuccess != SECU_ExtractBERAndStep(&attribute, &attributeID)) {
+            return SECFailure;
+        }
+        if ((attributeID.data[0] & SEC_ASN1_TAGNUM_MASK) != SEC_ASN1_OBJECT_ID) {
+            PORT_SetError(SEC_ERROR_BAD_DER);
+            return SECFailure;
+        }
+        SECU_PrintEncodedObjectID(out, &attributeID, "Attribute ID", level);
+
+        /* attribute values */
+        if (!attribute.len) { /* skip if there aren't any */
+            continue;
+        }
+        if (SECSuccess != SECU_ExtractBERAndStep(&attribute, &attributeValues)) {
+            return SECFailure;
+        }
+        if (SECSuccess != SECU_StripTagAndLength(&attributeValues)) {
+            return SECFailure;
+        }
+        while (attributeValues.len) {
+            SECItem tmp;
+            if (SECSuccess != SECU_ExtractBERAndStep(&attributeValues, &tmp)) {
+                return SECFailure;
+            }
+            SECU_PrintAny(out, &tmp, NULL, level + 1);
+        }
+    }
+    return SECSuccess;
+}
+
+static int
+secu_PrintPKCS12Bag(FILE *out, SECItem *item, const char *desc, int level)
+{
+    SECItem my = *item;
+    SECItem bagID;
+    SECItem bagValue;
+    SECItem bagAttributes;
+    SECOidTag bagTag;
+    SECStatus rv;
+    int i;
+    char *m;
+
+    if ((my.data[0] != (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SEQUENCE)) ||
+        SECSuccess != SECU_StripTagAndLength(&my)) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+
+    /* bagId BAG-TYPE.&id ({PKCS12BagSet}) */
+    if (SECSuccess != SECU_ExtractBERAndStep(&my, &bagID)) {
+        return SECFailure;
+    }
+    if ((bagID.data[0] & SEC_ASN1_TAGNUM_MASK) != SEC_ASN1_OBJECT_ID) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+    m = PR_smprintf("%s ID", desc);
+    bagTag = SECU_PrintEncodedObjectID(out, &bagID, m ? m : "Bag ID", level);
+    if (m)
+        PR_smprintf_free(m);
+
+    /* bagValue [0] EXPLICIT BAG-TYPE.&type({PKCS12BagSet}{@bagID}) */
+    if (SECSuccess != SECU_ExtractBERAndStep(&my, &bagValue)) {
+        return SECFailure;
+    }
+    if ((bagValue.data[0] & (SEC_ASN1_CLASS_MASK | SEC_ASN1_TAGNUM_MASK)) !=
+        (SEC_ASN1_CONTEXT_SPECIFIC | 0)) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+    if (SECSuccess != SECU_StripTagAndLength(&bagValue)) {
+        return SECFailure;
+    }
+
+    rv = SECSuccess;
+    switch (bagTag) {
+        case SEC_OID_PKCS12_V1_KEY_BAG_ID:
+            /* Future we need to print out raw private keys. Not a priority since
+         * p12util can't create files with unencrypted private keys, but
+         * some tools can and do */
+            SECU_PrintAny(out, &bagValue, "Private Key", level);
+            break;
+        case SEC_OID_PKCS12_V1_PKCS8_SHROUDED_KEY_BAG_ID:
+            rv = SECU_PrintPrivateKey(out, &bagValue,
+                                      "Encrypted Private Key", level);
+            break;
+        case SEC_OID_PKCS12_V1_CERT_BAG_ID:
+            rv = secu_PrintPKCS12Bag(out, &bagValue, "Certificate Bag", level + 1);
+            break;
+        case SEC_OID_PKCS12_V1_CRL_BAG_ID:
+            rv = secu_PrintPKCS12Bag(out, &bagValue, "Crl Bag", level + 1);
+            break;
+        case SEC_OID_PKCS12_V1_SECRET_BAG_ID:
+            rv = secu_PrintPKCS12Bag(out, &bagValue, "Secret Bag", level + 1);
+            break;
+        /* from recursive call from CRL and certificate Bag */
+        case SEC_OID_PKCS9_X509_CRL:
+        case SEC_OID_PKCS9_X509_CERT:
+        case SEC_OID_PKCS9_SDSI_CERT:
+            /* unwrap the octect string */
+            rv = SECU_StripTagAndLength(&bagValue);
+            if (rv != SECSuccess) {
+                break;
+            }
+        /* fall through */
+        case SEC_OID_PKCS12_CERT_AND_CRL_BAG_ID:
+        case SEC_OID_PKCS12_X509_CERT_CRL_BAG:
+        case SEC_OID_PKCS12_SDSI_CERT_BAG:
+            if (strcmp(desc, "Crl Bag") == 0) {
+                rv = SECU_PrintSignedData(out, &bagValue, NULL, level + 1,
+                                          (SECU_PPFunc)SECU_PrintCrl);
+            } else {
+                rv = SECU_PrintSignedData(out, &bagValue, NULL, level + 1,
+                                          (SECU_PPFunc)SECU_PrintCertificate);
+            }
+            break;
+        case SEC_OID_PKCS12_V1_SAFE_CONTENTS_BAG_ID:
+            for (i = 1; my.len; i++) {
+                SECItem nextBag;
+                rv = SECU_ExtractBERAndStep(&bagValue, &nextBag);
+                if (rv != SECSuccess) {
+                    break;
+                }
+                m = PR_smprintf("Nested Bag %d", i);
+                rv = secu_PrintPKCS12Bag(out, &nextBag,
+                                         m ? m : "Nested Bag", level + 1);
+                if (m)
+                    PR_smprintf_free(m);
+                if (rv != SECSuccess) {
+                    break;
+                }
+            }
+            break;
+        default:
+            m = PR_smprintf("%s Value", desc);
+            SECU_PrintAny(out, &bagValue, m ? m : "Bag Value", level);
+            if (m)
+                PR_smprintf_free(m);
+    }
+    if (rv != SECSuccess) {
+        return rv;
+    }
+
+    /* bagAttributes SET OF PKCS12Attributes OPTIONAL */
+    if (my.len &&
+        (my.data[0] == (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SET))) {
+        if (SECSuccess != SECU_ExtractBERAndStep(&my, &bagAttributes)) {
+            return SECFailure;
+        }
+        m = PR_smprintf("%s Attributes", desc);
+        rv = secu_PrintPKCS12Attributes(out, &bagAttributes,
+                                        m ? m : "Bag Attributes", level);
+        if (m)
+            PR_smprintf_free(m);
+    }
+    return rv;
+}
+
+static int
+secu_PrintPKCS7Data(FILE *out, SECItem *item, secuPKCS7State state,
+                    const char *desc, int level)
+{
+    SECItem my = *item;
+    SECItem nextbag;
+    int i;
+    SECStatus rv;
+
+    /* walk down each safe */
+    switch (state) {
+        case secuPKCS7PKCS12AuthSafe:
+            if ((my.data[0] != (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SEQUENCE)) ||
+                SECSuccess != SECU_StripTagAndLength(&my)) {
+                PORT_SetError(SEC_ERROR_BAD_DER);
+                return SECFailure;
+            }
+            for (i = 1; my.len; i++) {
+                char *m;
+                if (SECSuccess != SECU_ExtractBERAndStep(&my, &nextbag)) {
+                    return SECFailure;
+                }
+                m = PR_smprintf("Safe %d", i);
+                rv = secu_PrintDERPKCS7ContentInfo(out, &nextbag,
+                                                   secuPKCS7PKCS12Safe,
+                                                   m ? m : "Safe", level);
+                if (m)
+                    PR_smprintf_free(m);
+                if (rv != SECSuccess) {
+                    return SECFailure;
+                }
+            }
+            return SECSuccess;
+        case secuPKCS7PKCS12Safe:
+            if ((my.data[0] != (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SEQUENCE)) ||
+                SECSuccess != SECU_StripTagAndLength(&my)) {
+                PORT_SetError(SEC_ERROR_BAD_DER);
+                return SECFailure;
+            }
+            for (i = 1; my.len; i++) {
+                char *m;
+                if (SECSuccess != SECU_ExtractBERAndStep(&my, &nextbag)) {
+                    return SECFailure;
+                }
+                m = PR_smprintf("Bag %d", i);
+                rv = secu_PrintPKCS12Bag(out, &nextbag,
+                                         m ? m : "Bag", level);
+                if (m)
+                    PR_smprintf_free(m);
+                if (rv != SECSuccess) {
+                    return SECFailure;
+                }
+            }
+            return SECSuccess;
+        case secuPKCS7Unknown:
+            SECU_PrintAsHex(out, item, desc, level);
+            break;
+    }
+    return SECSuccess;
 }
 
 /*
@@ -2957,7 +3296,7 @@ secu_PrintPKCS7Digested(FILE *out, SEC_PKCS7DigestedData *src,
 */
 static int
 secu_PrintPKCS7ContentInfo(FILE *out, SEC_PKCS7ContentInfo *src,
-                           char *m, int level)
+                           secuPKCS7State state, const char *m, int level)
 {
     const char *desc;
     SECOidTag kind;
@@ -2972,7 +3311,7 @@ secu_PrintPKCS7ContentInfo(FILE *out, SEC_PKCS7ContentInfo *src,
 
     if (src->contentTypeTag == NULL) {
         desc = "Unknown";
-        kind = SEC_OID_PKCS7_DATA;
+        kind = SEC_OID_UNKNOWN;
     } else {
         desc = src->contentTypeTag->desc;
         kind = src->contentTypeTag->offset;
@@ -2990,25 +3329,33 @@ secu_PrintPKCS7ContentInfo(FILE *out, SEC_PKCS7ContentInfo *src,
     rv = 0;
     switch (kind) {
         case SEC_OID_PKCS7_SIGNED_DATA: /* Signed Data */
-            rv = secu_PrintPKCS7Signed(out, src->content.signedData, desc, level);
+            rv = secu_PrintPKCS7Signed(out, src->content.signedData,
+                                       state, desc, level);
             break;
 
         case SEC_OID_PKCS7_ENVELOPED_DATA: /* Enveloped Data */
-            secu_PrintPKCS7Enveloped(out, src->content.envelopedData, desc, level);
+            rv = secu_PrintPKCS7Enveloped(out, src->content.envelopedData,
+                                          state, desc, level);
             break;
 
         case SEC_OID_PKCS7_SIGNED_ENVELOPED_DATA: /* Signed and Enveloped */
             rv = secu_PrintPKCS7SignedAndEnveloped(out,
                                                    src->content.signedAndEnvelopedData,
-                                                   desc, level);
+                                                   state, desc, level);
             break;
 
         case SEC_OID_PKCS7_DIGESTED_DATA: /* Digested Data */
-            secu_PrintPKCS7Digested(out, src->content.digestedData, desc, level);
+            rv = secu_PrintPKCS7Digested(out, src->content.digestedData,
+                                         state, desc, level);
             break;
 
         case SEC_OID_PKCS7_ENCRYPTED_DATA: /* Encrypted Data */
-            secu_PrintPKCS7Encrypted(out, src->content.encryptedData, desc, level);
+            rv = secu_PrintPKCS7Encrypted(out, src->content.encryptedData,
+                                          state, desc, level);
+            break;
+
+        case SEC_OID_PKCS7_DATA:
+            rv = secu_PrintPKCS7Data(out, src->content.data, state, desc, level);
             break;
 
         default:
@@ -3023,8 +3370,9 @@ secu_PrintPKCS7ContentInfo(FILE *out, SEC_PKCS7ContentInfo *src,
 ** SECU_PrintPKCS7ContentInfo
 **   Decode and print any major PKCS7 data type (up to version 1).
 */
-int
-SECU_PrintPKCS7ContentInfo(FILE *out, SECItem *der, char *m, int level)
+static int
+secu_PrintDERPKCS7ContentInfo(FILE *out, SECItem *der, secuPKCS7State state,
+                              const char *m, int level)
 {
     SEC_PKCS7ContentInfo *cinfo;
     int rv;
@@ -3032,13 +3380,19 @@ SECU_PrintPKCS7ContentInfo(FILE *out, SECItem *der, char *m, int level)
     cinfo = SEC_PKCS7DecodeItem(der, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     if (cinfo != NULL) {
         /* Send it to recursive parsing and printing module */
-        rv = secu_PrintPKCS7ContentInfo(out, cinfo, m, level);
+        rv = secu_PrintPKCS7ContentInfo(out, cinfo, state, m, level);
         SEC_PKCS7DestroyContentInfo(cinfo);
     } else {
         rv = -1;
     }
 
     return rv;
+}
+
+int
+SECU_PrintPKCS7ContentInfo(FILE *out, SECItem *der, char *m, int level)
+{
+    return secu_PrintDERPKCS7ContentInfo(out, der, secuPKCS7Unknown, m, level);
 }
 
 /*
@@ -4157,5 +4511,225 @@ exportKeyingMaterials(PRFileDesc *fd,
         }
     }
 
+    return SECSuccess;
+}
+
+SECStatus
+readPSK(const char *arg, SECItem *psk, SECItem *label)
+{
+    SECStatus rv = SECFailure;
+    char *str = PORT_Strdup(arg);
+    if (!str) {
+        goto cleanup;
+    }
+
+    char *pskBytes = strtok(str, ":");
+    if (!pskBytes) {
+        goto cleanup;
+    }
+    if (PORT_Strncasecmp(pskBytes, "0x", 2) != 0) {
+        goto cleanup;
+    }
+
+    psk = SECU_HexString2SECItem(NULL, psk, &pskBytes[2]);
+    if (!psk || !psk->data || psk->len != strlen(&str[2]) / 2) {
+        goto cleanup;
+    }
+
+    SECItem labelItem = { siBuffer, NULL, 0 };
+    char *inLabel = strtok(NULL, ":");
+    if (inLabel) {
+        labelItem.data = (unsigned char *)PORT_Strdup(inLabel);
+        if (!labelItem.data) {
+            goto cleanup;
+        }
+        labelItem.len = strlen(inLabel);
+
+        if (PORT_Strncasecmp(inLabel, "0x", 2) == 0) {
+            rv = SECU_SECItemHexStringToBinary(&labelItem);
+            if (rv != SECSuccess) {
+                SECITEM_FreeItem(&labelItem, PR_FALSE);
+                goto cleanup;
+            }
+        }
+        rv = SECSuccess;
+    } else {
+        PRUint8 defaultLabel[] = { 'C', 'l', 'i', 'e', 'n', 't', '_',
+                                   'i', 'd', 'e', 'n', 't', 'i', 't', 'y' };
+        SECItem src = { siBuffer, defaultLabel, sizeof(defaultLabel) };
+        rv = SECITEM_CopyItem(NULL, &labelItem, &src);
+    }
+    if (rv == SECSuccess) {
+        *label = labelItem;
+    }
+
+cleanup:
+    PORT_Free(str);
+    return rv;
+}
+
+static SECStatus
+secu_PrintPKCS12DigestInfo(FILE *out, const SECItem *t, char *m, int level)
+{
+    SECItem my = *t;
+    SECItem rawDigestAlgID;
+    SECItem digestData;
+    SECStatus rv;
+    PLArenaPool *arena;
+    SECAlgorithmID digestAlgID;
+    char *mAlgID = NULL;
+    char *mDigest = NULL;
+
+    /* strip the outer sequence */
+    if ((my.data[0] != (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SEQUENCE)) ||
+        SECSuccess != SECU_StripTagAndLength(&my)) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+
+    /* get the algorithm ID */
+    if (SECSuccess != SECU_ExtractBERAndStep(&my, &rawDigestAlgID)) {
+        return SECFailure;
+    }
+    arena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
+    if (arena == NULL) {
+        return SECFailure;
+    }
+#define DIGEST_ALGID_STRING "Digest Algorithm ID"
+    if (m)
+        mAlgID = PR_smprintf("%s " DIGEST_ALGID_STRING, m);
+    rv = SEC_QuickDERDecodeItem(arena, &digestAlgID,
+                                SEC_ASN1_GET(SECOID_AlgorithmIDTemplate),
+                                &rawDigestAlgID);
+    if (rv == SECSuccess) {
+        SECU_PrintAlgorithmID(out, &digestAlgID,
+                              mAlgID ? mAlgID : DIGEST_ALGID_STRING, level);
+    }
+    if (mAlgID)
+        PR_smprintf_free(mAlgID);
+    PORT_FreeArena(arena, PR_FALSE);
+    if (rv != SECSuccess) {
+        return rv;
+    }
+
+    /* get the mac data */
+    if (SECSuccess != SECU_ExtractBERAndStep(&my, &digestData)) {
+        return SECFailure;
+    }
+    if ((digestData.data[0] & SEC_ASN1_TAGNUM_MASK) != SEC_ASN1_OCTET_STRING) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+#define DIGEST_STRING "Digest"
+    if (m)
+        mDigest = PR_smprintf("%s " DIGEST_STRING, m);
+    secu_PrintOctetString(out, &digestData,
+                          mDigest ? mDigest : DIGEST_STRING, level);
+    if (mDigest)
+        PR_smprintf_free(mDigest);
+    return SECSuccess;
+}
+
+static SECStatus
+secu_PrintPKCS12MacData(FILE *out, const SECItem *t, char *m, int level)
+{
+    SECItem my = *t;
+    SECItem hash;
+    SECItem salt;
+
+    if (m) {
+        SECU_Indent(out, level);
+        fprintf(out, "%s: \n", m);
+        level++;
+    }
+
+    /* strip the outer sequence */
+    if ((my.data[0] != (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SEQUENCE)) ||
+        SECSuccess != SECU_StripTagAndLength(&my)) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+
+    if (SECSuccess != SECU_ExtractBERAndStep(&my, &hash)) {
+        return SECFailure;
+    }
+    if (SECSuccess != secu_PrintPKCS12DigestInfo(out, &hash, "Mac", level)) {
+        return SECFailure;
+    }
+
+    /* handle the salt */
+    if (SECSuccess != SECU_ExtractBERAndStep(&my, &salt)) {
+        return SECFailure;
+        ;
+    }
+    if ((salt.data[0] & SEC_ASN1_TAGNUM_MASK) != SEC_ASN1_OCTET_STRING) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+    secu_PrintOctetString(out, &salt, "Mac Salt", level);
+
+    if (my.len &&
+        ((my.data[0] & SEC_ASN1_TAGNUM_MASK) == SEC_ASN1_INTEGER)) {
+        SECItem iterator;
+        if (SECSuccess != SECU_ExtractBERAndStep(&my, &iterator)) {
+            return SECFailure;
+        }
+        SECU_PrintEncodedInteger(out, &iterator, "Iterations", level);
+    }
+    return SECSuccess;
+}
+
+SECStatus
+SECU_PrintPKCS12(FILE *out, const SECItem *t, char *m, int level)
+{
+    SECItem my = *t;
+    SECItem authSafe;
+    SECItem macData;
+
+    SECU_Indent(out, level);
+    fprintf(out, "%s:\n", m);
+    level++;
+
+    /* strip the outer sequence */
+    if ((my.data[0] != (SEC_ASN1_CONSTRUCTED | SEC_ASN1_SEQUENCE)) ||
+        SECSuccess != SECU_StripTagAndLength(&my)) {
+        PORT_SetError(SEC_ERROR_BAD_DER);
+        return SECFailure;
+    }
+    /* print and remove the optional version number */
+    if (my.len && ((my.data[0] & SEC_ASN1_TAGNUM_MASK) == SEC_ASN1_INTEGER)) {
+        SECItem version;
+
+        if (SECSuccess != SECU_ExtractBERAndStep(&my, &version)) {
+            return SECFailure;
+        }
+        SECU_PrintEncodedInteger(out, &version, "Version", level);
+    }
+
+    /* print the authSafe */
+    if (SECSuccess != SECU_ExtractBERAndStep(&my, &authSafe)) {
+        return SECFailure;
+    }
+    if (SECSuccess != secu_PrintDERPKCS7ContentInfo(out, &authSafe,
+                                                    secuPKCS7PKCS12AuthSafe,
+                                                    "AuthSafe", level)) {
+        return SECFailure;
+    }
+
+    /* print the mac data (optional) */
+    if (!my.len) {
+        return SECSuccess;
+    }
+    if (SECSuccess != SECU_ExtractBERAndStep(&my, &macData)) {
+        return SECFailure;
+    }
+    if (SECSuccess != secu_PrintPKCS12MacData(out, &macData,
+                                              "Mac Data", level)) {
+        return SECFailure;
+    }
+
+    if (my.len) {
+        fprintf(out, "Unknown extra data found \n");
+    }
     return SECSuccess;
 }

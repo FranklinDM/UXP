@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -55,6 +56,7 @@ const uint8_t kTlsAlertUnsupportedExtension = 110;
 const uint8_t kTlsAlertUnrecognizedName = 112;
 const uint8_t kTlsAlertCertificateRequired = 116;
 const uint8_t kTlsAlertNoApplicationProtocol = 120;
+const uint8_t kTlsAlertEchRequired = 121;
 
 const uint8_t kTlsFakeChangeCipherSpec[] = {
     ssl_ct_change_cipher_spec,  // Type
@@ -72,6 +74,11 @@ const uint8_t kTlsFakeChangeCipherSpec[] = {
     0x01,  // Length
     0x01   // Value
 };
+
+const uint8_t kCtDtlsCiphertext = 0x20;
+const uint8_t kCtDtlsCiphertextMask = 0xE0;
+const uint8_t kCtDtlsCiphertext16bSeqno = 0x08;
+const uint8_t kCtDtlsCiphertextLengthPresent = 0x04;
 
 static const uint8_t kTls13PskKe = 0;
 static const uint8_t kTls13PskDhKe = 1;

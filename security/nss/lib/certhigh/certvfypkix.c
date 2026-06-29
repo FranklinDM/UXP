@@ -411,7 +411,7 @@ cleanup:
 static PKIX_Error *
 cert_CreatePkixProcessingParams(
     CERTCertificate *cert,
-    PRBool checkSig, /* not used yet. See bug 391476 */
+    PRBool checkSig,
     PRTime time,
     void *wincx,
     PRBool useArena,
@@ -441,14 +441,11 @@ cert_CreatePkixProcessingParams(
 
     *pplContext = plContext;
 
-#ifdef PKIX_NOTDEF
     /* Functions should be implemented in patch for 390532 */
     PKIX_CHECK(
         pkix_pl_NssContext_SetCertSignatureCheck(checkSig,
                                                  (PKIX_PL_NssContext *)plContext),
         PKIX_NSSCONTEXTSETCERTSIGNCHECKFAILED);
-
-#endif /* PKIX_NOTDEF */
 
     PKIX_CHECK(
         PKIX_ProcessingParams_Create(&procParams, plContext),
@@ -820,6 +817,8 @@ cert_PkixErrorToNssCode(
     void *plContext)
 {
     int errLevel = 0;
+    (void)errLevel; /* Suppress unused var warning (Bug 1738028) */
+
     PKIX_Int32 nssErr = 0;
     PKIX_Error *errPtr = error;
 
@@ -836,11 +835,9 @@ cert_PkixErrorToNssCode(
         }
         if (pkixLog) {
 #ifdef PKIX_ERROR_DESCRIPTION
-            PR_LOG(pkixLog, 2, ("Error at level %d: %s\n", errLevel,
-                                PKIX_ErrorText[errPtr->errCode]));
+            PR_LOG(pkixLog, 2, ("Error at level %d: %s\n", errLevel, PKIX_ErrorText[errPtr->errCode]));
 #else
-            PR_LOG(pkixLog, 2, ("Error at level %d: Error code %d\n", errLevel,
-                                errPtr->errCode));
+            PR_LOG(pkixLog, 2, ("Error at level %d: Error code %d\n", errLevel, errPtr->errCode));
 #endif /* PKIX_ERROR_DESCRIPTION */
         }
         errPtr = errPtr->cause;

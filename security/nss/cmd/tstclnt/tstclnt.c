@@ -109,6 +109,8 @@ SSLNamedGroup *enabledGroups = NULL;
 unsigned int enabledGroupsCount = 0;
 const SSLSignatureScheme *enabledSigSchemes = NULL;
 unsigned int enabledSigSchemeCount = 0;
+SECItem psk = { siBuffer, NULL, 0 };
+SECItem pskLabel = { siBuffer, NULL, 0 };
 
 const char *
 signatureSchemeName(SSLSignatureScheme scheme)
@@ -166,10 +168,11 @@ printSecurityInfo(PRFileDesc *fd)
                                         &suite, sizeof suite);
         if (result == SECSuccess) {
             FPRINTF(stderr,
-                    "tstclnt: SSL version %d.%d using %d-bit %s with %d-bit %s MAC\n",
+                    "tstclnt: SSL version %d.%d using %d-bit %s with %d-bit %s MAC%s\n",
                     channel.protocolVersion >> 8, channel.protocolVersion & 0xff,
                     suite.effectiveKeyBits, suite.symCipherName,
-                    suite.macBits, suite.macAlgorithmName);
+                    suite.macBits, suite.macAlgorithmName,
+                    channel.isFIPS ? " FIPS" : "");
             FPRINTF(stderr,
                     "tstclnt: Server Auth: %d-bit %s, Key Exchange: %d-bit %s\n"
                     "         Compression: %s, Extended Master Secret: %s\n"
@@ -229,7 +232,8 @@ PrintUsageHeader()
             "  [-r N] [-w passwd] [-W pwfile] [-q [-t seconds]]\n"
             "  [-I groups] [-J signatureschemes]\n"
             "  [-A requestfile] [-L totalconnections] [-P {client,server}]\n"
-            "  [-N encryptedSniKeys] [-Q]\n"
+            "  [-N echConfigs] [-Q] [-z externalPsk]\n"
+            "  [-i echGreaseSize]\n"
             "\n",
             progName);
 }
@@ -264,7 +268,7 @@ PrintParameterUsage()
     fprintf(stderr, "%-20s Send TLS_FALLBACK_SCSV\n", "-K");
     fprintf(stderr, "%-20s Prints only payload data. Skips HTTP header.\n", "-S");
     fprintf(stderr, "%-20s Client speaks first. \n", "-f");
-    fprintf(stderr, "%-20s Use synchronous certificate validation\n", "-O");
+    fprintf(stderr, "%-20s Use synchronous certificate selection & validation\n", "-O");
     fprintf(stderr, "%-20s Override bad server cert. Make it OK.\n", "-o");
     fprintf(stderr, "%-20s Disable SSL socket locking.\n", "-s");
     fprintf(stderr, "%-20s Verbose progress reporting.\n", "-v");
@@ -311,10 +315,10 @@ PrintParameterUsage()
                     "%-20s rsa_pss_pss_sha256, rsa_pss_pss_sha384, rsa_pss_pss_sha512,\n"
                     "%-20s dsa_sha1, dsa_sha256, dsa_sha384, dsa_sha512\n",
             "-J", "", "", "", "", "", "", "");
-    fprintf(stderr, "%-20s Enable alternative TLS 1.3 handshake\n", "-X alt-server-hello");
     fprintf(stderr, "%-20s Use DTLS\n", "-P {client, server}");
     fprintf(stderr, "%-20s Exit after handshake\n", "-Q");
-    fprintf(stderr, "%-20s Encrypted SNI Keys\n", "-N");
+    fprintf(stderr, "%-20s Use Encrypted Client Hello with the given Base64-encoded ECHConfigs\n", "-N");
+    fprintf(stderr, "%-20s Enable Encrypted Client Hello GREASEing with the given padding size (0-255) \n", "-i");
     fprintf(stderr, "%-20s Enable post-handshake authentication\n"
                     "%-20s for TLS 1.3; need to specify -n\n",
             "-E", "");
@@ -325,6 +329,13 @@ PrintParameterUsage()
                     "%-20s a hex string if it is preceded by \"0x\"; OUTPUT-LENGTH\n"
                     "%-20s is a decimal integer.\n",
             "-x", "", "", "", "", "");
+    fprintf(stderr,
+            "%-20s Configure a TLS 1.3 External PSK with the given hex string for a key\n"
+            "%-20s To specify a label, use ':' as a delimiter. For example\n"
+            "%-20s 0xAAAABBBBCCCCDDDD:mylabel. Otherwise, the default label of\n"
+            "%-20s 'Client_identity' will be used.\n",
+            "-z externalPsk", "", "", "");
+    fprintf(stderr, "%-20s Enable middlebox compatibility mode (TLS 1.3 only)\n", "-e");
 }
 
 static void
@@ -724,6 +735,43 @@ ownAuthCertificate(void *arg, PRFileDesc *fd, PRBool checkSig,
     return SECWouldBlock;
 }
 
+struct clientCertAsyncParamsStr {
+    void *arg;                        /* The nickname used for selection, not owned */
+    struct CERTDistNamesStr *caNames; /* CA Names specified by Server, owned. */
+};
+
+/* tstclnt can only have a single handshake in progress at any instant. */
+PRBool clientCertAsyncSelect = PR_TRUE; /* Async by default */
+PRBool clientCertIsBlocked = PR_FALSE;  /* Whether we waiting to finish ClientAuth */
+struct clientCertAsyncParamsStr *clientCertParams = NULL;
+
+SECStatus
+own_CompleteClientAuthData(PRFileDesc *fd, struct clientCertAsyncParamsStr *args)
+{
+    SECStatus rv;
+    CERTCertificate *pRetCert = NULL;
+    SECKEYPrivateKey *pRetKey = NULL;
+    rv = NSS_GetClientAuthData(args->arg, fd, args->caNames, &pRetCert, &pRetKey);
+    if (rv != SECSuccess) {
+        fprintf(stderr, "Failed to load a suitable client certificate \n");
+    }
+    return SSL_ClientCertCallbackComplete(fd, rv, pRetKey, pRetCert);
+}
+
+SECStatus
+restartHandshakeAfterClientCertIfNeeded(PRFileDesc *fd)
+{
+    if (!clientCertIsBlocked) {
+        return SECFailure;
+    }
+    clientCertIsBlocked = PR_FALSE;
+    own_CompleteClientAuthData(fd, clientCertParams);
+    CERT_FreeDistNames(clientCertParams->caNames);
+    PORT_Free(clientCertParams);
+    clientCertParams = NULL;
+    return SECSuccess;
+}
+
 SECStatus
 own_GetClientAuthData(void *arg,
                       PRFileDesc *socket,
@@ -731,6 +779,26 @@ own_GetClientAuthData(void *arg,
                       struct CERTCertificateStr **pRetCert,
                       struct SECKEYPrivateKeyStr **pRetKey)
 {
+    if (clientCertAsyncSelect) {
+        PR_ASSERT(!clientCertIsBlocked);
+        PR_ASSERT(!clientCertParams);
+
+        clientCertIsBlocked = PR_TRUE;
+        clientCertParams = PORT_Alloc(sizeof(struct clientCertAsyncParamsStr));
+        if (!clientCertParams) {
+            fprintf(stderr, "Unable to allocate buffer for client cert callback\n");
+            exit(1);
+        }
+
+        clientCertParams->arg = arg;
+        clientCertParams->caNames = caNames ? CERT_DupDistNames(caNames) : NULL;
+        if (caNames && !clientCertParams->caNames) {
+            fprintf(stderr, "Unable to allocate buffer for client cert callback\n");
+            exit(1);
+        }
+        return SECWouldBlock;
+    }
+
     if (verbose > 1) {
         SECStatus rv;
         fprintf(stderr, "Server requested Client Authentication\n");
@@ -933,7 +1001,7 @@ restartHandshakeAfterServerCertIfNeeded(PRFileDesc *fd,
     SECStatus rv;
     PRErrorCode error = 0;
 
-    if (!serverCertAuth->isPaused)
+    if (!serverCertAuth->isPaused || clientCertIsBlocked)
         return SECSuccess;
 
     FPRINTF(stderr, "%s: handshake was paused by auth certificate hook\n",
@@ -979,6 +1047,7 @@ int enableSignedCertTimestamps = 0;
 int forceFallbackSCSV = 0;
 int enableExtendedMasterSecret = 0;
 PRBool requireDHNamedGroups = 0;
+PRBool middleboxCompatMode = 0;
 PRSocketOptionData opt;
 PRNetAddr addr;
 PRBool allowIPv4 = PR_TRUE;
@@ -1002,7 +1071,8 @@ PRBool stopAfterHandshake = PR_FALSE;
 PRBool requestToExit = PR_FALSE;
 char *versionString = NULL;
 PRBool handshakeComplete = PR_FALSE;
-char *encryptedSNIKeys = NULL;
+char *echConfigs = NULL;
+PRUint16 echGreaseSize = 0;
 PRBool enablePostHandshakeAuth = PR_FALSE;
 PRBool enableDelegatedCredentials = PR_FALSE;
 const secuExporter *enabledExporters = NULL;
@@ -1050,6 +1120,11 @@ writeBytesToServer(PRFileDesc *s, const PRUint8 *buf, int nb)
         if (rv != SECSuccess) {
             SECU_PrintError(progName, "authentication of server cert failed");
             return EXIT_CODE_HANDSHAKE_FAILED;
+        }
+
+        rv = restartHandshakeAfterClientCertIfNeeded(s);
+        if (rv == SECSuccess) {
+            continue;
         }
 
         pollDesc.in_flags = PR_POLL_WRITE | PR_POLL_EXCEPT;
@@ -1227,6 +1302,60 @@ connectToServer(PRFileDesc *s, PRPollDesc *pollset)
         }
     }
 
+    return SECSuccess;
+}
+
+static SECStatus
+importPsk(PRFileDesc *s)
+{
+    SECU_PrintAsHex(stdout, &psk, "Using External PSK", 0);
+    PK11SlotInfo *slot = NULL;
+    PK11SymKey *symKey = NULL;
+    slot = PK11_GetInternalSlot();
+    if (!slot) {
+        SECU_PrintError(progName, "PK11_GetInternalSlot failed");
+        return SECFailure;
+    }
+    symKey = PK11_ImportSymKey(slot, CKM_HKDF_KEY_GEN, PK11_OriginUnwrap,
+                               CKA_DERIVE, &psk, NULL);
+    PK11_FreeSlot(slot);
+    if (!symKey) {
+        SECU_PrintError(progName, "PK11_ImportSymKey failed");
+        return SECFailure;
+    }
+
+    SECStatus rv = SSL_AddExternalPsk(s, symKey, (const PRUint8 *)pskLabel.data,
+                                      pskLabel.len, ssl_hash_sha256);
+    PK11_FreeSymKey(symKey);
+    return rv;
+}
+
+static SECStatus
+printEchRetryConfigs(PRFileDesc *s)
+{
+    if (PORT_GetError() == SSL_ERROR_ECH_RETRY_WITH_ECH) {
+        SECItem retries = { siBuffer, NULL, 0 };
+        SECStatus rv = SSL_GetEchRetryConfigs(s, &retries);
+        if (rv != SECSuccess) {
+            SECU_PrintError(progName, "SSL_GetEchRetryConfigs failed");
+            return SECFailure;
+        }
+        char *retriesBase64 = NSSBase64_EncodeItem(NULL, NULL, 0, &retries);
+        if (!retriesBase64) {
+            SECU_PrintError(progName, "NSSBase64_EncodeItem on retry_configs failed");
+            SECITEM_FreeItem(&retries, PR_FALSE);
+            return SECFailure;
+        }
+
+        // Remove the newline characters that NSSBase64_EncodeItem unhelpfully inserts.
+        char *newline = strstr(retriesBase64, "\r\n");
+        if (newline) {
+            memmove(newline, newline + 2, strlen(newline + 2) + 1);
+        }
+        fprintf(stderr, "Received ECH retry_configs: \n%s\n", retriesBase64);
+        PORT_Free(retriesBase64);
+        SECITEM_FreeItem(&retries, PR_FALSE);
+    }
     return SECSuccess;
 }
 
@@ -1432,6 +1561,16 @@ run()
         }
     }
 
+    /* Middlebox compatibility mode (TLS 1.3 only) */
+    if (middleboxCompatMode) {
+        rv = SSL_OptionSet(s, SSL_ENABLE_TLS13_COMPAT_MODE, PR_TRUE);
+        if (rv != SECSuccess) {
+            SECU_PrintError(progName, "error enabling middlebox compatibility mode");
+            error = 1;
+            goto done;
+        }
+    }
+
     /* require the use of fixed finite-field DH groups */
     if (requireDHNamedGroups) {
         rv = SSL_OptionSet(s, SSL_REQUIRE_DH_NAMED_GROUPS, PR_TRUE);
@@ -1478,21 +1617,44 @@ run()
         }
     }
 
-    if (encryptedSNIKeys) {
-        SECItem esniKeysBin = { siBuffer, NULL, 0 };
+    if (echConfigs) {
+        SECItem echConfigsBin = { siBuffer, NULL, 0 };
 
-        if (!NSSBase64_DecodeBuffer(NULL, &esniKeysBin, encryptedSNIKeys,
-                                    strlen(encryptedSNIKeys))) {
-            SECU_PrintError(progName, "ESNIKeys record is invalid base64");
+        if (!NSSBase64_DecodeBuffer(NULL, &echConfigsBin, echConfigs,
+                                    strlen(echConfigs))) {
+            SECU_PrintError(progName, "ECHConfigs record is invalid base64");
             error = 1;
             goto done;
         }
 
-        rv = SSL_EnableESNI(s, esniKeysBin.data, esniKeysBin.len,
-                            "dummy.invalid");
-        SECITEM_FreeItem(&esniKeysBin, PR_FALSE);
+        rv = SSL_SetClientEchConfigs(s, echConfigsBin.data, echConfigsBin.len);
+        SECITEM_FreeItem(&echConfigsBin, PR_FALSE);
         if (rv < 0) {
-            SECU_PrintError(progName, "SSL_EnableESNI failed");
+            SECU_PrintError(progName, "SSL_SetClientEchConfigs failed");
+            error = 1;
+            goto done;
+        }
+    }
+
+    if (echGreaseSize) {
+        rv = SSL_EnableTls13GreaseEch(s, PR_TRUE);
+        if (rv != SECSuccess) {
+            SECU_PrintError(progName, "SSL_EnableTls13GreaseEch failed");
+            error = 1;
+            goto done;
+        }
+        rv = SSL_SetTls13GreaseEchSize(s, echGreaseSize);
+        if (rv != SECSuccess) {
+            SECU_PrintError(progName, "SSL_SetTls13GreaseEchSize failed");
+            error = 1;
+            goto done;
+        }
+    }
+
+    if (psk.data) {
+        rv = importPsk(s);
+        if (rv != SECSuccess) {
+            SECU_PrintError(progName, "importPsk failed");
             error = 1;
             goto done;
         }
@@ -1615,6 +1777,11 @@ run()
             goto done;
         }
 
+        rv = restartHandshakeAfterClientCertIfNeeded(s);
+        if (rv == SECSuccess) {
+            continue;
+        }
+
         pollset[SSOCK_FD].out_flags = 0;
         pollset[STDIN_FD].out_flags = 0;
 
@@ -1660,6 +1827,9 @@ run()
             } else {
                 error = writeBytesToServer(s, buf, nb);
                 if (error) {
+                    if (echConfigs) {
+                        (void)printEchRetryConfigs(s);
+                    }
                     goto done;
                 }
                 pollset[SSOCK_FD].in_flags = PR_POLL_READ;
@@ -1752,11 +1922,8 @@ main(int argc, char **argv)
         }
     }
 
-    /* Note: 'z' was removed in 3.39
-     * Please leave some time before reusing these.
-     */
     optstate = PL_CreateOptState(argc, argv,
-                                 "46A:BCDEFGHI:J:KL:M:N:OP:QR:STUV:W:X:YZa:bc:d:fgh:m:n:op:qr:st:uvw:x:");
+                                 "46A:BCDEFGHI:J:KL:M:N:OP:QR:STUV:W:X:YZa:bc:d:efgh:i:m:n:op:qr:st:uvw:x:z:");
     while ((optstatus = PL_GetNextOpt(optstate)) == PL_OPT_OK) {
         switch (optstate->option) {
             case '?':
@@ -1812,6 +1979,7 @@ main(int argc, char **argv)
                 break;
 
             case 'O':
+                clientCertAsyncSelect = PR_FALSE;
                 serverCertAuth.shouldPause = PR_FALSE;
                 break;
 
@@ -1842,7 +2010,15 @@ main(int argc, char **argv)
                 break;
 
             case 'N':
-                encryptedSNIKeys = PORT_Strdup(optstate->value);
+                echConfigs = PORT_Strdup(optstate->value);
+                break;
+
+            case 'i':
+                echGreaseSize = PORT_Atoi(optstate->value);
+                if (!echGreaseSize || echGreaseSize > 255) {
+                    fprintf(stderr, "ECH Grease size must be within 1..255 (inclusive).\n");
+                    exit(-1);
+                }
                 break;
 
             case 'P':
@@ -1925,6 +2101,10 @@ main(int argc, char **argv)
 
             case 'd':
                 certDir = PORT_Strdup(optstate->value);
+                break;
+
+            case 'e':
+                middleboxCompatMode = PR_TRUE;
                 break;
 
             case 'f':
@@ -2015,6 +2195,15 @@ main(int argc, char **argv)
                     Usage();
                 }
                 break;
+
+            case 'z':
+                rv = readPSK(optstate->value, &psk, &pskLabel);
+                if (rv != SECSuccess) {
+                    PL_DestroyOptState(optstate);
+                    fprintf(stderr, "Bad PSK specified.\n");
+                    Usage();
+                }
+                break;
         }
     }
     PL_DestroyOptState(optstate);
@@ -2069,32 +2258,45 @@ main(int argc, char **argv)
     if (status == PR_SUCCESS) {
         addr.inet.port = PR_htons(portno);
     } else {
-        /* Lookup host */
-        PRAddrInfo *addrInfo;
-        void *enumPtr = NULL;
+        PRBool gotLoopbackIP = PR_FALSE;
+        if ((!strcmp(host, "localhost") || !strcmp(host, "localhost.localdomain"))
+            /* only check for preference if both types are allowed */
+            && allowIPv4 && allowIPv6) {
+            /* make a decision which IP to prefer */
+            status = PR_GetPrefLoopbackAddrInfo(&addr, portno);
+            if (status != PR_FAILURE) {
+                gotLoopbackIP = PR_TRUE;
+            }
+        }
 
-        addrInfo = PR_GetAddrInfoByName(host, PR_AF_UNSPEC,
-                                        PR_AI_ADDRCONFIG | PR_AI_NOCANONNAME);
-        if (!addrInfo) {
-            fprintf(stderr, "HOSTNAME=%s\n", host);
-            SECU_PrintError(progName, "error looking up host");
-            error = 1;
-            goto done;
-        }
-        for (;;) {
-            enumPtr = PR_EnumerateAddrInfo(enumPtr, addrInfo, portno, &addr);
-            if (enumPtr == NULL)
-                break;
-            if (addr.raw.family == PR_AF_INET && allowIPv4)
-                break;
-            if (addr.raw.family == PR_AF_INET6 && allowIPv6)
-                break;
-        }
-        PR_FreeAddrInfo(addrInfo);
-        if (enumPtr == NULL) {
-            SECU_PrintError(progName, "error looking up host address");
-            error = 1;
-            goto done;
+        if (!gotLoopbackIP) {
+            /* Lookup host */
+            PRAddrInfo *addrInfo;
+            void *enumPtr = NULL;
+
+            addrInfo = PR_GetAddrInfoByName(host, PR_AF_UNSPEC,
+                                            PR_AI_ADDRCONFIG | PR_AI_NOCANONNAME);
+            if (!addrInfo) {
+                fprintf(stderr, "HOSTNAME=%s\n", host);
+                SECU_PrintError(progName, "error looking up host");
+                error = 1;
+                goto done;
+            }
+            for (;;) {
+                enumPtr = PR_EnumerateAddrInfo(enumPtr, addrInfo, portno, &addr);
+                if (enumPtr == NULL)
+                    break;
+                if (addr.raw.family == PR_AF_INET && allowIPv4)
+                    break;
+                if (addr.raw.family == PR_AF_INET6 && allowIPv6)
+                    break;
+            }
+            PR_FreeAddrInfo(addrInfo);
+            if (enumPtr == NULL) {
+                SECU_PrintError(progName, "error looking up host address");
+                error = 1;
+                goto done;
+            }
         }
     }
 
@@ -2209,7 +2411,9 @@ done:
     PORT_Free(pwdata.data);
     PORT_Free(host);
     PORT_Free(zeroRttData);
-    PORT_Free(encryptedSNIKeys);
+    PORT_Free(echConfigs);
+    SECITEM_ZfreeItem(&psk, PR_FALSE);
+    SECITEM_ZfreeItem(&pskLabel, PR_FALSE);
 
     if (enabledGroups) {
         PORT_Free(enabledGroups);

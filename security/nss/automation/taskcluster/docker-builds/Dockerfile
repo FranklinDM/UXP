@@ -2,7 +2,7 @@
 # default image, so it's a fair bit bigger.  Only use this for builds where
 # the smaller docker image is missing something.  These builds will run on
 # the leaner configuration.
-FROM ubuntu:18.04
+FROM ubuntu:bionic-20221215
 LABEL maintainer="Martin Thomson <martin.thomson@gmail.com>"
 
 RUN dpkg --add-architecture i386
@@ -11,12 +11,12 @@ RUN apt-get update \
     build-essential \
     ca-certificates \
     clang-4.0 \
+    clang-10 \
     clang \
     cmake \
     curl \
     g++-4.8-multilib \
     g++-5-multilib \
-    g++-6-multilib \
     g++-multilib \
     git \
     gyp \
@@ -34,21 +34,21 @@ RUN apt-get update \
     pkg-config \
     valgrind \
     zlib1g-dev \
+    clang-format-10 \
+    sqlite3 \ 
+    libabigail-dev \
+    abigail-tools \
+    software-properties-common \ 
+ && add-apt-repository ppa:ubuntu-toolchain-r/test -y \ 
+ && apt-get update \
+ && apt-get install --no-install-recommends -y \ 
+    gcc-11-multilib \
+    g++-11-multilib \
  && rm -rf /var/lib/apt/lists/* \
  && apt-get autoremove -y && apt-get clean -y
 
-# Latest version of abigail-tools
-RUN apt-get update \
- && apt-get install -y --no-install-recommends automake libtool libxml2-dev \
- && git clone git://sourceware.org/git/libabigail.git /tmp/libabigail \
- && cd /tmp/libabigail \
- && autoreconf -fi \
- && ./configure --prefix=/usr --disable-static --disable-apidoc --disable-manual \
- && make && make install \
- && rm -rf /tmp/libabigail \
- && apt-get remove -y automake libtool libxml2-dev \
- && rm -rf /var/lib/apt/lists/* \
- && apt-get autoremove -y && apt-get clean -y
+RUN update-alternatives --install /usr/bin/clang-format \
+    clang-format $(which clang-format-10) 10
 
 ENV SHELL /bin/bash
 ENV USER worker

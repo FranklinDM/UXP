@@ -44,10 +44,12 @@
         'ssltrace.c',
         'sslver.c',
         'tls13con.c',
-        'tls13esni.c',
+        'tls13ech.c',
+        'tls13echv.c',
         'tls13exthandle.c',
         'tls13hashstate.c',
         'tls13hkdf.c',
+        'tls13psk.c',
         'tls13replay.c',
         'tls13subcerts.c',
       ],
@@ -70,11 +72,11 @@
             'UNSAFE_FUZZER_MODE',
           ],
         }],
-#        [ 'enable_sslkeylogfile==1', {
-#          'defines': [
-#            'NSS_ALLOW_SSLKEYLOGFILE',
-#          ],
-#        }],
+        [ 'enable_sslkeylogfile==1', {
+          'defines': [
+            'NSS_ALLOW_SSLKEYLOGFILE',
+          ],
+        }],
       ],
       'dependencies': [
         '<(DEPTH)/exports.gyp:nss_exports',

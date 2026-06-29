@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -619,31 +620,6 @@ TEST_P(TlsConnectGenericPre13, ConnectUnsupportedPointFormat) {
   client_->CheckErrorCode(SEC_ERROR_UNSUPPORTED_EC_POINT_FORM);
 }
 
-// Replace SignatureAndHashAlgorithm of a SKE.
-class ECCServerKEXSigAlgReplacer : public TlsHandshakeFilter {
- public:
-  ECCServerKEXSigAlgReplacer(const std::shared_ptr<TlsAgent> &server,
-                             SSLSignatureScheme sig_scheme)
-      : TlsHandshakeFilter(server, {kTlsHandshakeServerKeyExchange}),
-        sig_scheme_(sig_scheme) {}
-
- protected:
-  virtual PacketFilter::Action FilterHandshake(const HandshakeHeader &header,
-                                               const DataBuffer &input,
-                                               DataBuffer *output) {
-    *output = input;
-
-    uint32_t point_len;
-    EXPECT_TRUE(output->Read(3, 1, &point_len));
-    output->Write(4 + point_len, sig_scheme_, 2);
-
-    return CHANGE;
-  }
-
- private:
-  SSLSignatureScheme sig_scheme_;
-};
-
 TEST_P(TlsConnectTls12, ConnectUnsupportedSigAlg) {
   EnsureTlsSetup();
   client_->DisableAllCiphers();
@@ -739,14 +715,14 @@ TEST_P(TlsConnectTls12, ConnectSigAlgDisabledByPolicy) {
   CheckSkeSigScheme(capture_ske, ssl_sig_rsa_pkcs1_sha384);
 }
 
-INSTANTIATE_TEST_CASE_P(KeyExchangeTest, TlsKeyExchangeTest,
-                        ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
-                                           TlsConnectTestBase::kTlsV11Plus));
+INSTANTIATE_TEST_SUITE_P(KeyExchangeTest, TlsKeyExchangeTest,
+                         ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
+                                            TlsConnectTestBase::kTlsV11Plus));
 
 #ifndef NSS_DISABLE_TLS_1_3
-INSTANTIATE_TEST_CASE_P(KeyExchangeTest, TlsKeyExchangeTest13,
-                        ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
-                                           TlsConnectTestBase::kTlsV13));
+INSTANTIATE_TEST_SUITE_P(KeyExchangeTest, TlsKeyExchangeTest13,
+                         ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
+                                            TlsConnectTestBase::kTlsV13));
 #endif
 
 }  // namespace nss_test

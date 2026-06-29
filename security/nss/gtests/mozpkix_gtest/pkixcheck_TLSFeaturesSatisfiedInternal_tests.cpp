@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -113,7 +114,7 @@ TEST_P(pkixcheck_TLSFeaturesSatisfiedInternal, TLSFeaturesSatisfiedInternal) {
             TLSFeaturesSatisfiedInternal(&featuresInput, &responseInput));
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
   pkixcheck_TLSFeaturesSatisfiedInternal,
   pkixcheck_TLSFeaturesSatisfiedInternal,
   testing::ValuesIn(TLSFEATURESSATISFIED_TEST_PARAMS));

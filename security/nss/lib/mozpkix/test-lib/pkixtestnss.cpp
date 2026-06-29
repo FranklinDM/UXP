@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -334,21 +335,30 @@ GenerateDSSKeyPair()
 }
 
 Result
-TestVerifyECDSASignedDigest(const SignedDigest& signedDigest,
-                            Input subjectPublicKeyInfo)
+TestVerifyECDSASignedData(Input data, DigestAlgorithm digestAlgorithm,
+    Input signature, Input subjectPublicKeyInfo)
 {
   InitNSSIfNeeded();
-  return VerifyECDSASignedDigestNSS(signedDigest, subjectPublicKeyInfo,
-                                    nullptr);
+  return VerifyECDSASignedDataNSS(data, digestAlgorithm, signature,
+      subjectPublicKeyInfo, nullptr);
 }
 
 Result
-TestVerifyRSAPKCS1SignedDigest(const SignedDigest& signedDigest,
-                               Input subjectPublicKeyInfo)
+TestVerifyRSAPKCS1SignedData(Input data, DigestAlgorithm digestAlgorithm,
+    Input signature, Input subjectPublicKeyInfo)
 {
   InitNSSIfNeeded();
-  return VerifyRSAPKCS1SignedDigestNSS(signedDigest, subjectPublicKeyInfo,
-                                       nullptr);
+  return VerifyRSAPKCS1SignedDataNSS(data, digestAlgorithm, signature,
+      subjectPublicKeyInfo, nullptr);
+}
+
+Result
+TestVerifyRSAPSSSignedData(Input data, DigestAlgorithm digestAlgorithm,
+    Input signature, Input subjectPublicKeyInfo)
+{
+  InitNSSIfNeeded();
+  return VerifyRSAPSSSignedDataNSS(data, digestAlgorithm, signature,
+      subjectPublicKeyInfo, nullptr);
 }
 
 Result

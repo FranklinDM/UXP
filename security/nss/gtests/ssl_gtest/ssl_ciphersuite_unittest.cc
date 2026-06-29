@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -151,17 +152,17 @@ class TlsCipherSuiteTestBase : public TlsConnectTestBase {
     SendReceive();
 
     // Check that we used the right cipher suite, auth type and kea type.
-    uint16_t actual;
+    uint16_t actual = TLS_NULL_WITH_NULL_NULL;
     EXPECT_TRUE(client_->cipher_suite(&actual));
     EXPECT_EQ(cipher_suite_, actual);
     EXPECT_TRUE(server_->cipher_suite(&actual));
     EXPECT_EQ(cipher_suite_, actual);
-    SSLAuthType auth;
+    SSLAuthType auth = ssl_auth_size;
     EXPECT_TRUE(client_->auth_type(&auth));
     EXPECT_EQ(auth_type_, auth);
     EXPECT_TRUE(server_->auth_type(&auth));
     EXPECT_EQ(auth_type_, auth);
-    SSLKEAType kea;
+    SSLKEAType kea = ssl_kea_size;
     EXPECT_TRUE(client_->kea_type(&kea));
     EXPECT_EQ(kea_type_, kea);
     EXPECT_TRUE(server_->kea_type(&kea));
@@ -242,7 +243,7 @@ TEST_P(TlsCipherSuiteTest, SingleCipherSuite) {
 
 TEST_P(TlsCipherSuiteTest, ResumeCipherSuite) {
   if (SkipIfCipherSuiteIsDSA()) {
-    return;  // Tickets don't work with DSA (bug 1174677).
+    GTEST_SKIP() << "Tickets not supported with DSA (bug 1174677).";
   }
 
   SetupCertificate();  // This is only needed once.
@@ -262,6 +263,7 @@ TEST_P(TlsCipherSuiteTest, ResumeCipherSuite) {
 TEST_P(TlsCipherSuiteTest, ReadLimit) {
   SetupCertificate();
   EnableSingleCipher();
+  TlsSendCipherSpecCapturer capturer(client_);
   ConnectAndCheckCipherSuite();
   if (version_ < SSL_LIBRARY_VERSION_TLS_1_3) {
     uint64_t last = last_safe_write();
@@ -294,9 +296,31 @@ TEST_P(TlsCipherSuiteTest, ReadLimit) {
   } else {
     epoch = 0;
   }
-  TlsAgentTestBase::MakeRecord(variant_, ssl_ct_application_data, version_,
-                               payload, sizeof(payload), &record,
-                               (epoch << 48) | record_limit());
+
+  uint64_t seqno = (epoch << 48) | record_limit();
+
+  // DTLS 1.3 masks the sequence number
+  if (variant_ == ssl_variant_datagram &&
+      version_ >= SSL_LIBRARY_VERSION_TLS_1_3) {
+    auto spec = capturer.spec(1);
+    ASSERT_NE(nullptr, spec.get());
+    ASSERT_EQ(3, spec->epoch());
+
+    DataBuffer pt, ct;
+    uint8_t dtls13_ctype = kCtDtlsCiphertext | kCtDtlsCiphertext16bSeqno |
+                           kCtDtlsCiphertextLengthPresent;
+    TlsRecordHeader hdr(variant_, version_, dtls13_ctype, seqno);
+    pt.Assign(payload, sizeof(payload));
+    TlsRecordHeader out_hdr;
+    spec->Protect(hdr, pt, &ct, &out_hdr);
+
+    auto rv = out_hdr.Write(&record, 0, ct);
+    EXPECT_EQ(out_hdr.header_length() + ct.len(), rv);
+  } else {
+    TlsAgentTestBase::MakeRecord(variant_, ssl_ct_application_data, version_,
+                                 payload, sizeof(payload), &record, seqno);
+  }
+
   client_->SendDirect(record);
   server_->ExpectReadWriteError();
   server_->ReadBytes();
@@ -306,7 +330,7 @@ TEST_P(TlsCipherSuiteTest, ReadLimit) {
 TEST_P(TlsCipherSuiteTest, WriteLimit) {
   // This asserts in TLS 1.3 because we expect an automatic update.
   if (version_ >= SSL_LIBRARY_VERSION_TLS_1_3) {
-    return;
+    GTEST_SKIP();
   }
   SetupCertificate();
   EnableSingleCipher();
@@ -324,7 +348,7 @@ TEST_P(TlsCipherSuiteTest, WriteLimit) {
   static const uint16_t k##name##CiphersArr[] = {__VA_ARGS__};                 \
   static const ::testing::internal::ParamGenerator<uint16_t>                   \
       k##name##Ciphers = ::testing::ValuesIn(k##name##CiphersArr);             \
-  INSTANTIATE_TEST_CASE_P(                                                     \
+  INSTANTIATE_TEST_SUITE_P(                                                    \
       CipherSuite##name, TlsCipherSuiteTest,                                   \
       ::testing::Combine(TlsConnectTestBase::kTlsVariants##modes,              \
                          TlsConnectTestBase::kTls##versions, k##name##Ciphers, \
@@ -501,7 +525,7 @@ static const SecStatusParams kSecStatusTestValuesArr[] = {
      "AES-256-GCM", 256},
     {SSL_LIBRARY_VERSION_TLS_1_2, TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
      "ChaCha20-Poly1305", 256}};
-INSTANTIATE_TEST_CASE_P(TestSecurityStatus, SecurityStatusTest,
-                        ::testing::ValuesIn(kSecStatusTestValuesArr));
+INSTANTIATE_TEST_SUITE_P(TestSecurityStatus, SecurityStatusTest,
+                         ::testing::ValuesIn(kSecStatusTestValuesArr));
 
 }  // namespace nss_test

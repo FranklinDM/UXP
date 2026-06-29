@@ -22,28 +22,29 @@
 
 SEC_ASN1_MKSUB(SECOID_AlgorithmIDTemplate)
 
+/* how much a crypto encrypt/decryption may expand a buffer */
+#define MAX_CRYPTO_EXPANSION 64
+
 /* template for PKCS 5 PBE Parameter.  This template has been expanded
  * based upon the additions in PKCS 12.  This should eventually be moved
  * if RSA updates PKCS 5.
  */
-static const SEC_ASN1Template NSSPKCS5PBEParameterTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE,
-        0, NULL, sizeof(NSSPKCS5PBEParameter) },
-      { SEC_ASN1_OCTET_STRING,
-        offsetof(NSSPKCS5PBEParameter, salt) },
-      { SEC_ASN1_INTEGER,
-        offsetof(NSSPKCS5PBEParameter, iteration) },
-      { 0 }
-    };
+static const SEC_ASN1Template NSSPKCS5PBEParameterTemplate[] = {
+    { SEC_ASN1_SEQUENCE,
+      0, NULL, sizeof(NSSPKCS5PBEParameter) },
+    { SEC_ASN1_OCTET_STRING,
+      offsetof(NSSPKCS5PBEParameter, salt) },
+    { SEC_ASN1_INTEGER,
+      offsetof(NSSPKCS5PBEParameter, iteration) },
+    { 0 }
+};
 
-static const SEC_ASN1Template NSSPKCS5PKCS12V2PBEParameterTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSSPKCS5PBEParameter) },
-      { SEC_ASN1_OCTET_STRING, offsetof(NSSPKCS5PBEParameter, salt) },
-      { SEC_ASN1_INTEGER, offsetof(NSSPKCS5PBEParameter, iteration) },
-      { 0 }
-    };
+static const SEC_ASN1Template NSSPKCS5PKCS12V2PBEParameterTemplate[] = {
+    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSSPKCS5PBEParameter) },
+    { SEC_ASN1_OCTET_STRING, offsetof(NSSPKCS5PBEParameter, salt) },
+    { SEC_ASN1_INTEGER, offsetof(NSSPKCS5PBEParameter, iteration) },
+    { 0 }
+};
 
 /* PKCS5 v2 */
 
@@ -54,31 +55,29 @@ struct nsspkcs5V2PBEParameterStr {
 
 typedef struct nsspkcs5V2PBEParameterStr nsspkcs5V2PBEParameter;
 
-static const SEC_ASN1Template NSSPKCS5V2PBES2ParameterTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(nsspkcs5V2PBEParameter) },
-      { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
-        offsetof(nsspkcs5V2PBEParameter, keyParams),
-        SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
-      { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
-        offsetof(nsspkcs5V2PBEParameter, algParams),
-        SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
-      { 0 }
-    };
+static const SEC_ASN1Template NSSPKCS5V2PBES2ParameterTemplate[] = {
+    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(nsspkcs5V2PBEParameter) },
+    { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
+      offsetof(nsspkcs5V2PBEParameter, keyParams),
+      SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
+    { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
+      offsetof(nsspkcs5V2PBEParameter, algParams),
+      SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
+    { 0 }
+};
 
-static const SEC_ASN1Template NSSPKCS5V2PBEParameterTemplate[] =
-    {
-      { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSSPKCS5PBEParameter) },
-      /* this is really a choice, but since we don't understand any other
+static const SEC_ASN1Template NSSPKCS5V2PBEParameterTemplate[] = {
+    { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(NSSPKCS5PBEParameter) },
+    /* this is really a choice, but since we don't understand any other
        * choice, just inline it. */
-      { SEC_ASN1_OCTET_STRING, offsetof(NSSPKCS5PBEParameter, salt) },
-      { SEC_ASN1_INTEGER, offsetof(NSSPKCS5PBEParameter, iteration) },
-      { SEC_ASN1_INTEGER, offsetof(NSSPKCS5PBEParameter, keyLength) },
-      { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
-        offsetof(NSSPKCS5PBEParameter, prfAlg),
-        SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
-      { 0 }
-    };
+    { SEC_ASN1_OCTET_STRING, offsetof(NSSPKCS5PBEParameter, salt) },
+    { SEC_ASN1_INTEGER, offsetof(NSSPKCS5PBEParameter, iteration) },
+    { SEC_ASN1_INTEGER, offsetof(NSSPKCS5PBEParameter, keyLength) },
+    { SEC_ASN1_INLINE | SEC_ASN1_XTRN,
+      offsetof(NSSPKCS5PBEParameter, prfAlg),
+      SEC_ASN1_SUB(SECOID_AlgorithmIDTemplate) },
+    { 0 }
+};
 
 SECStatus
 nsspkcs5_HashBuf(const SECHashObject *hashObj, unsigned char *dest,
@@ -161,11 +160,11 @@ nsspkcs5_PBKDF1(const SECHashObject *hashObj, SECItem *salt, SECItem *pwd,
     }
 
     if (pre_hash != NULL) {
-        SECITEM_FreeItem(pre_hash, PR_TRUE);
+        SECITEM_ZfreeItem(pre_hash, PR_TRUE);
     }
 
     if ((rv != SECSuccess) && (hash != NULL)) {
-        SECITEM_FreeItem(hash, PR_TRUE);
+        SECITEM_ZfreeItem(hash, PR_TRUE);
         hash = NULL;
     }
 
@@ -294,7 +293,7 @@ nsspkcs5_PBKDF1Extended(const SECHashObject *hashObj,
 
     newHash = nsspkcs5_PFXPBE(hashObj, pbe_param, hash, bytes_needed);
     if (hash != newHash)
-        SECITEM_FreeItem(hash, PR_TRUE);
+        SECITEM_ZfreeItem(hash, PR_TRUE);
     return newHash;
 }
 
@@ -400,7 +399,7 @@ loser:
         PORT_ZFree(T, hLen);
     }
     if (rv != SECSuccess) {
-        SECITEM_FreeItem(result, PR_TRUE);
+        SECITEM_ZfreeItem(result, PR_TRUE);
         result = NULL;
     } else {
         result->len = dkLen;
@@ -567,6 +566,7 @@ typedef struct KDFCacheItemStr KDFCacheItem;
 /* Bug 1606992 - Cache the hash result for the common case that we're
  * asked to repeatedly compute the key for the same password item,
  * hash, iterations and salt. */
+#define KDF2_CACHE_COUNT 150
 static struct {
     PZLock *lock;
     struct {
@@ -575,7 +575,8 @@ static struct {
         PRBool faulty3DES;
     } cacheKDF1;
     struct {
-        KDFCacheItem common;
+        KDFCacheItem common[KDF2_CACHE_COUNT];
+        int next;
     } cacheKDF2;
 } PBECache;
 
@@ -595,7 +596,7 @@ sftk_clearPBECommonCacheItemsLocked(KDFCacheItem *item)
         item->hash = NULL;
     }
     if (item->salt) {
-        SECITEM_FreeItem(item->salt, PR_TRUE);
+        SECITEM_ZfreeItem(item->salt, PR_TRUE);
         item->salt = NULL;
     }
     if (item->pwItem) {
@@ -604,7 +605,7 @@ sftk_clearPBECommonCacheItemsLocked(KDFCacheItem *item)
     }
 }
 
-static SECStatus
+static void
 sftk_setPBECommonCacheItemsKDFLocked(KDFCacheItem *cacheItem,
                                      const SECItem *hash,
                                      const NSSPKCS5PBEParameter *pbe_param,
@@ -616,8 +617,6 @@ sftk_setPBECommonCacheItemsKDFLocked(KDFCacheItem *cacheItem,
     cacheItem->keyLen = pbe_param->keyLen;
     cacheItem->salt = SECITEM_DupItem(&pbe_param->salt);
     cacheItem->pwItem = SECITEM_DupItem(pwItem);
-
-    return SECSuccess;
 }
 
 static void
@@ -626,12 +625,18 @@ sftk_setPBECacheKDF2(const SECItem *hash,
                      const SECItem *pwItem)
 {
     PZ_Lock(PBECache.lock);
-    sftk_clearPBECommonCacheItemsLocked(&PBECache.cacheKDF2.common);
-    sftk_setPBECommonCacheItemsKDFLocked(&PBECache.cacheKDF2.common,
-                                         hash, pbe_param, pwItem);
+    KDFCacheItem *next = &PBECache.cacheKDF2.common[PBECache.cacheKDF2.next];
+
+    sftk_clearPBECommonCacheItemsLocked(next);
+
+    sftk_setPBECommonCacheItemsKDFLocked(next, hash, pbe_param, pwItem);
+    PBECache.cacheKDF2.next++;
+    if (PBECache.cacheKDF2.next >= KDF2_CACHE_COUNT) {
+        PBECache.cacheKDF2.next = 0;
+    }
 
     PZ_Unlock(PBECache.lock);
-} 
+}
 
 static void
 sftk_setPBECacheKDF1(const SECItem *hash,
@@ -671,11 +676,16 @@ sftk_getPBECacheKDF2(const NSSPKCS5PBEParameter *pbe_param,
                      const SECItem *pwItem)
 {
     SECItem *result = NULL;
-    const KDFCacheItem *cacheItem = &PBECache.cacheKDF2.common;
+    int i;
 
     PZ_Lock(PBECache.lock);
-    if (sftk_comparePBECommonCacheItemLocked(cacheItem, pbe_param, pwItem)) {
-        result = SECITEM_DupItem(cacheItem->hash);
+    for (i = 0; i < KDF2_CACHE_COUNT; i++) {
+        const KDFCacheItem *cacheItem = &PBECache.cacheKDF2.common[i];
+        if (sftk_comparePBECommonCacheItemLocked(cacheItem,
+                                                 pbe_param, pwItem)) {
+            result = SECITEM_DupItem(cacheItem->hash);
+            break;
+        }
     }
     PZ_Unlock(PBECache.lock);
 
@@ -701,16 +711,19 @@ sftk_getPBECacheKDF1(const NSSPKCS5PBEParameter *pbe_param,
     return result;
 }
 
-
 void
 sftk_PBELockShutdown(void)
 {
+    int i;
     if (PBECache.lock) {
         PZ_DestroyLock(PBECache.lock);
         PBECache.lock = 0;
     }
     sftk_clearPBECommonCacheItemsLocked(&PBECache.cacheKDF1.common);
-    sftk_clearPBECommonCacheItemsLocked(&PBECache.cacheKDF2.common);
+    for (i = 0; i < KDF2_CACHE_COUNT; i++) {
+        sftk_clearPBECommonCacheItemsLocked(&PBECache.cacheKDF2.common[i]);
+    }
+    PBECache.cacheKDF2.next = 0;
 }
 
 /*
@@ -811,11 +824,49 @@ loser:
     return NULL;
 }
 
+#define MAX_IV_LENGTH 64
+/* get a random IV into the parameters */
+static SECStatus
+nsspkcs5_SetIVParam(NSSPKCS5PBEParameter *pbe_param, int ivLen)
+{
+    SECStatus rv;
+    SECItem derIV;
+    SECItem iv;
+    SECItem *dummy = NULL;
+    unsigned char ivData[MAX_IV_LENGTH];
+
+    PORT_Assert(ivLen <= MAX_IV_LENGTH);
+
+    /* Because of a bug in the decode section, the IV's not are expected
+     * to be der encoded, but still need to parse as if they were der data.
+     * because we want to be compatible with existing versions of nss that
+     * have that bug, create an IV that looks like der data. That still
+     * leaves 14 bytes of entropy in the IV  */
+    rv = RNG_GenerateGlobalRandomBytes(ivData, ivLen - 2);
+    if (rv != SECSuccess) {
+        return SECFailure;
+    }
+    derIV.data = NULL;
+    derIV.len = 0;
+    iv.data = ivData;
+    iv.len = ivLen - 2;
+    dummy = SEC_ASN1EncodeItem(pbe_param->poolp, &derIV, &iv,
+                               SEC_ASN1_GET(SEC_OctetStringTemplate));
+    if (dummy == NULL) {
+        return SECFailure;
+    }
+    pbe_param->ivData = derIV.data;
+    pbe_param->ivLen = derIV.len;
+    PORT_Assert(pbe_param->ivLen == ivLen);
+    return SECSuccess;
+}
+
 static SECStatus
 nsspkcs5_FillInParam(SECOidTag algorithm, HASH_HashType hashType,
                      NSSPKCS5PBEParameter *pbe_param)
 {
     PRBool skipType = PR_FALSE;
+    SECStatus rv;
 
     pbe_param->keyLen = 5;
     pbe_param->ivLen = 8;
@@ -849,6 +900,7 @@ nsspkcs5_FillInParam(SECOidTag algorithm, HASH_HashType hashType,
             pbe_param->encAlg = SEC_OID_DES_CBC;
             break;
 
+#ifndef NSS_DISABLE_DEPRECATED_RC2
         /* RC2 Algorithms */
         case SEC_OID_PKCS12_V2_PBE_WITH_SHA1_AND_128_BIT_RC2_CBC:
             pbe_param->keyLen = 16;
@@ -861,6 +913,7 @@ nsspkcs5_FillInParam(SECOidTag algorithm, HASH_HashType hashType,
         /* fall through */
         case SEC_OID_PKCS12_PBE_WITH_SHA1_AND_40_BIT_RC2_CBC:
             break;
+#endif
 
         /* RC4 algorithms */
         case SEC_OID_PKCS12_PBE_WITH_SHA1_AND_128_BIT_RC4:
@@ -888,11 +941,68 @@ nsspkcs5_FillInParam(SECOidTag algorithm, HASH_HashType hashType,
             pbe_param->encAlg = SEC_OID_PKCS5_PBKDF2;
             pbe_param->keyLen = 0; /* needs to be set by caller after return */
             break;
+        /* AES uses PBKDF2 */
+        case SEC_OID_AES_128_CBC:
+            rv = nsspkcs5_SetIVParam(pbe_param, 16);
+            if (rv != SECSuccess) {
+                return rv;
+            }
+            pbe_param->ivLen = 16;
+            pbe_param->pbeType = NSSPKCS5_PBKDF2;
+            pbe_param->encAlg = algorithm;
+            pbe_param->keyLen = 128 / 8;
+            break;
+        case SEC_OID_AES_192_CBC:
+            rv = nsspkcs5_SetIVParam(pbe_param, 16);
+            if (rv != SECSuccess) {
+                return rv;
+            }
+            pbe_param->pbeType = NSSPKCS5_PBKDF2;
+            pbe_param->encAlg = algorithm;
+            pbe_param->keyLen = 192 / 8;
+            break;
+        case SEC_OID_AES_256_CBC:
+            rv = nsspkcs5_SetIVParam(pbe_param, 16);
+            if (rv != SECSuccess) {
+                return rv;
+            }
+            pbe_param->pbeType = NSSPKCS5_PBKDF2;
+            pbe_param->encAlg = algorithm;
+            pbe_param->keyLen = 256 / 8;
+            break;
+        case SEC_OID_AES_128_KEY_WRAP:
+            pbe_param->ivLen = 0;
+            pbe_param->pbeType = NSSPKCS5_PBKDF2;
+            pbe_param->encAlg = algorithm;
+            pbe_param->keyLen = 128 / 8;
+            break;
+        case SEC_OID_AES_192_KEY_WRAP:
+            pbe_param->ivLen = 0;
+            pbe_param->pbeType = NSSPKCS5_PBKDF2;
+            pbe_param->encAlg = algorithm;
+            pbe_param->keyLen = 192 / 8;
+            break;
+        case SEC_OID_AES_256_KEY_WRAP:
+            pbe_param->ivLen = 0;
+            pbe_param->pbeType = NSSPKCS5_PBKDF2;
+            pbe_param->encAlg = algorithm;
+            pbe_param->keyLen = 256 / 8;
+            break;
 
         default:
             return SECFailure;
     }
-
+    if (pbe_param->pbeType == NSSPKCS5_PBKDF2) {
+        SECOidTag prfAlg = HASH_HMACOidFromHash(pbe_param->hashType);
+        if (prfAlg == SEC_OID_UNKNOWN) {
+            return SECFailure;
+        }
+        rv = SECOID_SetAlgorithmID(pbe_param->poolp, &pbe_param->prfAlg,
+                                   prfAlg, NULL);
+        if (rv != SECSuccess) {
+            return rv;
+        }
+    }
     return SECSuccess;
 }
 
@@ -963,6 +1073,29 @@ HASH_FromHMACOid(SECOidTag hmac)
             break;
     }
     return HASH_AlgNULL;
+}
+
+SECOidTag
+HASH_HMACOidFromHash(HASH_HashType hashType)
+{
+    switch (hashType) {
+        case HASH_AlgSHA1:
+            return SEC_OID_HMAC_SHA1;
+        case HASH_AlgSHA256:
+            return SEC_OID_HMAC_SHA256;
+        case HASH_AlgSHA384:
+            return SEC_OID_HMAC_SHA384;
+        case HASH_AlgSHA512:
+            return SEC_OID_HMAC_SHA512;
+        case HASH_AlgSHA224:
+            return SEC_OID_HMAC_SHA224;
+        case HASH_AlgMD2:
+        case HASH_AlgMD5:
+        case HASH_AlgTOTAL:
+        default:
+            break;
+    }
+    return SEC_OID_UNKNOWN;
 }
 
 /* decode the algid and generate a PKCS 5 parameter from it
@@ -1037,6 +1170,7 @@ nsspkcs5_AlgidToParam(SECAlgorithmID *algid)
     }
 
 loser:
+    PORT_Memset(&pbev2_param, 0, sizeof(pbev2_param));
     if (rv == SECSuccess) {
         pbe_param->iter = DER_GetInteger(&pbe_param->iteration);
     } else {
@@ -1055,7 +1189,7 @@ void
 nsspkcs5_DestroyPBEParameter(NSSPKCS5PBEParameter *pbe_param)
 {
     if (pbe_param != NULL) {
-        PORT_FreeArena(pbe_param->poolp, PR_FALSE);
+        PORT_FreeArena(pbe_param->poolp, PR_TRUE);
     }
 }
 
@@ -1069,11 +1203,16 @@ sec_pkcs5_des(SECItem *key, SECItem *iv, SECItem *src, PRBool triple_des,
 {
     SECItem *dest;
     SECItem *dup_src;
+    CK_RV crv = CKR_DEVICE_ERROR;
+    int error;
     SECStatus rv = SECFailure;
-    int pad;
+    DESContext *ctxt;
+    unsigned int pad;
 
-    if ((src == NULL) || (key == NULL) || (iv == NULL))
+    if ((src == NULL) || (key == NULL) || (iv == NULL)) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return NULL;
+    }
 
     dup_src = SECITEM_DupItem(src);
     if (dup_src == NULL) {
@@ -1084,58 +1223,49 @@ sec_pkcs5_des(SECItem *key, SECItem *iv, SECItem *src, PRBool triple_des,
         void *dummy;
 
         dummy = CBC_PadBuffer(NULL, dup_src->data,
-                              dup_src->len, &dup_src->len, 8 /* DES_BLOCK_SIZE */);
+                              dup_src->len, &dup_src->len, DES_BLOCK_SIZE);
         if (dummy == NULL) {
-            SECITEM_FreeItem(dup_src, PR_TRUE);
+            SECITEM_ZfreeItem(dup_src, PR_TRUE);
             return NULL;
         }
         dup_src->data = (unsigned char *)dummy;
     }
 
-    dest = (SECItem *)PORT_ZAlloc(sizeof(SECItem));
-    if (dest != NULL) {
-        /* allocate with over flow */
-        dest->data = (unsigned char *)PORT_ZAlloc(dup_src->len + 64);
-        if (dest->data != NULL) {
-            DESContext *ctxt;
-            ctxt = DES_CreateContext(key->data, iv->data,
-                                     (triple_des ? NSS_DES_EDE3_CBC : NSS_DES_CBC),
-                                     encrypt);
-
-            if (ctxt != NULL) {
-                rv = (encrypt ? DES_Encrypt : DES_Decrypt)(
-                    ctxt, dest->data, &dest->len,
-                    dup_src->len + 64, dup_src->data, dup_src->len);
-
-                /* remove padding -- assumes 64 bit blocks */
-                if ((encrypt == PR_FALSE) && (rv == SECSuccess)) {
-                    pad = dest->data[dest->len - 1];
-                    if ((pad > 0) && (pad <= 8)) {
-                        if (dest->data[dest->len - pad] != pad) {
-                            rv = SECFailure;
-                            PORT_SetError(SEC_ERROR_BAD_PASSWORD);
-                        } else {
-                            dest->len -= pad;
-                        }
-                    } else {
-                        rv = SECFailure;
-                        PORT_SetError(SEC_ERROR_BAD_PASSWORD);
-                    }
-                }
-                DES_DestroyContext(ctxt, PR_TRUE);
-            }
-        }
+    dest = SECITEM_AllocItem(NULL, NULL, dup_src->len + MAX_CRYPTO_EXPANSION);
+    if (dest == NULL) {
+        goto loser;
     }
+    ctxt = DES_CreateContext(key->data, iv->data,
+                             (triple_des ? NSS_DES_EDE3_CBC : NSS_DES_CBC),
+                             encrypt);
+    if (ctxt == NULL) {
+        goto loser;
+    }
+    rv = (encrypt ? DES_Encrypt : DES_Decrypt)(
+        ctxt, dest->data, &dest->len,
+        dest->len, dup_src->data, dup_src->len);
 
-    if (rv == SECFailure) {
+    crv = (rv == SECSuccess) ? CKR_OK : CKR_DEVICE_ERROR;
+    error = PORT_GetError();
+
+    /* remove padding */
+    if ((encrypt == PR_FALSE) && (rv == SECSuccess)) {
+        crv = sftk_CheckCBCPadding(dest->data, dest->len, DES_BLOCK_SIZE, &pad);
+        dest->len = PORT_CT_SEL(sftk_CKRVToMask(crv), dest->len - pad, dest->len);
+        PORT_SetError(PORT_CT_SEL(sftk_CKRVToMask(crv), error, SEC_ERROR_BAD_PASSWORD));
+    }
+    DES_DestroyContext(ctxt, PR_TRUE);
+
+loser:
+    if (crv != CKR_OK) {
         if (dest != NULL) {
-            SECITEM_FreeItem(dest, PR_TRUE);
+            SECITEM_ZfreeItem(dest, PR_TRUE);
         }
         dest = NULL;
     }
 
     if (dup_src != NULL) {
-        SECITEM_FreeItem(dup_src, PR_TRUE);
+        SECITEM_ZfreeItem(dup_src, PR_TRUE);
     }
 
     return dest;
@@ -1149,11 +1279,16 @@ sec_pkcs5_aes(SECItem *key, SECItem *iv, SECItem *src, PRBool triple_des,
 {
     SECItem *dest;
     SECItem *dup_src;
+    CK_RV crv = CKR_DEVICE_ERROR;
+    int error;
     SECStatus rv = SECFailure;
-    int pad;
+    AESContext *ctxt;
+    unsigned int pad;
 
-    if ((src == NULL) || (key == NULL) || (iv == NULL))
+    if ((src == NULL) || (key == NULL) || (iv == NULL)) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return NULL;
+    }
 
     dup_src = SECITEM_DupItem(src);
     if (dup_src == NULL) {
@@ -1166,60 +1301,128 @@ sec_pkcs5_aes(SECItem *key, SECItem *iv, SECItem *src, PRBool triple_des,
         dummy = CBC_PadBuffer(NULL, dup_src->data,
                               dup_src->len, &dup_src->len, AES_BLOCK_SIZE);
         if (dummy == NULL) {
-            SECITEM_FreeItem(dup_src, PR_TRUE);
+            SECITEM_ZfreeItem(dup_src, PR_TRUE);
             return NULL;
         }
         dup_src->data = (unsigned char *)dummy;
     }
 
-    dest = (SECItem *)PORT_ZAlloc(sizeof(SECItem));
-    if (dest != NULL) {
-        /* allocate with over flow */
-        dest->data = (unsigned char *)PORT_ZAlloc(dup_src->len + 64);
-        if (dest->data != NULL) {
-            AESContext *ctxt;
-            ctxt = AES_CreateContext(key->data, iv->data,
-                                     NSS_AES_CBC, encrypt, key->len, 16);
-
-            if (ctxt != NULL) {
-                rv = (encrypt ? AES_Encrypt : AES_Decrypt)(
-                    ctxt, dest->data, &dest->len,
-                    dup_src->len + 64, dup_src->data, dup_src->len);
-
-                /* remove padding -- assumes 64 bit blocks */
-                if ((encrypt == PR_FALSE) && (rv == SECSuccess)) {
-                    pad = dest->data[dest->len - 1];
-                    if ((pad > 0) && (pad <= 16)) {
-                        if (dest->data[dest->len - pad] != pad) {
-                            rv = SECFailure;
-                            PORT_SetError(SEC_ERROR_BAD_PASSWORD);
-                        } else {
-                            dest->len -= pad;
-                        }
-                    } else {
-                        rv = SECFailure;
-                        PORT_SetError(SEC_ERROR_BAD_PASSWORD);
-                    }
-                }
-                AES_DestroyContext(ctxt, PR_TRUE);
-            }
-        }
+    dest = SECITEM_AllocItem(NULL, NULL, dup_src->len + MAX_CRYPTO_EXPANSION);
+    if (dest == NULL) {
+        goto loser;
     }
+    ctxt = AES_CreateContext(key->data, iv->data, NSS_AES_CBC,
+                             encrypt, key->len, AES_BLOCK_SIZE);
+    if (ctxt == NULL) {
+        goto loser;
+    }
+    rv = (encrypt ? AES_Encrypt : AES_Decrypt)(
+        ctxt, dest->data, &dest->len,
+        dest->len, dup_src->data, dup_src->len);
 
-    if (rv == SECFailure) {
+    crv = (rv == SECSuccess) ? CKR_OK : CKR_DEVICE_ERROR;
+    error = PORT_GetError();
+
+    /* remove padding */
+    if ((encrypt == PR_FALSE) && (rv == SECSuccess)) {
+        crv = sftk_CheckCBCPadding(dest->data, dest->len, AES_BLOCK_SIZE, &pad);
+        dest->len = PORT_CT_SEL(sftk_CKRVToMask(crv), dest->len - pad, dest->len);
+        PORT_SetError(PORT_CT_SEL(sftk_CKRVToMask(crv), error, SEC_ERROR_BAD_PASSWORD));
+    }
+    AES_DestroyContext(ctxt, PR_TRUE);
+
+loser:
+    if (crv != CKR_OK) {
         if (dest != NULL) {
-            SECITEM_FreeItem(dest, PR_TRUE);
+            SECITEM_ZfreeItem(dest, PR_TRUE);
         }
         dest = NULL;
     }
 
     if (dup_src != NULL) {
-        SECITEM_FreeItem(dup_src, PR_TRUE);
+        SECITEM_ZfreeItem(dup_src, PR_TRUE);
     }
 
     return dest;
 }
 
+/* perform aes encryption/decryption if an error occurs, NULL is returned
+ */
+static SECItem *
+sec_pkcs5_aes_key_wrap(SECItem *key, SECItem *iv, SECItem *src, PRBool triple_des,
+                       PRBool encrypt)
+{
+    SECItem *dest;
+    SECItem *dup_src;
+    CK_RV crv = CKR_DEVICE_ERROR;
+    int error;
+    SECStatus rv = SECFailure;
+    AESKeyWrapContext *ctxt;
+    unsigned int pad;
+
+    if ((src == NULL) || (key == NULL) || (iv == NULL)) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
+        return NULL;
+    }
+
+    dup_src = SECITEM_DupItem(src);
+    if (dup_src == NULL) {
+        return NULL;
+    }
+
+    if (encrypt != PR_FALSE) {
+        void *dummy;
+
+        dummy = CBC_PadBuffer(NULL, dup_src->data,
+                              dup_src->len, &dup_src->len, AES_BLOCK_SIZE);
+        if (dummy == NULL) {
+            SECITEM_ZfreeItem(dup_src, PR_TRUE);
+            return NULL;
+        }
+        dup_src->data = (unsigned char *)dummy;
+    }
+
+    dest = SECITEM_AllocItem(NULL, NULL, dup_src->len + MAX_CRYPTO_EXPANSION);
+    if (dest == NULL) {
+        goto loser;
+    }
+    ctxt = AESKeyWrap_CreateContext(key->data, iv->data, encrypt,
+                                    key->len);
+
+    if (ctxt == NULL) {
+        goto loser;
+    }
+    rv = (encrypt ? AESKeyWrap_Encrypt : AESKeyWrap_Decrypt)(
+        ctxt, dest->data, &dest->len,
+        dest->len, dup_src->data, dup_src->len);
+
+    crv = (rv == SECSuccess) ? CKR_OK : CKR_DEVICE_ERROR;
+    error = PORT_GetError();
+
+    /* remove padding */
+    if ((encrypt == PR_FALSE) && (rv == SECSuccess)) {
+        crv = sftk_CheckCBCPadding(dest->data, dest->len, AES_BLOCK_SIZE, &pad);
+        dest->len = PORT_CT_SEL(sftk_CKRVToMask(crv), dest->len - pad, dest->len);
+        PORT_SetError(PORT_CT_SEL(sftk_CKRVToMask(crv), error, SEC_ERROR_BAD_PASSWORD));
+    }
+    AESKeyWrap_DestroyContext(ctxt, PR_TRUE);
+
+loser:
+    if (crv != CKR_OK) {
+        if (dest != NULL) {
+            SECITEM_ZfreeItem(dest, PR_TRUE);
+        }
+        dest = NULL;
+    }
+
+    if (dup_src != NULL) {
+        SECITEM_ZfreeItem(dup_src, PR_TRUE);
+    }
+
+    return dest;
+}
+
+#ifndef NSS_DISABLE_DEPRECATED_RC2
 /* perform rc2 encryption/decryption if an error occurs, NULL is returned
  */
 static SECItem *
@@ -1232,6 +1435,7 @@ sec_pkcs5_rc2(SECItem *key, SECItem *iv, SECItem *src, PRBool dummy,
     int pad;
 
     if ((src == NULL) || (key == NULL) || (iv == NULL)) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return NULL;
     }
 
@@ -1246,7 +1450,7 @@ sec_pkcs5_rc2(SECItem *key, SECItem *iv, SECItem *src, PRBool dummy,
         v = CBC_PadBuffer(NULL, dup_src->data,
                           dup_src->len, &dup_src->len, 8 /* RC2_BLOCK_SIZE */);
         if (v == NULL) {
-            SECITEM_FreeItem(dup_src, PR_TRUE);
+            SECITEM_ZfreeItem(dup_src, PR_TRUE);
             return NULL;
         }
         dup_src->data = (unsigned char *)v;
@@ -1286,16 +1490,17 @@ sec_pkcs5_rc2(SECItem *key, SECItem *iv, SECItem *src, PRBool dummy,
     }
 
     if ((rv != SECSuccess) && (dest != NULL)) {
-        SECITEM_FreeItem(dest, PR_TRUE);
+        SECITEM_ZfreeItem(dest, PR_TRUE);
         dest = NULL;
     }
 
     if (dup_src != NULL) {
-        SECITEM_FreeItem(dup_src, PR_TRUE);
+        SECITEM_ZfreeItem(dup_src, PR_TRUE);
     }
 
     return dest;
 }
+#endif /* NSS_DISABLE_DEPRECATED_RC2 */
 
 /* perform rc4 encryption and decryption */
 static SECItem *
@@ -1306,6 +1511,7 @@ sec_pkcs5_rc4(SECItem *key, SECItem *iv, SECItem *src, PRBool dummy_op,
     SECStatus rv = SECFailure;
 
     if ((src == NULL) || (key == NULL) || (iv == NULL)) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return NULL;
     }
 
@@ -1327,7 +1533,7 @@ sec_pkcs5_rc4(SECItem *key, SECItem *iv, SECItem *src, PRBool dummy_op,
     }
 
     if ((rv != SECSuccess) && (dest)) {
-        SECITEM_FreeItem(dest, PR_TRUE);
+        SECITEM_ZfreeItem(dest, PR_TRUE);
         dest = NULL;
     }
 
@@ -1360,6 +1566,7 @@ nsspkcs5_CipherData(NSSPKCS5PBEParameter *pbe_param, SECItem *pwitem,
     }
 
     if ((pwitem == NULL) || (src == NULL)) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return NULL;
     }
 
@@ -1371,6 +1578,11 @@ nsspkcs5_CipherData(NSSPKCS5PBEParameter *pbe_param, SECItem *pwitem,
 
     switch (pbe_param->encAlg) {
         /* PKCS 5 v2 only */
+        case SEC_OID_AES_128_KEY_WRAP:
+        case SEC_OID_AES_192_KEY_WRAP:
+        case SEC_OID_AES_256_KEY_WRAP:
+            cryptof = sec_pkcs5_aes_key_wrap;
+            break;
         case SEC_OID_AES_128_CBC:
         case SEC_OID_AES_192_CBC:
         case SEC_OID_AES_256_CBC:
@@ -1384,9 +1596,11 @@ nsspkcs5_CipherData(NSSPKCS5PBEParameter *pbe_param, SECItem *pwitem,
             cryptof = sec_pkcs5_des;
             tripleDES = PR_FALSE;
             break;
+#ifndef NSS_DISABLE_DEPRECATED_RC2
         case SEC_OID_RC2_CBC:
             cryptof = sec_pkcs5_rc2;
             break;
+#endif
         case SEC_OID_RC4:
             cryptof = sec_pkcs5_rc4;
             break;
@@ -1408,8 +1622,8 @@ nsspkcs5_CipherData(NSSPKCS5PBEParameter *pbe_param, SECItem *pwitem,
      *  The case can only happen on decrypted of a
      *  SEC_OID_DES_EDE3_CBD.
      */
-    if ((dest == NULL) && (encrypt == PR_FALSE) &&
-        (pbe_param->encAlg == SEC_OID_DES_EDE3_CBC)) {
+    if ((pbe_param->encAlg == SEC_OID_DES_EDE3_CBC) &&
+        (dest == NULL) && (encrypt == PR_FALSE)) {
         dest = (*cryptof)(key, &iv, src, PR_FALSE, encrypt);
         if (update && (dest != NULL))
             *update = PR_TRUE;
@@ -1499,10 +1713,19 @@ nsspkcs5_CreateAlgorithmID(PLArenaPool *arena, SECOidTag algorithm,
             rv = SECOID_SetAlgorithmID(arena, &pkcs5v2_param.algParams,
                                        pbe_param->encAlg, pbe_param->ivLen ? &der_param : NULL);
             if (rv != SECSuccess) {
+                dummy = NULL;
                 break;
             }
+            der_param.data = NULL;
+            der_param.len = 0;
             dummy = SEC_ASN1EncodeItem(arena, &der_param, &pkcs5v2_param,
                                        NSSPKCS5V2PBES2ParameterTemplate);
+            /* If the algorithm was set to some encryption oid, set it
+             * to PBES2 */
+            if ((algorithm != SEC_OID_PKCS5_PBKDF2) &&
+                (algorithm != SEC_OID_PKCS5_PBMAC1)) {
+                algorithm = SEC_OID_PKCS5_PBES2;
+            }
             break;
         default:
             break;
@@ -1531,4 +1754,67 @@ nsspkcs5_CreateAlgorithmID(PLArenaPool *arena, SECOidTag algorithm,
 loser:
 
     return ret_algid;
+}
+
+#define TEST_KEY "pbkdf test key"
+SECStatus
+sftk_fips_pbkdf_PowerUpSelfTests(void)
+{
+    SECItem *result;
+    SECItem inKey;
+    NSSPKCS5PBEParameter pbe_params;
+    unsigned char iteration_count = 5;
+    unsigned char keyLen = 64;
+    char *inKeyData = TEST_KEY;
+    static const unsigned char saltData[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+    static const unsigned char pbkdf_known_answer[] = {
+        0x31, 0xf0, 0xe5, 0x39, 0x9f, 0x39, 0xb9, 0x29,
+        0x68, 0xac, 0xf2, 0xe9, 0x53, 0x9b, 0xb4, 0x9c,
+        0x28, 0x59, 0x8b, 0x5c, 0xd8, 0xd4, 0x02, 0x37,
+        0x18, 0x22, 0xc1, 0x92, 0xd0, 0xfa, 0x72, 0x90,
+        0x2c, 0x8d, 0x19, 0xd4, 0x56, 0xfb, 0x16, 0xfa,
+        0x8d, 0x5c, 0x06, 0x33, 0xd1, 0x5f, 0x17, 0xb1,
+        0x22, 0xd9, 0x9c, 0xaf, 0x5e, 0x3f, 0xf3, 0x66,
+        0xc6, 0x14, 0xfe, 0x83, 0xfa, 0x1a, 0x2a, 0xc5
+    };
+
+    sftk_PBELockInit();
+
+    inKey.data = (unsigned char *)inKeyData;
+    inKey.len = sizeof(TEST_KEY) - 1;
+
+    pbe_params.salt.data = (unsigned char *)saltData;
+    pbe_params.salt.len = sizeof(saltData);
+    /* the interation and keyLength are used as intermediate
+     * values when decoding the Algorithm ID, set them for completeness,
+     * but they are not used */
+    pbe_params.iteration.data = &iteration_count;
+    pbe_params.iteration.len = 1;
+    pbe_params.keyLength.data = &keyLen;
+    pbe_params.keyLength.len = 1;
+    /* pkcs5v2 stores the key in the AlgorithmID, so we don't need to
+     * generate it here */
+    pbe_params.ivLen = 0;
+    pbe_params.ivData = NULL;
+    /* keyID is only used by pkcs12 extensions to pkcs5v1 */
+    pbe_params.keyID = pbeBitGenCipherKey;
+    /* Algorithm is used by the decryption code after get get our key */
+    pbe_params.encAlg = SEC_OID_AES_256_CBC;
+    /* these are the fields actually used in nsspkcs5_ComputeKeyAndIV
+     * for NSSPKCS5_PBKDF2 */
+    pbe_params.iter = iteration_count;
+    pbe_params.keyLen = keyLen;
+    pbe_params.hashType = HASH_AlgSHA256;
+    pbe_params.pbeType = NSSPKCS5_PBKDF2;
+    pbe_params.is2KeyDES = PR_FALSE;
+
+    result = nsspkcs5_ComputeKeyAndIV(&pbe_params, &inKey, NULL, PR_FALSE);
+    if ((result == NULL) || (result->len != sizeof(pbkdf_known_answer)) ||
+        (PORT_Memcmp(result->data, pbkdf_known_answer, sizeof(pbkdf_known_answer)) != 0)) {
+        SECITEM_FreeItem(result, PR_TRUE);
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return SECFailure;
+    }
+    SECITEM_FreeItem(result, PR_TRUE);
+    return SECSuccess;
 }

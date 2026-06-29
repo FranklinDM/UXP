@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -24,6 +25,8 @@
 #include "pkixgtest.h"
 
 #include "mozpkix/pkixder.h"
+
+#include "secoid.h"
 
 using namespace mozilla::pkix;
 using namespace mozilla::pkix::test;
@@ -66,7 +69,7 @@ char const* const rootName = "Test CA 1";
 class pkixocsp_VerifyEncodedResponse : public ::testing::Test
 {
 public:
-  static void SetUpTestCase()
+  static void SetUpTestSuite()
   {
     rootKeyPair.reset(GenerateKeyPair());
     if (!rootKeyPair) {
@@ -176,7 +179,7 @@ TEST_P(pkixocsp_VerifyEncodedResponse_WithoutResponseBytes, CorrectErrorCode)
                                       response, expired));
 }
 
-INSTANTIATE_TEST_CASE_P(pkixocsp_VerifyEncodedResponse_WithoutResponseBytes,
+INSTANTIATE_TEST_SUITE_P(pkixocsp_VerifyEncodedResponse_WithoutResponseBytes,
                         pkixocsp_VerifyEncodedResponse_WithoutResponseBytes,
                         testing::ValuesIn(WITHOUT_RESPONSEBYTES));
 
@@ -199,9 +202,9 @@ public:
     pkixocsp_VerifyEncodedResponse::SetUp();
   }
 
-  static void SetUpTestCase()
+  static void SetUpTestSuite()
   {
-    pkixocsp_VerifyEncodedResponse::SetUpTestCase();
+    pkixocsp_VerifyEncodedResponse::SetUpTestSuite();
   }
 
   ByteString CreateEncodedOCSPSuccessfulResponse(
@@ -341,6 +344,12 @@ TEST_F(pkixocsp_VerifyEncodedResponse_successful, unknown)
 TEST_F(pkixocsp_VerifyEncodedResponse_successful,
        good_unsupportedSignatureAlgorithm)
 {
+  PRUint32 policyMd5;
+  ASSERT_EQ(SECSuccess,NSS_GetAlgorithmPolicy(SEC_OID_MD5, &policyMd5));
+
+  /* our encode won't work if MD5 isn't allowed by policy */
+  ASSERT_EQ(SECSuccess,
+            NSS_SetAlgorithmPolicy(SEC_OID_MD5, NSS_USE_ALG_IN_SIGNATURE, 0));
   ByteString responseString(
                CreateEncodedOCSPSuccessfulResponse(
                          OCSPResponseContext::good, *endEntityCertID, byKey,
@@ -350,6 +359,9 @@ TEST_F(pkixocsp_VerifyEncodedResponse_successful,
   Input response;
   ASSERT_EQ(Success,
             response.Init(responseString.data(), responseString.length()));
+  /* now restore the existing policy */
+  ASSERT_EQ(SECSuccess,
+           NSS_SetAlgorithmPolicy(SEC_OID_MD5, policyMd5, NSS_USE_ALG_IN_SIGNATURE));
   bool expired;
   ASSERT_EQ(Result::ERROR_CERT_SIGNATURE_ALGORITHM_DISABLED,
             VerifyEncodedOCSPResponse(trustDomain, *endEntityCertID,
@@ -999,14 +1011,23 @@ TEST_F(pkixocsp_VerifyEncodedResponse_DelegatedResponder,
   // Note that the algorithm ID (md5WithRSAEncryption) identifies the signature
   // algorithm that will be used to sign the certificate that issues the OCSP
   // responses, not the responses themselves.
+  PRUint32 policyMd5;
+  ASSERT_EQ(SECSuccess,NSS_GetAlgorithmPolicy(SEC_OID_MD5, &policyMd5));
+
+  /* our encode won't work if MD5 isn't allowed by policy */
+  ASSERT_EQ(SECSuccess,
+            NSS_SetAlgorithmPolicy(SEC_OID_MD5, NSS_USE_ALG_IN_SIGNATURE, 0));
   ByteString responseString(
                CreateEncodedIndirectOCSPSuccessfulResponse(
                          "good_indirect_unsupportedSignatureAlgorithm",
                          OCSPResponseContext::good, byKey,
                          md5WithRSAEncryption()));
   Input response;
+  /* now restore the existing policy */
   ASSERT_EQ(Success,
             response.Init(responseString.data(), responseString.length()));
+  ASSERT_EQ(SECSuccess,
+            NSS_SetAlgorithmPolicy(SEC_OID_MD5, policyMd5, NSS_USE_ALG_IN_SIGNATURE));
   bool expired;
   ASSERT_EQ(Result::ERROR_OCSP_INVALID_SIGNING_CERT,
             VerifyEncodedOCSPResponse(trustDomain, *endEntityCertID, Now(),

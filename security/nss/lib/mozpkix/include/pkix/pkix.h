@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -116,6 +117,8 @@ Result BuildCertChain(TrustDomain& trustDomain, Input cert, Time time,
 // - IP addresses are out of scope of RFC 6125, but this method accepts them for
 //   backward compatibility (see SearchNames in pkixnames.cpp)
 // - A wildcard in a DNS-ID may only appear as the entirety of the first label.
+// If the NameMatchingPolicy is omitted, a StrictNameMatchingPolicy is used.
+Result CheckCertHostname(Input cert, Input hostname);
 Result CheckCertHostname(Input cert, Input hostname,
                          NameMatchingPolicy& nameMatchingPolicy);
 
@@ -153,7 +156,7 @@ Result VerifyEncodedOCSPResponse(
 // requirement for another value. Empty extensions are also rejected.
 Result CheckTLSFeaturesAreSatisfied(Input& cert,
                                     const Input* stapledOCSPResponse);
-}
-}  // namespace mozilla::pkix
+}  // namespace pkix
+}  // namespace mozilla
 
 #endif  // mozilla_pkix_pkix_h

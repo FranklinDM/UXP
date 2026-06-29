@@ -30,7 +30,7 @@ endif
 #       one for each OS release.                                      #
 #######################################################################
 
-TARGET_OSES = FreeBSD BSD_OS NetBSD OpenUNIX OS2 QNX Darwin BeOS OpenBSD \
+TARGET_OSES = FreeBSD BSD_OS NetBSD OpenUNIX OS2 QNX Darwin OpenBSD \
               AIX RISCOS WINNT WIN95 Linux Android
 
 ifeq (,$(filter-out $(TARGET_OSES),$(OS_TARGET)))
@@ -122,14 +122,6 @@ include $(CORE_DEPTH)/coreconf/suffix.mk
 endif
 
 #######################################################################
-# [13.0] Master "Core Components" for defining JDK                    #
-#        (dependent upon <architecture>, <source>, and <suffix>  tags)#
-#######################################################################
-ifdef NS_USE_JDK
-include $(CORE_DEPTH)/coreconf/jdk.mk
-endif
-
-#######################################################################
 # [14.0] Master "Core Components" rule set                            #
 #######################################################################
 ifndef MK_RULESET
@@ -137,10 +129,39 @@ include $(CORE_DEPTH)/coreconf/ruleset.mk
 endif
 
 #######################################################################
-# [15.0] Dependencies.
+# Master "Core Components" macros for Hardware features               #
 #######################################################################
 
--include $(MKDEPENDENCIES)
+ifndef NSS_DISABLE_SSE3
+    NSS_DISABLE_SSE3 = 0
+    ifndef CC_IS_CLANG
+        ifeq (,$(filter 0 1 2 3 4,$(word 1,$(GCC_VERSION))))
+            NSS_DISABLE_SSE3 = 1
+        endif
+    endif
+    ifeq (1,$(NSS_DISABLE_SSE3))
+        export NSS_DISABLE_SSE3
+    endif
+endif #ndef NSS_DISABLE_SSE3
+
+ifndef NSS_DISABLE_AVX2
+    ifneq ($(CPU_ARCH),x86_64)
+        # Disable AVX2 entirely on non-Intel platforms
+        NSS_DISABLE_AVX2 = 1
+        $(warning CPU_ARCH is not x86_64, disabling -mavx2)
+    else
+        # Clang reports its version as an older gcc, but it's OK
+        ifndef CC_IS_CLANG
+            ifneq (,$(filter 0 1 2 3 4,$(word 1,$(GCC_VERSION))))
+                NSS_DISABLE_AVX2 = 1
+            endif
+        endif
+        ifeq (1,$(NSS_DISABLE_AVX2))
+            $(warning Unable to find gcc 4.8 or greater, disabling -mavx2)
+            export NSS_DISABLE_AVX2
+        endif
+    endif
+endif #ndef NSS_DISABLE_AVX2
 
 #######################################################################
 # [16.0] Global environ ment defines
@@ -162,8 +183,24 @@ ifdef NSS_DISABLE_DBM
 DEFINES += -DNSS_DISABLE_DBM
 endif
 
+ifdef NSS_DISABLE_AVX2
+DEFINES += -DNSS_DISABLE_AVX2
+endif
+
+ifdef NSS_DISABLE_SSE3
+DEFINES += -DNSS_DISABLE_SSE3
+endif
+
 ifdef NSS_DISABLE_CHACHAPOLY
 DEFINES += -DNSS_DISABLE_CHACHAPOLY
+endif
+
+ifdef NSS_DISABLE_DEPRECATED_SEED
+DEFINES += -DNSS_DISABLE_DEPRECATED_SEED
+endif
+
+ifdef NSS_DISABLE_DEPRECATED_RC2
+DEFINES += -DNSS_DISABLE_DEPRECATED_RC2
 endif
 
 ifdef NSS_PKIX_NO_LDAP
@@ -194,6 +231,21 @@ ifndef BUILD_OPT
 ifdef PKIX_OBJECT_LEAK_TEST
 DEFINES += -DPKIX_OBJECT_LEAK_TEST
 endif
+endif
+
+# Avoid building with Neon acceleration on Arm32
+ifdef NSS_DISABLE_ARM32_NEON
+DEFINES += -DNSS_DISABLE_ARM32_NEON
+endif
+
+# Avoid building with PowerPC's Altivec acceleration
+ifeq ($(NSS_DISABLE_ALTIVEC),1)
+DEFINES += -DNSS_DISABLE_ALTIVEC
+endif
+
+# Avoid building with PowerPC's Crypto and VSX instructions
+ifeq ($(NSS_DISABLE_CRYPTO_VSX),1)
+DEFINES += -DNSS_DISABLE_CRYPTO_VSX
 endif
 
 # This allows all library and tools code to use the util function

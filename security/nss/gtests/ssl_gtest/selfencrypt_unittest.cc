@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -274,7 +275,7 @@ TEST_F(SelfEncryptTest128, AESWithMacKeyDecrypt) {
            SEC_ERROR_INVALID_KEY);
 }
 
-INSTANTIATE_TEST_CASE_P(VariousSizes, SelfEncryptTestVariable,
-                        ::testing::Values(0, 15, 16, 31, 255, 256, 257));
+INSTANTIATE_TEST_SUITE_P(VariousSizes, SelfEncryptTestVariable,
+                         ::testing::Values(0, 15, 16, 31, 255, 256, 257));
 
 }  // namespace nss_test

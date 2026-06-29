@@ -11,6 +11,8 @@
 #include "seccomon.h"
 #include "secmod.h"
 #include "secmodi.h"
+#include "secmodti.h"
+#include "secmodt.h"
 #include "pkcs11.h"
 #include "pk11func.h"
 #include "secitem.h"
@@ -286,7 +288,7 @@ PK11_ImportDERPrivateKeyInfoAndReturnKey(PK11SlotInfo *slot, SECItem *derPKI,
         PORT_FreeArena(temparena, PR_TRUE);
         return rv;
     }
-    if (pki->privateKey.data == NULL) {
+    if (pki->privateKey.data == NULL || pki->privateKey.len == 0) {
         /* If SEC_ASN1DecodeItems succeeds but SECKEYPrivateKeyInfo.privateKey
          * is a zero-length octet string, free the arena and return a failure
          * to avoid trying to zero the corresponding SECItem in
@@ -411,7 +413,7 @@ PK11_ImportAndReturnPrivateKey(PK11SlotInfo *slot, SECKEYRawPrivateKey *lpk,
                 goto loser;
             }
             if (PK11_IsInternal(slot)) {
-                PK11_SETATTRS(attrs, CKA_NETSCAPE_DB,
+                PK11_SETATTRS(attrs, CKA_NSS_DB,
                               publicValue->data, publicValue->len);
                 attrs++;
             }
@@ -450,7 +452,7 @@ PK11_ImportAndReturnPrivateKey(PK11SlotInfo *slot, SECKEYRawPrivateKey *lpk,
              * this dh key. We have a netscape only CKA_ value to do this.
              * Only send it to internal slots */
             if (PK11_IsInternal(slot)) {
-                PK11_SETATTRS(attrs, CKA_NETSCAPE_DB,
+                PK11_SETATTRS(attrs, CKA_NSS_DB,
                               publicValue->data, publicValue->len);
                 attrs++;
             }
@@ -483,7 +485,7 @@ PK11_ImportAndReturnPrivateKey(PK11SlotInfo *slot, SECKEYRawPrivateKey *lpk,
                 goto loser;
             }
             if (PK11_IsInternal(slot)) {
-                PK11_SETATTRS(attrs, CKA_NETSCAPE_DB,
+                PK11_SETATTRS(attrs, CKA_NSS_DB,
                               lpk->u.ec.publicValue.data,
                               lpk->u.ec.publicValue.len);
                 attrs++;
@@ -535,7 +537,7 @@ PK11_ImportAndReturnPrivateKey(PK11SlotInfo *slot, SECKEYRawPrivateKey *lpk,
         }
     }
 
-    rv = PK11_CreateNewObject(slot, CK_INVALID_SESSION,
+    rv = PK11_CreateNewObject(slot, CK_INVALID_HANDLE,
                               theTemplate, templateCount, isPerm, &objectID);
 
     /* create and return a SECKEYPrivateKey */
@@ -650,12 +652,15 @@ PK11_ImportPrivateKeyInfoAndReturnKey(PK11SlotInfo *slot,
     rv = PK11_ImportAndReturnPrivateKey(slot, lpk, nickname, publicValue, isPerm,
                                         isPrivate, keyUsage, privk, wincx);
 
-loser:
-    if (arena != NULL) {
-        PORT_FreeArena(arena, PR_TRUE);
+    if (rv != SECSuccess) {
+        goto loser;
     }
+    PORT_FreeArena(arena, PR_TRUE);
+    return SECSuccess;
 
-    return rv;
+loser:
+    PORT_FreeArena(arena, PR_TRUE);
+    return SECFailure;
 }
 
 SECStatus
@@ -702,16 +707,14 @@ PK11_ExportPrivKeyInfo(SECKEYPrivateKey *pk, void *wincx)
     const unsigned char pkiVersion = 0;
     /* RSAPrivateKey version (always zero) */
     const unsigned char rsaVersion = 0;
+    /* ECPrivateKey version (always one) */
+    const unsigned char ecVersion = 1;
     PLArenaPool *arena = NULL;
     SECKEYRawPrivateKey rawKey;
     SECKEYPrivateKeyInfo *pki;
     SECItem *encoded;
+    const SEC_ASN1Template *keyTemplate;
     SECStatus rv;
-
-    if (pk->keyType != rsaKey) {
-        PORT_SetError(PR_NOT_IMPLEMENTED_ERROR);
-        goto loser;
-    }
 
     arena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
     if (!arena) {
@@ -719,44 +722,95 @@ PK11_ExportPrivKeyInfo(SECKEYPrivateKey *pk, void *wincx)
     }
     memset(&rawKey, 0, sizeof(rawKey));
     rawKey.keyType = pk->keyType;
-    rawKey.u.rsa.version.type = siUnsignedInteger;
-    rawKey.u.rsa.version.data = (unsigned char *)PORT_ArenaAlloc(arena, 1);
-    if (!rawKey.u.rsa.version.data) {
-        goto loser;
-    }
-    rawKey.u.rsa.version.data[0] = rsaVersion;
-    rawKey.u.rsa.version.len = 1;
-
-    /* Read the component attributes of the private key */
-    prepare_rsa_priv_key_export_for_asn1(&rawKey);
-    if (!ReadAttribute(pk, CKA_MODULUS, arena, &rawKey.u.rsa.modulus) ||
-        !ReadAttribute(pk, CKA_PUBLIC_EXPONENT, arena,
-                       &rawKey.u.rsa.publicExponent) ||
-        !ReadAttribute(pk, CKA_PRIVATE_EXPONENT, arena,
-                       &rawKey.u.rsa.privateExponent) ||
-        !ReadAttribute(pk, CKA_PRIME_1, arena, &rawKey.u.rsa.prime1) ||
-        !ReadAttribute(pk, CKA_PRIME_2, arena, &rawKey.u.rsa.prime2) ||
-        !ReadAttribute(pk, CKA_EXPONENT_1, arena,
-                       &rawKey.u.rsa.exponent1) ||
-        !ReadAttribute(pk, CKA_EXPONENT_2, arena,
-                       &rawKey.u.rsa.exponent2) ||
-        !ReadAttribute(pk, CKA_COEFFICIENT, arena,
-                       &rawKey.u.rsa.coefficient)) {
-        goto loser;
-    }
-
     pki = PORT_ArenaZNew(arena, SECKEYPrivateKeyInfo);
     if (!pki) {
         goto loser;
     }
-    encoded = SEC_ASN1EncodeItem(arena, &pki->privateKey, &rawKey,
-                                 SECKEY_RSAPrivateKeyExportTemplate);
-    if (!encoded) {
-        goto loser;
+
+    switch (pk->keyType) {
+        case rsaKey: {
+            rawKey.u.rsa.version.type = siUnsignedInteger;
+            rawKey.u.rsa.version.data = (unsigned char *)PORT_ArenaAlloc(arena, 1);
+            if (!rawKey.u.rsa.version.data) {
+                goto loser;
+            }
+
+            rawKey.u.rsa.version.data[0] = rsaVersion;
+            rawKey.u.rsa.version.len = 1;
+
+            /* Read the component attributes of the private key */
+            prepare_rsa_priv_key_export_for_asn1(&rawKey);
+            if (!ReadAttribute(pk, CKA_MODULUS, arena, &rawKey.u.rsa.modulus) ||
+                !ReadAttribute(pk, CKA_PUBLIC_EXPONENT, arena,
+                               &rawKey.u.rsa.publicExponent) ||
+                !ReadAttribute(pk, CKA_PRIVATE_EXPONENT, arena,
+                               &rawKey.u.rsa.privateExponent) ||
+                !ReadAttribute(pk, CKA_PRIME_1, arena, &rawKey.u.rsa.prime1) ||
+                !ReadAttribute(pk, CKA_PRIME_2, arena, &rawKey.u.rsa.prime2) ||
+                !ReadAttribute(pk, CKA_EXPONENT_1, arena,
+                               &rawKey.u.rsa.exponent1) ||
+                !ReadAttribute(pk, CKA_EXPONENT_2, arena,
+                               &rawKey.u.rsa.exponent2) ||
+                !ReadAttribute(pk, CKA_COEFFICIENT, arena,
+                               &rawKey.u.rsa.coefficient)) {
+                goto loser;
+            }
+
+            keyTemplate = SECKEY_RSAPrivateKeyExportTemplate;
+
+            rv = SECOID_SetAlgorithmID(arena, &pki->algorithm, SEC_OID_PKCS1_RSA_ENCRYPTION, NULL);
+            if (rv != SECSuccess) {
+                goto loser;
+            }
+
+        } break;
+        case ecKey: {
+            rawKey.u.ec.version.type = siUnsignedInteger;
+            rawKey.u.ec.version.data = (unsigned char *)PORT_ArenaAlloc(arena, 1);
+            if (!rawKey.u.ec.version.data) {
+                goto loser;
+            }
+            rawKey.u.ec.version.data[0] = ecVersion;
+            rawKey.u.ec.version.len = 1;
+
+            SECItem curveOID;
+            /* Read the component attributes of the private key */
+            prepare_ec_priv_key_export_for_asn1(&rawKey);
+            if (!ReadAttribute(pk, CKA_VALUE, arena,
+                               &rawKey.u.ec.privateValue) ||
+                !ReadAttribute(pk, CKA_EC_PARAMS, arena, &curveOID)) {
+                goto loser;
+            }
+            if (!ReadAttribute(pk, CKA_EC_POINT, arena,
+                               &rawKey.u.ec.publicValue)) {
+                SECKEYPublicKey *pubk = SECKEY_ConvertToPublicKey(pk);
+                if (pubk == NULL)
+                    goto loser;
+                rv = SECITEM_CopyItem(arena, &rawKey.u.ec.publicValue, &pubk->u.ec.publicValue);
+                SECKEY_DestroyPublicKey(pubk);
+                if (rv != SECSuccess) {
+                    goto loser;
+                }
+            }
+
+            keyTemplate = SECKEY_ECPrivateKeyExportTemplate;
+            /* Convert length in bytes to length in bits. */
+            rawKey.u.ec.publicValue.len <<= 3;
+
+            rv = SECOID_SetAlgorithmID(arena, &pki->algorithm, SEC_OID_ANSIX962_EC_PUBLIC_KEY, &curveOID);
+            if (rv != SECSuccess) {
+                goto loser;
+            }
+
+        } break;
+        default: {
+            PORT_SetError(PR_NOT_IMPLEMENTED_ERROR);
+            goto loser;
+        }
     }
-    rv = SECOID_SetAlgorithmID(arena, &pki->algorithm,
-                               SEC_OID_PKCS1_RSA_ENCRYPTION, NULL);
-    if (rv != SECSuccess) {
+
+    encoded = SEC_ASN1EncodeItem(arena, &pki->privateKey, &rawKey, keyTemplate);
+    if (!encoded) {
         goto loser;
     }
     pki->version.type = siUnsignedInteger;

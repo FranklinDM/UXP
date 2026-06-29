@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +8,7 @@
 #define databuffer_h__
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
@@ -22,11 +24,22 @@ class DataBuffer {
   DataBuffer(const DataBuffer& other) : data_(nullptr), len_(0) {
     Assign(other);
   }
+  explicit DataBuffer(size_t l) : data_(nullptr), len_(0) { Allocate(l); }
   ~DataBuffer() { delete[] data_; }
 
   DataBuffer& operator=(const DataBuffer& other) {
     if (&other != this) {
       Assign(other);
+    }
+    return *this;
+  }
+  DataBuffer& operator=(DataBuffer&& other) {
+    if (this != &other) {
+      delete[] data_;
+      data_ = other.data_;
+      len_ = other.len_;
+      other.data_ = nullptr;
+      other.len_ = 0;
     }
     return *this;
   }

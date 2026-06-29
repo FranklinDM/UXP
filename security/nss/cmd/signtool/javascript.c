@@ -105,7 +105,7 @@ javascript_fn(char *relpath, char *basedir, char *reldir, char *filename, void *
     if (PL_strcaserstr(reldir, ".arc") == reldir + strlen(reldir) - 4)
         return 0;
 
-    sprintf(fullname, "%s/%s", basedir, relpath);
+    snprintf(fullname, sizeof(fullname), "%s/%s", basedir, relpath);
     return extract_js(fullname);
 }
 
@@ -1338,13 +1338,15 @@ extract_js(char *filename)
                 if ((PL_strlen(archiveDir) < 4) ||
                     PL_strcasecmp((archiveDir + strlen(archiveDir) - 4),
                                   ".jar")) {
+                    char *newArchiveDir = NULL;
                     PR_fprintf(errorFD,
                                "warning: ARCHIVE attribute should end in \".jar\" in tag"
                                " starting on %s:%d.\n",
                                filename, curitem->startLine);
                     warningCount++;
+                    newArchiveDir = PR_smprintf("%s.arc", archiveDir);
                     PR_Free(archiveDir);
-                    archiveDir = PR_smprintf("%s.arc", archiveDir);
+                    archiveDir = newArchiveDir;
                 } else {
                     PL_strcpy(archiveDir + strlen(archiveDir) - 4, ".arc");
                 }
@@ -1649,9 +1651,6 @@ loser:
     }
     if (entityListTail) {
         PR_Free(entityListTail);
-    }
-    if (curitem) {
-        PR_Free(curitem);
     }
     if (basedir) {
         PR_Free(basedir);
