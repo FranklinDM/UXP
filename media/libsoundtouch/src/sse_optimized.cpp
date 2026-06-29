@@ -250,14 +250,10 @@ uint FIRFilterSSE::evaluateFilterStereo(float *dest, const float *source, uint n
     assert((length % 8) == 0);
     assert(filterCoeffsAlign != NULL);
     assert(((ulongptr)filterCoeffsAlign) % 16 == 0);
-    const uint filterLength = length;
-    const float *coeffsAlign = filterCoeffsAlign;
 
     // filter is evaluated for two stereo samples with each iteration, thus use of 'j += 2'
 const uint filterLength = length;
     const float *coeffsAlign = filterCoeffsAlign;
-
-    // filter is evaluated for two stereo samples with each iteration, thus use of 'j += 2'
 #if defined(_OPENMP)
     #pragma omp parallel for default(none) \
         shared(source, dest, count, coeffsAlign, filterLength) \
