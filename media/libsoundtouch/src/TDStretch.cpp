@@ -310,11 +310,10 @@ int TDStretch::seekBestOverlapPositionFull(const SAMPLETYPE *refPos)
     const int nChannels = channels;
     const SAMPLETYPE *midBuffer = pMidBuffer;
 
-    #if defined(_OPENMP)
-        #pragma omp parallel for default(none) shared(refPos, bestCorr, bestOffs, midBuffer) private(i) schedule(static)
-    #endif
-    for (i = 1; i < seekLen; i ++)
-    {
+#if defined(_OPENMP)
+    #pragma omp parallel for default(none) shared(refPos, bestCorr, bestOffs, midBuffer) private(i) schedule(static)
+#endif
+for (i = 1; i < seekLen; i ++)
         double corr;
         double localNorm;
         // Calculates correlation value for the mixing position corresponding to 'i'
