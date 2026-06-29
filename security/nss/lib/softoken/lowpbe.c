@@ -604,6 +604,7 @@ sftk_clearPBECommonCacheItemsLocked(KDFCacheItem *item)
     }
 }
 
+static SECStatus
 sftk_setPBECommonCacheItemsKDFLocked(KDFCacheItem *cacheItem,
                                      const SECItem *hash,
                                      const NSSPKCS5PBEParameter *pbe_param,
@@ -615,6 +616,7 @@ sftk_setPBECommonCacheItemsKDFLocked(KDFCacheItem *cacheItem,
     cacheItem->keyLen = pbe_param->keyLen;
     cacheItem->salt = SECITEM_DupItem(&pbe_param->salt);
     cacheItem->pwItem = SECITEM_DupItem(pwItem);
+
     return SECSuccess;
 }
 
