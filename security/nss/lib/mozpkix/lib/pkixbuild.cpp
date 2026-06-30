@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -61,6 +60,7 @@ public:
     , stapledOCSPResponse(aStapledOCSPResponse)
     , subCACount(aSubCACount)
     , deferredSubjectError(aDeferredSubjectError)
+    , subjectSignaturePublicKeyAlg(der::PublicKeyAlgorithm::Uninitialized)
     , result(Result::FATAL_ERROR_LIBRARY_FAILURE)
     , resultWasSet(false)
     , buildForwardCallBudget(aBuildForwardCallBudget)
@@ -82,6 +82,11 @@ private:
   /*optional*/ Input const* const stapledOCSPResponse;
   const unsigned int subCACount;
   const Result deferredSubjectError;
+
+  // Initialized lazily.
+  uint8_t subjectSignatureDigestBuf[MAX_DIGEST_SIZE_IN_BYTES];
+  der::PublicKeyAlgorithm subjectSignaturePublicKeyAlg;
+  SignedDigest subjectSignature;
 
   Result RecordResult(Result currentResult, /*out*/ bool& keepGoing);
   Result result;
@@ -209,8 +214,22 @@ PathBuildingStep::Check(Input potentialIssuerDER,
     return RecordResult(rv, keepGoing);
   }
 
-  rv = VerifySignedData(trustDomain, subject.GetSignedData(),
-                        potentialIssuer.GetSubjectPublicKeyInfo());
+  // Calculate the digest of the subject's signed data if we haven't already
+  // done so. We do this lazily to avoid doing it at all if we backtrack before
+  // getting to this point. We cache the result to avoid recalculating it if we
+  // backtrack after getting to this point.
+  if (subjectSignature.digest.GetLength() == 0) {
+    rv = DigestSignedData(trustDomain, subject.GetSignedData(),
+                          subjectSignatureDigestBuf,
+                          subjectSignaturePublicKeyAlg, subjectSignature);
+    if (rv != Success) {
+      return rv;
+    }
+  }
+
+  rv = VerifySignedDigest(trustDomain, subjectSignaturePublicKeyAlg,
+                          subjectSignature,
+                          potentialIssuer.GetSubjectPublicKeyInfo());
   if (rv != Success) {
     return RecordResult(rv, keepGoing);
   }
@@ -232,9 +251,9 @@ PathBuildingStep::Check(Input potentialIssuerDER,
     }
     Duration validityDuration(notAfter, notBefore);
     rv = trustDomain.CheckRevocation(subject.endEntityOrCA, certID, time,
-                                     validityDuration, stapledOCSPResponse,
-                                     subject.GetAuthorityInfoAccess(),
-                                     subject.GetSignedCertificateTimestamps());
+                                     notBefore, validityDuration,
+                                     stapledOCSPResponse,
+                                     subject.GetAuthorityInfoAccess());
     if (rv != Success) {
       // Since this is actually a problem with the current subject certificate
       // (rather than the issuer), it doesn't make sense to keep going; all

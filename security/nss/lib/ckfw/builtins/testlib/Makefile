@@ -4,26 +4,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 include manifest.mn
-
 include $(CORE_DEPTH)/coreconf/config.mk
-
-ifdef BUILD_IDG
-DEFINES += -DNSSDEBUG
-endif
-
-# Needed for compilation of $(OBJDIR)/certdata.c
-INCLUDES += -I.
-
-#
-# To create a loadable module on Darwin, we must use -bundle.
-#
-ifeq ($(OS_TARGET),Darwin)
-DSO_LDOPTS = -bundle
-endif
-
-ifdef USE_GCOV
-DSO_LDOPTS += --coverage
-endif
+include config.mk
 
 EXTRA_LIBS =                                       \
 	$(DIST)/lib/$(LIB_PREFIX)nssckfw.$(LIB_SUFFIX) \
@@ -56,11 +38,6 @@ EXTRA_SHARED_LIBS +=  \
 	$(NULL)
 endif # OS_TARGET
 
-SIMPLE_OBJS   = $(notdir $(CSRCS:.c=$(OBJ_SUFFIX)))
-OBJS          = $(addprefix $(OBJDIR)/$(PROG_PREFIX), $(SIMPLE_OBJS))
-vpath %c $(dir $(CSRCS)) # $(OBJDIR)
-
-
 include $(CORE_DEPTH)/coreconf/rules.mk
 
 CFLAGS += -I$(CORE_DEPTH)/lib/ckfw/builtins
@@ -70,6 +47,6 @@ ifndef NSS_CERTDATA-TESTLIB_TXT
 NSS_CERTDATA-TESTLIB_TXT = certdata-testlib.txt
 endif
 
-$(OBJDIR)/certdata-testlib.c: $(NSS_CERTDATA-TESTLIB_TXT) | $$(@D)/d
+$(OBJDIR)/certdata-testlib.c: $(NSS_CERTDATA-TESTLIB_TXT)
+	@$(MAKE_OBJDIR)
 	$(PERL) ../certdata.perl $(NSS_CERTDATA-TESTLIB_TXT) $@
-

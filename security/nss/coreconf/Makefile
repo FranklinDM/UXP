@@ -11,3 +11,5 @@ DIRS		= nsinstall
 
 include $(DEPTH)/coreconf/config.mk
 include $(DEPTH)/coreconf/rules.mk
+
+export:: libs

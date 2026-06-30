@@ -26,26 +26,7 @@ include $(CORE_DEPTH)/coreconf/config.mk
 # (4) Include "local" platform-dependent assignments (OPTIONAL).      #
 #######################################################################
 
-ifdef NSS_PKIX_NO_LDAP
-LDAP_HEADERS =
-LDAP_CSRCS =
-else
-LDAP_HEADERS = \
-	pkix_pl_ldapt.h \
-	pkix_pl_ldapcertstore.h \
-	pkix_pl_ldapresponse.h \
-	pkix_pl_ldaprequest.h \
-	pkix_pl_ldapdefaultclient.h \
- 	$(NULL)
- 
-LDAP_CSRCS = \
-	pkix_pl_ldaptemplates.c \
-	pkix_pl_ldapcertstore.c \
-	pkix_pl_ldapresponse.c \
-	pkix_pl_ldaprequest.c \
-	pkix_pl_ldapdefaultclient.c \
- 	$(NULL)
-endif
+include config.mk
 
 #######################################################################
 # (5) Execute "global" rules. (OPTIONAL)                              #
@@ -63,4 +44,5 @@ include $(CORE_DEPTH)/coreconf/rules.mk
 # (7) Execute "local" rules. (OPTIONAL).                              #
 #######################################################################
 
+export:: private_export
 

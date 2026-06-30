@@ -762,18 +762,22 @@ static const ssl3CipherSuite ssl_all_ec_suites[] = {
     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
     TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_CAMELLIA_128_CBC_SHA256,
     TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
     TLS_ECDHE_ECDSA_WITH_NULL_SHA,
     TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
     TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_CAMELLIA_256_CBC_SHA384,
     TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
     TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_CAMELLIA_128_CBC_SHA256,
     TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_CAMELLIA_256_CBC_SHA384,
     TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
     TLS_ECDHE_RSA_WITH_NULL_SHA,
     TLS_ECDHE_RSA_WITH_RC4_128_SHA,
@@ -904,20 +908,6 @@ ssl_SendSupportedGroupsXtn(const sslSocket *ss, TLSExtensionData *xtnData,
         if (rv != SECSuccess) {
             return SECFailure;
         }
-    }
-
-    /* GREASE SupportedGroups:
-     * A client MAY select one or more GREASE named group values and advertise
-     * them in the "supported_groups" extension, if sent [RFC8701, Section 3.1].
-     */
-    if (!ss->sec.isServer &&
-        ss->opt.enableGrease &&
-        ss->vrange.max >= SSL_LIBRARY_VERSION_TLS_1_3) {
-        rv = sslBuffer_AppendNumber(buf, ss->ssl3.hs.grease->idx[grease_group], 2);
-        if (rv != SECSuccess) {
-            return SECFailure;
-        }
-        found = PR_TRUE;
     }
 
     if (!found) {

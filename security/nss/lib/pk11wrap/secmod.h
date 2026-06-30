@@ -143,31 +143,7 @@ extern unsigned long SECMOD_PubMechFlagstoInternal(unsigned long publicFlags);
 extern unsigned long SECMOD_InternaltoPubMechFlags(unsigned long internalFlags);
 extern unsigned long SECMOD_PubCipherFlagstoInternal(unsigned long publicFlags);
 
-/*
- * Check to see if the module has removable slots that we may need to
- * watch for.
- *
- * NB: This function acquires the module list lock in order to access
- * mod->slotCount and mod->slots. Deadlock can occur if the caller holds the
- * module list lock. Callers that already hold the module list lock must use
- * SECMOD_LockedModuleHasRemovableSlots instead.
- */
 PRBool SECMOD_HasRemovableSlots(SECMODModule *mod);
-
-/*
- * Like SECMOD_HasRemovableSlots but this function does not acquire the module
- * list lock.
- */
-PRBool SECMOD_LockedModuleHasRemovableSlots(SECMODModule *mod);
-
-/*
- * this function waits for a token event on any slot of a given module
- * This function should not be called from more than one thread of the
- * same process (though other threads can make other library calls
- * on this module while this call is blocked).
- *
- * Caller must not hold a module list read lock.
- */
 PK11SlotInfo *SECMOD_WaitForAnyTokenEvent(SECMODModule *mod,
                                           unsigned long flags, PRIntervalTime latency);
 /*
@@ -177,7 +153,6 @@ PK11SlotInfo *SECMOD_WaitForAnyTokenEvent(SECMODModule *mod,
  * shutting down  the module.
  */
 SECStatus SECMOD_CancelWait(SECMODModule *mod);
-
 /*
  * check to see if the module has added new slots. PKCS 11 v2.20 allows for
  * modules to add new slots, but never remove them. Slots not be added between
@@ -185,8 +160,6 @@ SECStatus SECMOD_CancelWait(SECMODModule *mod);
  * C_GetSlotList(flag, &data, &count) so that the array doesn't accidently
  * grow on the caller. It is permissible for the slots to increase between
  * corresponding calls with NULL to get the size.
- *
- * Caller must not hold a module list read lock.
  */
 SECStatus SECMOD_UpdateSlotList(SECMODModule *mod);
 SEC_END_PROTOS

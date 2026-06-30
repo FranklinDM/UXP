@@ -84,7 +84,7 @@ nss_cms_decoder_notify(void *arg, PRBool before, void *dest, int depth)
     p7dcx = (NSSCMSDecoderContext *)arg;
     rootcinfo = &(p7dcx->cmsg->contentInfo);
 
-    /* XXX error handling: need to set p7dcx->error */
+/* XXX error handling: need to set p7dcx->error */
 
 #ifdef CMSDEBUG
     fprintf(stderr, "%6.6s, dest = 0x%08x, depth = %d\n", before ? "before" : "after",
@@ -529,19 +529,8 @@ nss_cms_decoder_work_data(NSSCMSDecoderContext *p7dcx,
         SECItem *dataItem = &decoderData->data;
 
         offset = dataItem->len;
-        /* Reject if accumulated size would exceed unsigned int storage. */
-        if (len > (unsigned long)(PR_UINT32_MAX - dataItem->len)) {
-            p7dcx->error = SEC_ERROR_INPUT_LEN;
-            goto loser;
-        }
         if (dataItem->len + len > decoderData->totalBufferSize) {
-            /* Use size_t to avoid truncating the 64-bit sum to int.
-             * Double to amortize repeated reallocations across chunks. */
-            size_t needLen = (size_t)dataItem->len + len;
-            /* Only double if the result still fits in unsigned int. */
-            if (needLen <= PR_UINT32_MAX / 2) {
-                needLen *= 2;
-            }
+            int needLen = (dataItem->len + len) * 2;
             dest = (unsigned char *)
                 PORT_ArenaAlloc(p7dcx->cmsg->poolp, needLen);
             if (dest == NULL) {
@@ -552,7 +541,7 @@ nss_cms_decoder_work_data(NSSCMSDecoderContext *p7dcx,
             if (dataItem->len) {
                 PORT_Memcpy(dest, dataItem->data, dataItem->len);
             }
-            decoderData->totalBufferSize = (unsigned int)needLen;
+            decoderData->totalBufferSize = needLen;
             dataItem->data = dest;
         }
 
@@ -661,7 +650,8 @@ NSS_CMSDecoder_Update(NSSCMSDecoderContext *p7dcx, const char *buf,
              * dealing with one of those replies. Supply the Sequence wrap
              * as indefinite encoding (since we don't know the total length
              * yet) */
-            static const char lbuf[2] = { SEC_ASN1_SEQUENCE | SEC_ASN1_CONSTRUCTED, 0x80 };
+            static const char lbuf[2] =
+                { SEC_ASN1_SEQUENCE | SEC_ASN1_CONSTRUCTED, 0x80 };
             rv = SEC_ASN1DecoderUpdate(p7dcx->dcx, lbuf, sizeof(lbuf));
             if (rv != SECSuccess) {
                 goto loser;

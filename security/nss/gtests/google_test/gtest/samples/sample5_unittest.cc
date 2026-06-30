@@ -63,13 +63,15 @@ class QuickTest : public testing::Test {
  protected:
   // Remember that SetUp() is run immediately before a test starts.
   // This is a good place to record the start time.
-  void SetUp() override { start_time_ = time(nullptr); }
+  virtual void SetUp() {
+    start_time_ = time(NULL);
+  }
 
   // TearDown() is invoked immediately after a test finishes.  Here we
   // check if the test was too slow.
-  void TearDown() override {
+  virtual void TearDown() {
     // Gets the time when the test finishes
-    const time_t end_time = time(nullptr);
+    const time_t end_time = time(NULL);
 
     // Asserts that the test took no more than ~5 seconds.  Did you
     // know that you can use assertions in SetUp() and TearDown() as
@@ -140,7 +142,7 @@ TEST_F(IntegerFunctionTest, IsPrime) {
 // stuff inside the body of the test fixture, as usual.
 class QueueTest : public QuickTest {
  protected:
-  void SetUp() override {
+  virtual void SetUp() {
     // First, we need to set up the super fixture (QuickTest).
     QuickTest::SetUp();
 
@@ -174,16 +176,16 @@ TEST_F(QueueTest, DefaultConstructor) {
 // Tests Dequeue().
 TEST_F(QueueTest, Dequeue) {
   int* n = q0_.Dequeue();
-  EXPECT_TRUE(n == nullptr);
+  EXPECT_TRUE(n == NULL);
 
   n = q1_.Dequeue();
-  EXPECT_TRUE(n != nullptr);
+  EXPECT_TRUE(n != NULL);
   EXPECT_EQ(1, *n);
   EXPECT_EQ(0u, q1_.Size());
   delete n;
 
   n = q2_.Dequeue();
-  EXPECT_TRUE(n != nullptr);
+  EXPECT_TRUE(n != NULL);
   EXPECT_EQ(2, *n);
   EXPECT_EQ(1u, q2_.Size());
   delete n;

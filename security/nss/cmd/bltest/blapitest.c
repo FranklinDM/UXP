@@ -21,7 +21,6 @@
 #include "secoid.h"
 #include "nssutil.h"
 #include "ecl-curve.h"
-#include "chacha20poly1305.h"
 
 #include "pkcs1_vectors.h"
 
@@ -393,87 +392,88 @@ typedef struct curveNameTagPairStr {
     SECOidTag curveOidTag;
 } CurveNameTagPair;
 
-static CurveNameTagPair nameTagPair[] = {
-    { "sect163k1", SEC_OID_SECG_EC_SECT163K1 },
-    { "nistk163", SEC_OID_SECG_EC_SECT163K1 },
-    { "sect163r1", SEC_OID_SECG_EC_SECT163R1 },
-    { "sect163r2", SEC_OID_SECG_EC_SECT163R2 },
-    { "nistb163", SEC_OID_SECG_EC_SECT163R2 },
-    { "sect193r1", SEC_OID_SECG_EC_SECT193R1 },
-    { "sect193r2", SEC_OID_SECG_EC_SECT193R2 },
-    { "sect233k1", SEC_OID_SECG_EC_SECT233K1 },
-    { "nistk233", SEC_OID_SECG_EC_SECT233K1 },
-    { "sect233r1", SEC_OID_SECG_EC_SECT233R1 },
-    { "nistb233", SEC_OID_SECG_EC_SECT233R1 },
-    { "sect239k1", SEC_OID_SECG_EC_SECT239K1 },
-    { "sect283k1", SEC_OID_SECG_EC_SECT283K1 },
-    { "nistk283", SEC_OID_SECG_EC_SECT283K1 },
-    { "sect283r1", SEC_OID_SECG_EC_SECT283R1 },
-    { "nistb283", SEC_OID_SECG_EC_SECT283R1 },
-    { "sect409k1", SEC_OID_SECG_EC_SECT409K1 },
-    { "nistk409", SEC_OID_SECG_EC_SECT409K1 },
-    { "sect409r1", SEC_OID_SECG_EC_SECT409R1 },
-    { "nistb409", SEC_OID_SECG_EC_SECT409R1 },
-    { "sect571k1", SEC_OID_SECG_EC_SECT571K1 },
-    { "nistk571", SEC_OID_SECG_EC_SECT571K1 },
-    { "sect571r1", SEC_OID_SECG_EC_SECT571R1 },
-    { "nistb571", SEC_OID_SECG_EC_SECT571R1 },
-    { "secp160k1", SEC_OID_SECG_EC_SECP160K1 },
-    { "secp160r1", SEC_OID_SECG_EC_SECP160R1 },
-    { "secp160r2", SEC_OID_SECG_EC_SECP160R2 },
-    { "secp192k1", SEC_OID_SECG_EC_SECP192K1 },
-    { "secp192r1", SEC_OID_SECG_EC_SECP192R1 },
-    { "nistp192", SEC_OID_SECG_EC_SECP192R1 },
-    { "secp224k1", SEC_OID_SECG_EC_SECP224K1 },
-    { "secp224r1", SEC_OID_SECG_EC_SECP224R1 },
-    { "nistp224", SEC_OID_SECG_EC_SECP224R1 },
-    { "secp256k1", SEC_OID_SECG_EC_SECP256K1 },
-    { "secp256r1", SEC_OID_SECG_EC_SECP256R1 },
-    { "nistp256", SEC_OID_SECG_EC_SECP256R1 },
-    { "secp384r1", SEC_OID_SECG_EC_SECP384R1 },
-    { "nistp384", SEC_OID_SECG_EC_SECP384R1 },
-    { "secp521r1", SEC_OID_SECG_EC_SECP521R1 },
-    { "nistp521", SEC_OID_SECG_EC_SECP521R1 },
+static CurveNameTagPair nameTagPair[] =
+    {
+      { "sect163k1", SEC_OID_SECG_EC_SECT163K1 },
+      { "nistk163", SEC_OID_SECG_EC_SECT163K1 },
+      { "sect163r1", SEC_OID_SECG_EC_SECT163R1 },
+      { "sect163r2", SEC_OID_SECG_EC_SECT163R2 },
+      { "nistb163", SEC_OID_SECG_EC_SECT163R2 },
+      { "sect193r1", SEC_OID_SECG_EC_SECT193R1 },
+      { "sect193r2", SEC_OID_SECG_EC_SECT193R2 },
+      { "sect233k1", SEC_OID_SECG_EC_SECT233K1 },
+      { "nistk233", SEC_OID_SECG_EC_SECT233K1 },
+      { "sect233r1", SEC_OID_SECG_EC_SECT233R1 },
+      { "nistb233", SEC_OID_SECG_EC_SECT233R1 },
+      { "sect239k1", SEC_OID_SECG_EC_SECT239K1 },
+      { "sect283k1", SEC_OID_SECG_EC_SECT283K1 },
+      { "nistk283", SEC_OID_SECG_EC_SECT283K1 },
+      { "sect283r1", SEC_OID_SECG_EC_SECT283R1 },
+      { "nistb283", SEC_OID_SECG_EC_SECT283R1 },
+      { "sect409k1", SEC_OID_SECG_EC_SECT409K1 },
+      { "nistk409", SEC_OID_SECG_EC_SECT409K1 },
+      { "sect409r1", SEC_OID_SECG_EC_SECT409R1 },
+      { "nistb409", SEC_OID_SECG_EC_SECT409R1 },
+      { "sect571k1", SEC_OID_SECG_EC_SECT571K1 },
+      { "nistk571", SEC_OID_SECG_EC_SECT571K1 },
+      { "sect571r1", SEC_OID_SECG_EC_SECT571R1 },
+      { "nistb571", SEC_OID_SECG_EC_SECT571R1 },
+      { "secp160k1", SEC_OID_SECG_EC_SECP160K1 },
+      { "secp160r1", SEC_OID_SECG_EC_SECP160R1 },
+      { "secp160r2", SEC_OID_SECG_EC_SECP160R2 },
+      { "secp192k1", SEC_OID_SECG_EC_SECP192K1 },
+      { "secp192r1", SEC_OID_SECG_EC_SECP192R1 },
+      { "nistp192", SEC_OID_SECG_EC_SECP192R1 },
+      { "secp224k1", SEC_OID_SECG_EC_SECP224K1 },
+      { "secp224r1", SEC_OID_SECG_EC_SECP224R1 },
+      { "nistp224", SEC_OID_SECG_EC_SECP224R1 },
+      { "secp256k1", SEC_OID_SECG_EC_SECP256K1 },
+      { "secp256r1", SEC_OID_SECG_EC_SECP256R1 },
+      { "nistp256", SEC_OID_SECG_EC_SECP256R1 },
+      { "secp384r1", SEC_OID_SECG_EC_SECP384R1 },
+      { "nistp384", SEC_OID_SECG_EC_SECP384R1 },
+      { "secp521r1", SEC_OID_SECG_EC_SECP521R1 },
+      { "nistp521", SEC_OID_SECG_EC_SECP521R1 },
 
-    { "prime192v1", SEC_OID_ANSIX962_EC_PRIME192V1 },
-    { "prime192v2", SEC_OID_ANSIX962_EC_PRIME192V2 },
-    { "prime192v3", SEC_OID_ANSIX962_EC_PRIME192V3 },
-    { "prime239v1", SEC_OID_ANSIX962_EC_PRIME239V1 },
-    { "prime239v2", SEC_OID_ANSIX962_EC_PRIME239V2 },
-    { "prime239v3", SEC_OID_ANSIX962_EC_PRIME239V3 },
+      { "prime192v1", SEC_OID_ANSIX962_EC_PRIME192V1 },
+      { "prime192v2", SEC_OID_ANSIX962_EC_PRIME192V2 },
+      { "prime192v3", SEC_OID_ANSIX962_EC_PRIME192V3 },
+      { "prime239v1", SEC_OID_ANSIX962_EC_PRIME239V1 },
+      { "prime239v2", SEC_OID_ANSIX962_EC_PRIME239V2 },
+      { "prime239v3", SEC_OID_ANSIX962_EC_PRIME239V3 },
 
-    { "c2pnb163v1", SEC_OID_ANSIX962_EC_C2PNB163V1 },
-    { "c2pnb163v2", SEC_OID_ANSIX962_EC_C2PNB163V2 },
-    { "c2pnb163v3", SEC_OID_ANSIX962_EC_C2PNB163V3 },
-    { "c2pnb176v1", SEC_OID_ANSIX962_EC_C2PNB176V1 },
-    { "c2tnb191v1", SEC_OID_ANSIX962_EC_C2TNB191V1 },
-    { "c2tnb191v2", SEC_OID_ANSIX962_EC_C2TNB191V2 },
-    { "c2tnb191v3", SEC_OID_ANSIX962_EC_C2TNB191V3 },
-    { "c2onb191v4", SEC_OID_ANSIX962_EC_C2ONB191V4 },
-    { "c2onb191v5", SEC_OID_ANSIX962_EC_C2ONB191V5 },
-    { "c2pnb208w1", SEC_OID_ANSIX962_EC_C2PNB208W1 },
-    { "c2tnb239v1", SEC_OID_ANSIX962_EC_C2TNB239V1 },
-    { "c2tnb239v2", SEC_OID_ANSIX962_EC_C2TNB239V2 },
-    { "c2tnb239v3", SEC_OID_ANSIX962_EC_C2TNB239V3 },
-    { "c2onb239v4", SEC_OID_ANSIX962_EC_C2ONB239V4 },
-    { "c2onb239v5", SEC_OID_ANSIX962_EC_C2ONB239V5 },
-    { "c2pnb272w1", SEC_OID_ANSIX962_EC_C2PNB272W1 },
-    { "c2pnb304w1", SEC_OID_ANSIX962_EC_C2PNB304W1 },
-    { "c2tnb359v1", SEC_OID_ANSIX962_EC_C2TNB359V1 },
-    { "c2pnb368w1", SEC_OID_ANSIX962_EC_C2PNB368W1 },
-    { "c2tnb431r1", SEC_OID_ANSIX962_EC_C2TNB431R1 },
+      { "c2pnb163v1", SEC_OID_ANSIX962_EC_C2PNB163V1 },
+      { "c2pnb163v2", SEC_OID_ANSIX962_EC_C2PNB163V2 },
+      { "c2pnb163v3", SEC_OID_ANSIX962_EC_C2PNB163V3 },
+      { "c2pnb176v1", SEC_OID_ANSIX962_EC_C2PNB176V1 },
+      { "c2tnb191v1", SEC_OID_ANSIX962_EC_C2TNB191V1 },
+      { "c2tnb191v2", SEC_OID_ANSIX962_EC_C2TNB191V2 },
+      { "c2tnb191v3", SEC_OID_ANSIX962_EC_C2TNB191V3 },
+      { "c2onb191v4", SEC_OID_ANSIX962_EC_C2ONB191V4 },
+      { "c2onb191v5", SEC_OID_ANSIX962_EC_C2ONB191V5 },
+      { "c2pnb208w1", SEC_OID_ANSIX962_EC_C2PNB208W1 },
+      { "c2tnb239v1", SEC_OID_ANSIX962_EC_C2TNB239V1 },
+      { "c2tnb239v2", SEC_OID_ANSIX962_EC_C2TNB239V2 },
+      { "c2tnb239v3", SEC_OID_ANSIX962_EC_C2TNB239V3 },
+      { "c2onb239v4", SEC_OID_ANSIX962_EC_C2ONB239V4 },
+      { "c2onb239v5", SEC_OID_ANSIX962_EC_C2ONB239V5 },
+      { "c2pnb272w1", SEC_OID_ANSIX962_EC_C2PNB272W1 },
+      { "c2pnb304w1", SEC_OID_ANSIX962_EC_C2PNB304W1 },
+      { "c2tnb359v1", SEC_OID_ANSIX962_EC_C2TNB359V1 },
+      { "c2pnb368w1", SEC_OID_ANSIX962_EC_C2PNB368W1 },
+      { "c2tnb431r1", SEC_OID_ANSIX962_EC_C2TNB431R1 },
 
-    { "secp112r1", SEC_OID_SECG_EC_SECP112R1 },
-    { "secp112r2", SEC_OID_SECG_EC_SECP112R2 },
-    { "secp128r1", SEC_OID_SECG_EC_SECP128R1 },
-    { "secp128r2", SEC_OID_SECG_EC_SECP128R2 },
+      { "secp112r1", SEC_OID_SECG_EC_SECP112R1 },
+      { "secp112r2", SEC_OID_SECG_EC_SECP112R2 },
+      { "secp128r1", SEC_OID_SECG_EC_SECP128R1 },
+      { "secp128r2", SEC_OID_SECG_EC_SECP128R2 },
 
-    { "sect113r1", SEC_OID_SECG_EC_SECT113R1 },
-    { "sect113r2", SEC_OID_SECG_EC_SECT113R2 },
-    { "sect131r1", SEC_OID_SECG_EC_SECT131R1 },
-    { "sect131r2", SEC_OID_SECG_EC_SECT131R2 },
-    { "curve25519", SEC_OID_CURVE25519 },
-};
+      { "sect113r1", SEC_OID_SECG_EC_SECT113R1 },
+      { "sect113r2", SEC_OID_SECG_EC_SECT113R2 },
+      { "sect131r1", SEC_OID_SECG_EC_SECT131R1 },
+      { "sect131r2", SEC_OID_SECG_EC_SECT131R2 },
+      { "curve25519", SEC_OID_CURVE25519 },
+    };
 
 static SECItem *
 getECParams(const char *curve)
@@ -608,11 +608,9 @@ typedef enum {
     bltestDES_CBC,     /* .            */
     bltestDES_EDE_ECB, /* .            */
     bltestDES_EDE_CBC, /* .            */
-#ifndef NSS_DISABLE_DEPRECATED_RC2
-    bltestRC2_ECB, /* .            */
-    bltestRC2_CBC, /* .            */
-#endif
-    bltestRC4, /* .            */
+    bltestRC2_ECB,     /* .            */
+    bltestRC2_CBC,     /* .            */
+    bltestRC4,         /* .            */
 #ifdef NSS_SOFTOKEN_DOES_RC5
     bltestRC5_ECB, /* .            */
     bltestRC5_CBC, /* .            */
@@ -624,11 +622,8 @@ typedef enum {
     bltestAES_GCM,      /* .                     */
     bltestCAMELLIA_ECB, /* .                     */
     bltestCAMELLIA_CBC, /* .                     */
-#ifndef NSS_DISABLE_DEPRECATED_SEED
-    bltestSEED_ECB, /* SEED algorithm      */
-    bltestSEED_CBC, /* SEED algorithm      */
-#endif
-    bltestCHACHA20_CTR, /* ChaCha20 block cipher */
+    bltestSEED_ECB,     /* SEED algorithm      */
+    bltestSEED_CBC,     /* SEED algorithm      */
     bltestCHACHA20,     /* ChaCha20 + Poly1305   */
     bltestRSA,          /* Public Key Ciphers    */
     bltestRSA_OAEP,     /* . (Public Key Enc.)   */
@@ -645,47 +640,43 @@ typedef enum {
     NUMMODES
 } bltestCipherMode;
 
-static char *mode_strings[] = {
-    "des_ecb",
-    "des_cbc",
-    "des3_ecb",
-    "des3_cbc",
-#ifndef NSS_DISABLE_DEPRECATED_RC2
-    "rc2_ecb",
-    "rc2_cbc",
-#endif
-    "rc4",
+static char *mode_strings[] =
+    {
+      "des_ecb",
+      "des_cbc",
+      "des3_ecb",
+      "des3_cbc",
+      "rc2_ecb",
+      "rc2_cbc",
+      "rc4",
 #ifdef NSS_SOFTOKEN_DOES_RC5
-    "rc5_ecb",
-    "rc5_cbc",
+      "rc5_ecb",
+      "rc5_cbc",
 #endif
-    "aes_ecb",
-    "aes_cbc",
-    "aes_cts",
-    "aes_ctr",
-    "aes_gcm",
-    "camellia_ecb",
-    "camellia_cbc",
-#ifndef NSS_DISABLE_DEPRECATED_SEED
-    "seed_ecb",
-    "seed_cbc",
-#endif
-    "chacha20_ctr",
-    "chacha20_poly1305",
-    "rsa",
-    "rsa_oaep",
-    "rsa_pss",
-    "ecdsa",
-    /*"pqg",*/
-    "dsa",
-    "md2",
-    "md5",
-    "sha1",
-    "sha224",
-    "sha256",
-    "sha384",
-    "sha512",
-};
+      "aes_ecb",
+      "aes_cbc",
+      "aes_cts",
+      "aes_ctr",
+      "aes_gcm",
+      "camellia_ecb",
+      "camellia_cbc",
+      "seed_ecb",
+      "seed_cbc",
+      "chacha20_poly1305",
+      "rsa",
+      "rsa_oaep",
+      "rsa_pss",
+      "ecdsa",
+      /*"pqg",*/
+      "dsa",
+      "md2",
+      "md5",
+      "sha1",
+      "sha224",
+      "sha256",
+      "sha384",
+      "sha512",
+    };
 
 typedef struct
 {
@@ -802,7 +793,7 @@ PRBool
 is_symmkeyCipher(bltestCipherMode mode)
 {
     /* change as needed! */
-    if (mode >= bltestDES_ECB && mode <= bltestCHACHA20_CTR)
+    if (mode >= bltestDES_ECB && mode <= bltestSEED_CBC)
         return PR_TRUE;
     return PR_FALSE;
 }
@@ -839,7 +830,6 @@ is_singleShotCipher(bltestCipherMode mode)
     switch (mode) {
         case bltestAES_GCM:
         case bltestAES_CTS:
-        case bltestCHACHA20_CTR:
         case bltestCHACHA20:
             return PR_TRUE;
         default:
@@ -881,9 +871,7 @@ cipher_requires_IV(bltestCipherMode mode)
     switch (mode) {
         case bltestDES_CBC:
         case bltestDES_EDE_CBC:
-#ifndef NSS_DISABLE_DEPRECATED_RC2
         case bltestRC2_CBC:
-#endif
 #ifdef NSS_SOFTOKEN_DOES_RC5
         case bltestRC5_CBC:
 #endif
@@ -892,10 +880,7 @@ cipher_requires_IV(bltestCipherMode mode)
         case bltestAES_CTR:
         case bltestAES_GCM:
         case bltestCAMELLIA_CBC:
-#ifndef NSS_DISABLE_DEPRECATED_SEED
         case bltestSEED_CBC:
-#endif
-        case bltestCHACHA20_CTR:
         case bltestCHACHA20:
             return PR_TRUE;
         default:
@@ -1093,7 +1078,6 @@ des_Decrypt(void *cx, unsigned char *output, unsigned int *outputLen,
                        input, inputLen);
 }
 
-#ifndef NSS_DISABLE_DEPRECATED_RC2
 SECStatus
 rc2_Encrypt(void *cx, unsigned char *output, unsigned int *outputLen,
             unsigned int maxOutputLen, const unsigned char *input,
@@ -1111,7 +1095,6 @@ rc2_Decrypt(void *cx, unsigned char *output, unsigned int *outputLen,
     return RC2_Decrypt((RC2Context *)cx, output, outputLen, maxOutputLen,
                        input, inputLen);
 }
-#endif /* NSS_DISABLE_DEPRECATED_RC2 */
 
 SECStatus
 rc4_Encrypt(void *cx, unsigned char *output, unsigned int *outputLen,
@@ -1147,21 +1130,6 @@ aes_Decrypt(void *cx, unsigned char *output, unsigned int *outputLen,
 {
     return AES_Decrypt((AESContext *)cx, output, outputLen, maxOutputLen,
                        input, inputLen);
-}
-
-SECStatus
-chacha20_Encrypt(void *cx, unsigned char *output, unsigned int *outputLen,
-                 unsigned int maxOutputLen, const unsigned char *input,
-                 unsigned int inputLen)
-{
-    if (maxOutputLen < inputLen) {
-        PORT_SetError(SEC_ERROR_OUTPUT_LEN);
-        return SECFailure;
-    }
-    ChaCha20Context *ctx = cx;
-    *outputLen = inputLen;
-    return ChaCha20_Xor(output, input, inputLen, ctx->key, ctx->nonce,
-                        ctx->counter);
 }
 
 SECStatus
@@ -1208,7 +1176,6 @@ camellia_Decrypt(void *cx, unsigned char *output, unsigned int *outputLen,
                             input, inputLen);
 }
 
-#ifndef NSS_DISABLE_DEPRECATED_SEED
 SECStatus
 seed_Encrypt(void *cx, unsigned char *output, unsigned int *outputLen,
              unsigned int maxOutputLen, const unsigned char *input,
@@ -1226,7 +1193,6 @@ seed_Decrypt(void *cx, unsigned char *output, unsigned int *outputLen,
     return SEED_Decrypt((SEEDContext *)cx, output, outputLen, maxOutputLen,
                         input, inputLen);
 }
-#endif /* NSS_DISABLE_DEPRECATED_SEED */
 
 SECStatus
 rsa_PublicKeyOp(void *cx, SECItem *output, const SECItem *input)
@@ -1395,7 +1361,6 @@ bltest_des_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
     return SECSuccess;
 }
 
-#ifndef NSS_DISABLE_DEPRECATED_RC2
 SECStatus
 bltest_rc2_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
 {
@@ -1441,7 +1406,6 @@ bltest_rc2_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
         cipherInfo->cipher.symmkeyCipher = rc2_Decrypt;
     return SECSuccess;
 }
-#endif /* NSS_DISABLE_DEPRECATED_RC2 */
 
 SECStatus
 bltest_rc4_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
@@ -1517,7 +1481,7 @@ bltest_aes_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
     unsigned char *params;
     int len;
     CK_AES_CTR_PARAMS ctrParams;
-    CK_NSS_GCM_PARAMS gcmParams;
+    CK_GCM_PARAMS gcmParams;
 
     params = aesp->iv.buf.data;
     switch (cipherInfo->mode) {
@@ -1623,7 +1587,6 @@ bltest_camellia_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
     return SECSuccess;
 }
 
-#ifndef NSS_DISABLE_DEPRECATED_SEED
 SECStatus
 bltest_seed_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
 {
@@ -1665,25 +1628,6 @@ bltest_seed_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
     else
         cipherInfo->cipher.symmkeyCipher = seed_Decrypt;
 
-    return SECSuccess;
-}
-#endif /* NSS_DISABLE_DEPRECATED_SEED */
-
-SECStatus
-bltest_chacha20_ctr_init(bltestCipherInfo *cipherInfo, PRBool encrypt)
-{
-    const PRUint32 counter = 1;
-    bltestSymmKeyParams *sk = &cipherInfo->params.sk;
-    cipherInfo->cx = ChaCha20_CreateContext(sk->key.buf.data, sk->key.buf.len,
-                                            sk->iv.buf.data, sk->iv.buf.len,
-                                            counter);
-
-    if (cipherInfo->cx == NULL) {
-        PR_fprintf(PR_STDERR, "ChaCha20_CreateContext() returned NULL\n"
-                              "key must be 32 bytes, iv must be 12 bytes\n");
-        return SECFailure;
-    }
-    cipherInfo->cipher.symmkeyCipher = chacha20_Encrypt;
     return SECSuccess;
 }
 
@@ -2301,14 +2245,12 @@ cipherInit(bltestCipherInfo *cipherInfo, PRBool encrypt)
                               cipherInfo->input.pBuf.len);
             return bltest_des_init(cipherInfo, encrypt);
             break;
-#ifndef NSS_DISABLE_DEPRECATED_RC2
         case bltestRC2_ECB:
         case bltestRC2_CBC:
             SECITEM_AllocItem(cipherInfo->arena, &cipherInfo->output.buf,
                               cipherInfo->input.pBuf.len);
             return bltest_rc2_init(cipherInfo, encrypt);
             break;
-#endif /* NSS_DISABLE_DEPRECATED_RC2 */
         case bltestRC4:
             SECITEM_AllocItem(cipherInfo->arena, &cipherInfo->output.buf,
                               cipherInfo->input.pBuf.len);
@@ -2319,9 +2261,9 @@ cipherInit(bltestCipherInfo *cipherInfo, PRBool encrypt)
         case bltestRC5_CBC:
             SECITEM_AllocItem(cipherInfo->arena, &cipherInfo->output.buf,
                               cipherInfo->input.pBuf.len);
+#endif
             return bltest_rc5_init(cipherInfo, encrypt);
             break;
-#endif
         case bltestAES_ECB:
         case bltestAES_CBC:
         case bltestAES_CTS:
@@ -2340,18 +2282,11 @@ cipherInit(bltestCipherInfo *cipherInfo, PRBool encrypt)
                               cipherInfo->input.pBuf.len);
             return bltest_camellia_init(cipherInfo, encrypt);
             break;
-#ifndef NSS_DISABLE_DEPRECATED_SEED
         case bltestSEED_ECB:
         case bltestSEED_CBC:
             SECITEM_AllocItem(cipherInfo->arena, &cipherInfo->output.buf,
                               cipherInfo->input.pBuf.len);
             return bltest_seed_init(cipherInfo, encrypt);
-            break;
-#endif /* NSS_DISABLE_DEPRECATED_SEED */
-        case bltestCHACHA20_CTR:
-            outlen = cipherInfo->input.pBuf.len;
-            SECITEM_AllocItem(cipherInfo->arena, &cipherInfo->output.buf, outlen);
-            return bltest_chacha20_ctr_init(cipherInfo, encrypt);
             break;
         case bltestCHACHA20:
             outlen = cipherInfo->input.pBuf.len + (encrypt ? 16 : 0);
@@ -2651,26 +2586,19 @@ cipherFinish(bltestCipherInfo *cipherInfo)
         case bltestCAMELLIA_CBC:
             Camellia_DestroyContext((CamelliaContext *)cipherInfo->cx, PR_TRUE);
             break;
-#ifndef NSS_DISABLE_DEPRECATED_SEED
         case bltestSEED_ECB:
         case bltestSEED_CBC:
             SEED_DestroyContext((SEEDContext *)cipherInfo->cx, PR_TRUE);
-            break;
-#endif /* NSS_DISABLE_DEPRECATED_SEED */
-        case bltestCHACHA20_CTR:
-            ChaCha20_DestroyContext((ChaCha20Context *)cipherInfo->cx, PR_TRUE);
             break;
         case bltestCHACHA20:
             ChaCha20Poly1305_DestroyContext((ChaCha20Poly1305Context *)
                                                 cipherInfo->cx,
                                             PR_TRUE);
             break;
-#ifndef NSS_DISABLE_DEPRECATED_RC2
         case bltestRC2_ECB:
         case bltestRC2_CBC:
             RC2_DestroyContext((RC2Context *)cipherInfo->cx, PR_TRUE);
             break;
-#endif /* NSS_DISABLE_DEPRECATED_RC2 */
         case bltestRC4:
             RC4_DestroyContext((RC4Context *)cipherInfo->cx, PR_TRUE);
             break;
@@ -2746,10 +2674,7 @@ getHighUnitBytes(PRInt64 res)
         }
     }
 
-    if (i == 0)
-        return PR_smprintf("%d%s", spl[i], marks[i]);
-    else
-        return PR_smprintf("%d%s %d%s", spl[i], marks[i], spl[i - 1], marks[i - 1]);
+    return PR_smprintf("%d%s", spl[i], marks[i]);
 }
 
 static void
@@ -2822,14 +2747,10 @@ print_td:
         case bltestAES_GCM:
         case bltestCAMELLIA_ECB:
         case bltestCAMELLIA_CBC:
-#ifndef NSS_DISABLE_DEPRECATED_SEED
         case bltestSEED_ECB:
         case bltestSEED_CBC:
-#endif
-#ifndef NSS_DISABLE_DEPRECATED_RC2
         case bltestRC2_ECB:
         case bltestRC2_CBC:
-#endif
         case bltestRC4:
             if (td)
                 fprintf(stdout, "%8s", "symmkey");
@@ -3009,45 +2930,37 @@ get_params(PLArenaPool *arena, bltestParams *params,
     switch (mode) {
         case bltestAES_GCM:
         case bltestCHACHA20:
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "aad", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "aad", j);
             load_file_data(arena, &params->ask.aad, filename, bltestBinary);
         case bltestDES_CBC:
         case bltestDES_EDE_CBC:
-#ifndef NSS_DISABLE_DEPRECATED_RC2
         case bltestRC2_CBC:
-#endif
         case bltestAES_CBC:
         case bltestAES_CTS:
         case bltestAES_CTR:
         case bltestCAMELLIA_CBC:
-#ifndef NSS_DISABLE_DEPRECATED_SEED
         case bltestSEED_CBC:
-#endif
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "iv", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "iv", j);
             load_file_data(arena, &params->sk.iv, filename, bltestBinary);
         case bltestDES_ECB:
         case bltestDES_EDE_ECB:
-#ifndef NSS_DISABLE_DEPRECATED_RC2
         case bltestRC2_ECB:
-#endif
         case bltestRC4:
         case bltestAES_ECB:
         case bltestCAMELLIA_ECB:
-#ifndef NSS_DISABLE_DEPRECATED_SEED
         case bltestSEED_ECB:
-#endif
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "key", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "key", j);
             load_file_data(arena, &params->sk.key, filename, bltestBinary);
             break;
 #ifdef NSS_SOFTOKEN_DOES_RC5
         case bltestRC5_ECB:
         case bltestRC5_CBC:
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "iv", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "iv", j);
             load_file_data(arena, &params->sk.iv, filename, bltestBinary);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "key", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "key", j);
             load_file_data(arena, &params->sk.key, filename, bltestBinary);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr,
-                     "params", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr,
+                    "params", j);
             file = fopen(filename, "r");
             if (!file)
                 return;
@@ -3070,59 +2983,59 @@ get_params(PLArenaPool *arena, bltestParams *params,
             break;
 #endif
         case bltestRSA_PSS:
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "ciphertext", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "ciphertext", j);
             load_file_data(arena, &params->asymk.sig, filename, bltestBase64Encoded);
         /* fall through */
         case bltestRSA_OAEP:
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "seed", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "seed", j);
             load_file_data(arena, &params->asymk.cipherParams.rsa.seed,
                            filename, bltestBase64Encoded);
 
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "hash", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "hash", j);
             load_file_data(arena, &tempIO, filename, bltestBinary);
             params->asymk.cipherParams.rsa.hashAlg =
                 mode_str_to_hash_alg(&tempIO.buf);
 
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "maskhash", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "maskhash", j);
             load_file_data(arena, &tempIO, filename, bltestBinary);
             params->asymk.cipherParams.rsa.maskHashAlg =
                 mode_str_to_hash_alg(&tempIO.buf);
         /* fall through */
         case bltestRSA:
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "key", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "key", j);
             load_file_data(arena, &params->asymk.key, filename,
                            bltestBase64Encoded);
             params->asymk.privKey =
                 (void *)rsakey_from_filedata(arena, &params->asymk.key.buf);
             break;
         case bltestDSA:
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "key", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "key", j);
             load_file_data(arena, &params->asymk.key, filename, bltestBase64Encoded);
             params->asymk.privKey =
                 (void *)dsakey_from_filedata(arena, &params->asymk.key.buf);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "pqg", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "pqg", j);
             load_file_data(arena, &params->asymk.cipherParams.dsa.pqgdata, filename,
                            bltestBase64Encoded);
             params->asymk.cipherParams.dsa.pqg =
                 pqg_from_filedata(arena, &params->asymk.cipherParams.dsa.pqgdata.buf);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "keyseed", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "keyseed", j);
             load_file_data(arena, &params->asymk.cipherParams.dsa.keyseed, filename,
                            bltestBase64Encoded);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "sigseed", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "sigseed", j);
             load_file_data(arena, &params->asymk.cipherParams.dsa.sigseed, filename,
                            bltestBase64Encoded);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "ciphertext", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "ciphertext", j);
             load_file_data(arena, &params->asymk.sig, filename, bltestBase64Encoded);
             break;
         case bltestECDSA:
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "key", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "key", j);
             load_file_data(arena, &params->asymk.key, filename, bltestBase64Encoded);
             params->asymk.privKey =
                 (void *)eckey_from_filedata(arena, &params->asymk.key.buf);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "sigseed", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "sigseed", j);
             load_file_data(arena, &params->asymk.cipherParams.ecdsa.sigseed,
                            filename, bltestBase64Encoded);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr, "ciphertext", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr, "ciphertext", j);
             load_file_data(arena, &params->asymk.sig, filename, bltestBase64Encoded);
             break;
         case bltestMD2:
@@ -3238,7 +3151,7 @@ blapi_selftest(bltestCipherMode *modes, int numModes, int inoff, int outoff,
         cipherInfo.mode = mode;
         params = &cipherInfo.params;
         /* get the number of tests in the directory */
-        snprintf(filename, sizeof(filename), "%s/tests/%s/%s", testdir, modestr, "numtests");
+        sprintf(filename, "%s/tests/%s/%s", testdir, modestr, "numtests");
         if (ReadFileToItem(arena, &item, filename) != SECSuccess) {
             fprintf(stderr, "%s: Cannot read file %s.\n", progName, filename);
             rv = SECFailure;
@@ -3254,13 +3167,13 @@ blapi_selftest(bltestCipherMode *modes, int numModes, int inoff, int outoff,
             numtests += (int)(item.data[j] - '0');
         }
         for (j = 0; j < numtests; j++) {
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr,
-                     "plaintext", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr,
+                    "plaintext", j);
             load_file_data(arena, &pt, filename,
                            is_sigCipher(mode) ? bltestBase64Encoded
                                               : bltestBinary);
-            snprintf(filename, sizeof(filename), "%s/tests/%s/%s%d", testdir, modestr,
-                     "ciphertext", j);
+            sprintf(filename, "%s/tests/%s/%s%d", testdir, modestr,
+                    "ciphertext", j);
             load_file_data(arena, &ct, filename, bltestBase64Encoded);
 
             get_params(arena, params, mode, j);
@@ -3659,55 +3572,57 @@ enum {
     opt_CmdLine
 };
 
-static secuCommandFlag bltest_commands[] = {
-    { /* cmd_Decrypt */ 'D', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_Encrypt */ 'E', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_FIPS */ 'F', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_Hash */ 'H', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_Nonce */ 'N', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_Dump */ 'P', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_RSAPopulate */ 'R', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_RSAPopulateKV */ 'K', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_Sign */ 'S', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_SelfTest */ 'T', PR_FALSE, 0, PR_FALSE },
-    { /* cmd_Verify */ 'V', PR_FALSE, 0, PR_FALSE }
-};
+static secuCommandFlag bltest_commands[] =
+    {
+      { /* cmd_Decrypt */ 'D', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_Encrypt */ 'E', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_FIPS */ 'F', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_Hash */ 'H', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_Nonce */ 'N', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_Dump */ 'P', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_RSAPopulate */ 'R', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_RSAPopulateKV */ 'K', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_Sign */ 'S', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_SelfTest */ 'T', PR_FALSE, 0, PR_FALSE },
+      { /* cmd_Verify */ 'V', PR_FALSE, 0, PR_FALSE }
+    };
 
-static secuCommandFlag bltest_options[] = {
-    { /* opt_B64 */ 'a', PR_FALSE, 0, PR_FALSE },
-    { /* opt_BufSize */ 'b', PR_TRUE, 0, PR_FALSE },
-    { /* opt_Restart */ 'c', PR_FALSE, 0, PR_FALSE },
-    { /* opt_SelfTestDir */ 'd', PR_TRUE, 0, PR_FALSE },
-    { /* opt_Exponent */ 'e', PR_TRUE, 0, PR_FALSE },
-    { /* opt_SigFile */ 'f', PR_TRUE, 0, PR_FALSE },
-    { /* opt_KeySize */ 'g', PR_TRUE, 0, PR_FALSE },
-    { /* opt_Hex */ 'h', PR_FALSE, 0, PR_FALSE },
-    { /* opt_Input */ 'i', PR_TRUE, 0, PR_FALSE },
-    { /* opt_PQGFile */ 'j', PR_TRUE, 0, PR_FALSE },
-    { /* opt_Key */ 'k', PR_TRUE, 0, PR_FALSE },
-    { /* opt_HexWSpc */ 'l', PR_FALSE, 0, PR_FALSE },
-    { /* opt_Mode */ 'm', PR_TRUE, 0, PR_FALSE },
-    { /* opt_CurveName */ 'n', PR_TRUE, 0, PR_FALSE },
-    { /* opt_Output */ 'o', PR_TRUE, 0, PR_FALSE },
-    { /* opt_Repetitions */ 'p', PR_TRUE, 0, PR_FALSE },
-    { /* opt_ZeroBuf */ 'q', PR_FALSE, 0, PR_FALSE },
-    { /* opt_Rounds */ 'r', PR_TRUE, 0, PR_FALSE },
-    { /* opt_Seed */ 's', PR_TRUE, 0, PR_FALSE },
-    { /* opt_SigSeedFile */ 't', PR_TRUE, 0, PR_FALSE },
-    { /* opt_CXReps */ 'u', PR_TRUE, 0, PR_FALSE },
-    { /* opt_IV */ 'v', PR_TRUE, 0, PR_FALSE },
-    { /* opt_WordSize */ 'w', PR_TRUE, 0, PR_FALSE },
-    { /* opt_UseSeed */ 'x', PR_FALSE, 0, PR_FALSE },
-    { /* opt_UseSigSeed */ 'y', PR_FALSE, 0, PR_FALSE },
-    { /* opt_SeedFile */ 'z', PR_FALSE, 0, PR_FALSE },
-    { /* opt_AAD */ 0, PR_TRUE, 0, PR_FALSE, "aad" },
-    { /* opt_InputOffset */ '1', PR_TRUE, 0, PR_FALSE },
-    { /* opt_OutputOffset */ '2', PR_TRUE, 0, PR_FALSE },
-    { /* opt_MonteCarlo */ '3', PR_FALSE, 0, PR_FALSE },
-    { /* opt_ThreadNum */ '4', PR_TRUE, 0, PR_FALSE },
-    { /* opt_SecondsToRun */ '5', PR_TRUE, 0, PR_FALSE },
-    { /* opt_CmdLine */ '-', PR_FALSE, 0, PR_FALSE }
-};
+static secuCommandFlag bltest_options[] =
+    {
+      { /* opt_B64 */ 'a', PR_FALSE, 0, PR_FALSE },
+      { /* opt_BufSize */ 'b', PR_TRUE, 0, PR_FALSE },
+      { /* opt_Restart */ 'c', PR_FALSE, 0, PR_FALSE },
+      { /* opt_SelfTestDir */ 'd', PR_TRUE, 0, PR_FALSE },
+      { /* opt_Exponent */ 'e', PR_TRUE, 0, PR_FALSE },
+      { /* opt_SigFile */ 'f', PR_TRUE, 0, PR_FALSE },
+      { /* opt_KeySize */ 'g', PR_TRUE, 0, PR_FALSE },
+      { /* opt_Hex */ 'h', PR_FALSE, 0, PR_FALSE },
+      { /* opt_Input */ 'i', PR_TRUE, 0, PR_FALSE },
+      { /* opt_PQGFile */ 'j', PR_TRUE, 0, PR_FALSE },
+      { /* opt_Key */ 'k', PR_TRUE, 0, PR_FALSE },
+      { /* opt_HexWSpc */ 'l', PR_FALSE, 0, PR_FALSE },
+      { /* opt_Mode */ 'm', PR_TRUE, 0, PR_FALSE },
+      { /* opt_CurveName */ 'n', PR_TRUE, 0, PR_FALSE },
+      { /* opt_Output */ 'o', PR_TRUE, 0, PR_FALSE },
+      { /* opt_Repetitions */ 'p', PR_TRUE, 0, PR_FALSE },
+      { /* opt_ZeroBuf */ 'q', PR_FALSE, 0, PR_FALSE },
+      { /* opt_Rounds */ 'r', PR_TRUE, 0, PR_FALSE },
+      { /* opt_Seed */ 's', PR_TRUE, 0, PR_FALSE },
+      { /* opt_SigSeedFile */ 't', PR_TRUE, 0, PR_FALSE },
+      { /* opt_CXReps */ 'u', PR_TRUE, 0, PR_FALSE },
+      { /* opt_IV */ 'v', PR_TRUE, 0, PR_FALSE },
+      { /* opt_WordSize */ 'w', PR_TRUE, 0, PR_FALSE },
+      { /* opt_UseSeed */ 'x', PR_FALSE, 0, PR_FALSE },
+      { /* opt_UseSigSeed */ 'y', PR_FALSE, 0, PR_FALSE },
+      { /* opt_SeedFile */ 'z', PR_FALSE, 0, PR_FALSE },
+      { /* opt_AAD */ 0, PR_TRUE, 0, PR_FALSE, "aad" },
+      { /* opt_InputOffset */ '1', PR_TRUE, 0, PR_FALSE },
+      { /* opt_OutputOffset */ '2', PR_TRUE, 0, PR_FALSE },
+      { /* opt_MonteCarlo */ '3', PR_FALSE, 0, PR_FALSE },
+      { /* opt_ThreadNum */ '4', PR_TRUE, 0, PR_FALSE },
+      { /* opt_SecondsToRun */ '5', PR_TRUE, 0, PR_FALSE },
+      { /* opt_CmdLine */ '-', PR_FALSE, 0, PR_FALSE }
+    };
 
 int
 main(int argc, char **argv)
@@ -3871,19 +3786,12 @@ main(int argc, char **argv)
 
     /* Do FIPS self-test */
     if (bltest.commands[cmd_FIPS].activated) {
+        CK_RV ckrv = sftk_FIPSEntryOK();
+        fprintf(stdout, "CK_RV: %ld.\n", ckrv);
         PORT_Free(cipherInfo);
-#ifdef NSS_FIPS_DISABLED
-        fprintf(stdout, "FIPS self-test failed with: NSS_FIPS_DISABLED\n");
-        return SECFailure;
-#else
-        CK_RV ckrv = sftk_FIPSEntryOK(PR_FALSE);
-        if (ckrv == CKR_OK) {
-            fprintf(stdout, "FIPS self-test was successful.\n");
+        if (ckrv == CKR_OK)
             return SECSuccess;
-        }
-        fprintf(stdout, "FIPS self-test failed with the CK_RV: %ld.\n", ckrv);
         return SECFailure;
-#endif
     }
 
     /*

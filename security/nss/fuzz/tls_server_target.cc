@@ -47,6 +47,9 @@ static void SetSocketOptions(PRFileDesc* fd,
   SECStatus rv = SSL_OptionSet(fd, SSL_NO_CACHE, config->EnableCache());
   assert(rv == SECSuccess);
 
+  rv = SSL_OptionSet(fd, SSL_REUSE_SERVER_ECDHE_KEY, false);
+  assert(rv == SECSuccess);
+
   rv = SSL_OptionSet(fd, SSL_ENABLE_EXTENDED_MASTER_SECRET,
                      config->EnableExtendedMasterSecret());
   assert(rv == SECSuccess);

@@ -74,6 +74,7 @@ getTrustString(unsigned int trust)
             return "CKT_NSS_MUST_VERIFY_TRUST";
         }
     }
+    return "CKT_NSS_TRUST_UNKNOWN"; /* not reached */
 }
 
 static const SEC_ASN1Template serialTemplate[] = {
@@ -551,9 +552,7 @@ main(int argc, char **argv)
 
     nickname = strdup(addbuiltin.options[opt_Nickname].arg);
 
-    if (NSS_NoDB_Init(NULL) != SECSuccess) {
-        exit(1);
-    }
+    NSS_NoDB_Init(NULL);
 
     if (addbuiltin.options[opt_Distrust].activated ||
         addbuiltin.options[opt_DistrustCRL].activated) {

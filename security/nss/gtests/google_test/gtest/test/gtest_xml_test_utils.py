@@ -61,29 +61,29 @@ class GTestXMLTestCase(gtest_test_utils.TestCase):
     """
 
     if expected_node.nodeType == Node.CDATA_SECTION_NODE:
-      self.assertEqual(Node.CDATA_SECTION_NODE, actual_node.nodeType)
-      self.assertEqual(expected_node.nodeValue, actual_node.nodeValue)
+      self.assertEquals(Node.CDATA_SECTION_NODE, actual_node.nodeType)
+      self.assertEquals(expected_node.nodeValue, actual_node.nodeValue)
       return
 
-    self.assertEqual(Node.ELEMENT_NODE, actual_node.nodeType)
-    self.assertEqual(Node.ELEMENT_NODE, expected_node.nodeType)
-    self.assertEqual(expected_node.tagName, actual_node.tagName)
+    self.assertEquals(Node.ELEMENT_NODE, actual_node.nodeType)
+    self.assertEquals(Node.ELEMENT_NODE, expected_node.nodeType)
+    self.assertEquals(expected_node.tagName, actual_node.tagName)
 
     expected_attributes = expected_node.attributes
-    actual_attributes = actual_node.attributes
-    self.assertEqual(
+    actual_attributes   = actual_node  .attributes
+    self.assertEquals(
         expected_attributes.length, actual_attributes.length,
         'attribute numbers differ in element %s:\nExpected: %r\nActual: %r' % (
-            actual_node.tagName, list(expected_attributes.keys()),
-            list(actual_attributes.keys())))
+            actual_node.tagName, expected_attributes.keys(),
+            actual_attributes.keys()))
     for i in range(expected_attributes.length):
       expected_attr = expected_attributes.item(i)
-      actual_attr = actual_attributes.get(expected_attr.name)
-      self.assertTrue(
+      actual_attr   = actual_attributes.get(expected_attr.name)
+      self.assert_(
           actual_attr is not None,
           'expected attribute %s not found in element %s' %
           (expected_attr.name, actual_node.tagName))
-      self.assertEqual(
+      self.assertEquals(
           expected_attr.value, actual_attr.value,
           ' values of attribute %s in element %s differ: %s vs %s' %
           (expected_attr.name, actual_node.tagName,
@@ -91,11 +91,11 @@ class GTestXMLTestCase(gtest_test_utils.TestCase):
 
     expected_children = self._GetChildren(expected_node)
     actual_children = self._GetChildren(actual_node)
-    self.assertEqual(
+    self.assertEquals(
         len(expected_children), len(actual_children),
         'number of child elements differ in element ' + actual_node.tagName)
-    for child_id, child in list(expected_children.items()):
-      self.assertTrue(child_id in actual_children,
+    for child_id, child in expected_children.iteritems():
+      self.assert_(child_id in actual_children,
                    '<%s> is not in <%s> (in element %s)' %
                    (child_id, actual_children, actual_node.tagName))
       self.AssertEquivalentNodes(child, actual_children[child_id])
@@ -105,7 +105,6 @@ class GTestXMLTestCase(gtest_test_utils.TestCase):
       'testsuite': 'name',
       'testcase': 'name',
       'failure': 'message',
-      'skipped': 'message',
       'property': 'name',
   }
 
@@ -128,15 +127,15 @@ class GTestXMLTestCase(gtest_test_utils.TestCase):
     for child in element.childNodes:
       if child.nodeType == Node.ELEMENT_NODE:
         if child.tagName == 'properties':
-          self.assertTrue(child.parentNode is not None,
+          self.assert_(child.parentNode is not None,
                        'Encountered <properties> element without a parent')
           child_id = child.parentNode.getAttribute('name') + '-properties'
         else:
-          self.assertTrue(child.tagName in self.identifying_attribute,
+          self.assert_(child.tagName in self.identifying_attribute,
                        'Encountered unknown element <%s>' % child.tagName)
           child_id = child.getAttribute(
               self.identifying_attribute[child.tagName])
-        self.assertTrue(child_id not in children)
+        self.assert_(child_id not in children)
         children[child_id] = child
       elif child.nodeType in [Node.TEXT_NODE, Node.CDATA_SECTION_NODE]:
         if 'detail' not in children:
@@ -170,9 +169,9 @@ class GTestXMLTestCase(gtest_test_utils.TestCase):
     *  The stack traces are removed.
     """
 
-    if element.tagName in ('testsuites', 'testsuite', 'testcase'):
+    if element.tagName == 'testsuites':
       timestamp = element.getAttributeNode('timestamp')
-      timestamp.value = re.sub(r'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d$',
+      timestamp.value = re.sub(r'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$',
                                '*', timestamp.value)
     if element.tagName in ('testsuites', 'testsuite', 'testcase'):
       time = element.getAttributeNode('time')
@@ -180,7 +179,7 @@ class GTestXMLTestCase(gtest_test_utils.TestCase):
       type_param = element.getAttributeNode('type_param')
       if type_param and type_param.value:
         type_param.value = '*'
-    elif element.tagName == 'failure' or element.tagName == 'skipped':
+    elif element.tagName == 'failure':
       source_line_pat = r'^.*[/\\](.*:)\d+\n'
       # Replaces the source line information with a normalized form.
       message = element.getAttributeNode('message')

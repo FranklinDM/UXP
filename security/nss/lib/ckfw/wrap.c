@@ -222,14 +222,13 @@ NSSCKFWC_Finalize(
 
 loser:
     switch (error) {
-        case CKR_OK: {
-            PRInt32 remainingInstances;
+        PRInt32 remainingInstances;
+        case CKR_OK:
             remainingInstances = PR_ATOMIC_DECREMENT(&liveInstances);
             if (!remainingInstances) {
                 nssArena_Shutdown();
             }
             break;
-        }
         case CKR_CRYPTOKI_NOT_INITIALIZED:
         case CKR_FUNCTION_FAILED:
         case CKR_GENERAL_ERROR:
@@ -2571,17 +2570,11 @@ NSSCKFWC_FindObjects(
         phObject[i] = nssCKFWInstance_FindObjectHandle(fwInstance, fwObject);
         if ((CK_OBJECT_HANDLE)0 == phObject[i]) {
             phObject[i] = nssCKFWInstance_CreateObjectHandle(fwInstance, fwObject, &error);
-            /* CreateObjectHandle returns CKR_GENERAL_ERROR if fwObject already
-             * has a handle. This happens when another thread creates a handle
-             * between our FindObjectHandle and CreateObjectHandle calls.
-             */
-            if (error == CKR_GENERAL_ERROR) {
-                error = CKR_OK;
-                phObject[i] = nssCKFWInstance_FindObjectHandle(fwInstance, fwObject);
-            }
-            if (error != CKR_OK || (CK_OBJECT_HANDLE)0 == phObject[i]) {
-                goto loser;
-            }
+        }
+        if ((CK_OBJECT_HANDLE)0 == phObject[i]) {
+            /* This isn't right either, is it? */
+            nssCKFWObject_Destroy(fwObject);
+            goto loser;
         }
     }
 

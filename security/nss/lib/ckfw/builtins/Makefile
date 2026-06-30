@@ -5,24 +5,7 @@
 
 include manifest.mn
 include $(CORE_DEPTH)/coreconf/config.mk
-
-ifdef BUILD_IDG
-DEFINES += -DNSSDEBUG
-endif
-
-# Needed for compilation of $(OBJDIR)/certdata.c
-INCLUDES += -I.
-
-#
-# To create a loadable module on Darwin, we must use -bundle.
-#
-ifeq ($(OS_TARGET),Darwin)
-DSO_LDOPTS = -bundle
-endif
-
-ifdef USE_GCOV
-DSO_LDOPTS += --coverage
-endif
+include config.mk
 
 EXTRA_LIBS = \
 	$(DIST)/lib/$(LIB_PREFIX)nssckfw.$(LIB_SUFFIX) \
@@ -66,5 +49,6 @@ ifndef NSS_CERTDATA_TXT
 NSS_CERTDATA_TXT = certdata.txt
 endif
 
-$(OBJDIR)/certdata.c: $(NSS_CERTDATA_TXT) certdata.perl | $$(@D)/d
+$(OBJDIR)/certdata.c: $(NSS_CERTDATA_TXT) certdata.perl
+	@$(MAKE_OBJDIR)
 	$(PERL) certdata.perl $(NSS_CERTDATA_TXT) $@

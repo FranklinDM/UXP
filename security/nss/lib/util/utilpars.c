@@ -178,7 +178,7 @@ char *
 NSSUTIL_ArgGetParamValue(const char *paramName, const char *parameters)
 {
     char searchValue[256];
-    size_t paramLen = strlen(paramName);
+    int paramLen = strlen(paramName);
     char *returnValue = NULL;
     int next;
 
@@ -585,7 +585,7 @@ struct nssutilArgSlotFlagTable {
 
 #define NSSUTIL_ARG_ENTRY(arg, flag) \
     {                                \
-#arg, sizeof(#arg) - 1, flag \
+        #arg, sizeof(#arg) - 1, flag \
     }
 static struct nssutilArgSlotFlagTable nssutil_argSlotFlagTable[] = {
     NSSUTIL_ARG_ENTRY(RSA, SECMOD_RSA_FLAG),
@@ -913,23 +913,6 @@ NSSUTIL_MkModuleSpec(char *dllName, char *commonName, char *parameters,
     return NSSUTIL_MkModuleSpecEx(dllName, commonName, parameters, NSS, NULL);
 }
 
-/* Count the number of name=value parameters in a parameter string. */
-static size_t
-nssutil_CountParams(const char *params)
-{
-    size_t count = 0;
-    const char *p = params;
-    while (*p) {
-        p = NSSUTIL_ArgStrip(p);
-        if (!*p) {
-            break;
-        }
-        p = NSSUTIL_ArgSkipParameter(p);
-        count++;
-    }
-    return count;
-}
-
 /************************************************************************
  * add a single flag to the Flags= section inside the spec's NSS= section */
 char *
@@ -963,11 +946,7 @@ NSSUTIL_AddNSSFlagToModuleSpec(char *spec, char *addFlag)
     } else {
         const char *iNss = nss;
         PRBool alreadyAdded = PR_FALSE;
-        // Allocate enough space for the current string, space delimiters
-        // between all existing parameters, a space before the new flags
-        // parameter, and a null terminator.
-        size_t nParams = nssutil_CountParams(nss);
-        size_t maxSize = strlen(nss) + nParams + strlen(addFlag) + prefixLen + 2;
+        size_t maxSize = strlen(nss) + strlen(addFlag) + prefixLen + 2; /* space and null terminator */
         nss2 = PORT_Alloc(maxSize);
         *nss2 = 0;
         while (*iNss) {

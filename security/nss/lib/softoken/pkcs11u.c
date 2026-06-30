@@ -13,19 +13,6 @@
 #include "prnetdb.h" /* for PR_ntohl */
 #include "sftkdb.h"
 #include "softoken.h"
-#include "secoid.h"
-#include "softkver.h"
-
-#if !defined(NSS_FIPS_DISABLED) && defined(NSS_ENABLE_FIPS_INDICATORS)
-/* this file should be supplied by the vendor and include all the
- * algorithms which have Algorithm certs and have been reviewed by
- * the lab. A blank file is included for the base so that FIPS mode
- * will still be compiled and run, but FIPS indicators will always
- * return PR_FALSE
- */
-#include "fips_algorithms.h"
-#define NSS_HAS_FIPS_INDICATORS 1
-#endif
 
 /*
  * ******************** Error mapping *******************************
@@ -68,38 +55,6 @@ sftk_MapCryptError(int error)
     }
     return CKR_DEVICE_ERROR;
 }
-
-/*
- * functions which adjust the mapping based on different contexts
- * (Decrypt or Verify).
- */
-
-/* used by Decrypt and UnwrapKey (indirectly) and Decrypt message */
-CK_RV
-sftk_MapDecryptError(int error)
-{
-    switch (error) {
-        /* usually a padding error, or aead tag mismatch */
-        case SEC_ERROR_BAD_DATA:
-            return CKR_ENCRYPTED_DATA_INVALID;
-        default:
-            return sftk_MapCryptError(error);
-    }
-}
-
-/*
- * return CKR_SIGNATURE_INVALID instead of CKR_DEVICE_ERROR by default for
- * backward compatibilty.
- */
-CK_RV
-sftk_MapVerifyError(int error)
-{
-    CK_RV crv = sftk_MapCryptError(error);
-    if (crv == CKR_DEVICE_ERROR)
-        crv = CKR_SIGNATURE_INVALID;
-    return crv;
-}
-
 /*
  * ******************** Attribute Utilities *******************************
  */
@@ -168,19 +123,16 @@ sftk_NewAttribute(SFTKObject *object,
 static void
 sftk_DestroyAttribute(SFTKAttribute *attribute)
 {
-    if (attribute->attrib.pValue) {
-        /* clear out the data in the attribute value... it may have been
-         * sensitive data */
-        PORT_Memset(attribute->attrib.pValue, 0, attribute->attrib.ulValueLen);
-        if (attribute->freeData) {
-            PORT_Free(attribute->attrib.pValue);
-            attribute->attrib.pValue = NULL;
-            attribute->freeData = PR_FALSE;
+    if (attribute->freeData) {
+        if (attribute->attrib.pValue) {
+            /* clear out the data in the attribute value... it may have been
+             * sensitive data */
+            PORT_Memset(attribute->attrib.pValue, 0,
+                        attribute->attrib.ulValueLen);
         }
+        PORT_Free(attribute->attrib.pValue);
     }
-    if (attribute->freeAttr) {
-        PORT_Free(attribute);
-    }
+    PORT_Free(attribute);
 }
 
 /*
@@ -732,6 +684,7 @@ sftk_modifyType(CK_ATTRIBUTE_TYPE type, CK_OBJECT_CLASS inClass)
         case CKA_PUBLIC_EXPONENT:
         case CKA_PRIVATE_EXPONENT:
         case CKA_PRIME:
+        case CKA_SUBPRIME:
         case CKA_BASE:
         case CKA_PRIME_1:
         case CKA_PRIME_2:
@@ -741,7 +694,7 @@ sftk_modifyType(CK_ATTRIBUTE_TYPE type, CK_OBJECT_CLASS inClass)
         case CKA_VALUE_LEN:
         case CKA_ALWAYS_SENSITIVE:
         case CKA_NEVER_EXTRACTABLE:
-        case CKA_NSS_DB:
+        case CKA_NETSCAPE_DB:
             mtype = SFTK_NEVER;
             break;
 
@@ -780,11 +733,6 @@ sftk_modifyType(CK_ATTRIBUTE_TYPE type, CK_OBJECT_CLASS inClass)
         /* DEPENDS ON CLASS */
         case CKA_VALUE:
             mtype = (inClass == CKO_DATA) ? SFTK_ALWAYS : SFTK_NEVER;
-            break;
-
-        case CKA_SUBPRIME:
-            /* allow the CKA_SUBPRIME to be added to dh private keys */
-            mtype = (inClass == CKO_PRIVATE_KEY) ? SFTK_ALWAYS : SFTK_NEVER;
             break;
 
         case CKA_SUBJECT:
@@ -880,7 +828,7 @@ sftk_DeleteAttributeType(SFTKObject *object, CK_ATTRIBUTE_TYPE type)
     if (attribute == NULL)
         return;
     sftk_DeleteAttribute(object, attribute);
-    sftk_DestroyAttribute(attribute);
+    sftk_FreeAttribute(attribute);
 }
 
 CK_RV
@@ -904,7 +852,7 @@ sftk_AddAttributeType(SFTKObject *object, CK_ATTRIBUTE_TYPE type,
 static SECItem *
 sftk_lookupTokenKeyByHandle(SFTKSlot *slot, CK_OBJECT_HANDLE handle)
 {
-    return (SECItem *)PL_HashTableLookup(slot->tokObjHashTable, (void *)(uintptr_t)handle);
+    return (SECItem *)PL_HashTableLookup(slot->tokObjHashTable, (void *)handle);
 }
 
 /*
@@ -1094,7 +1042,6 @@ sftk_NewObject(SFTKSlot *slot)
     object->handle = 0;
     object->next = object->prev = NULL;
     object->slot = slot;
-    object->isFIPS = sftk_isFIPS(slot->slotID);
 
     object->refCount = 1;
     sessObject->sessionList.next = NULL;
@@ -1244,36 +1191,6 @@ sftk_FreeObject(SFTKObject *object)
     return SFTK_Busy;
 }
 
-/* find the next available object handle that isn't currently in use */
-/* NOTE: This function could loop forever if we've exhausted all
- * 3^31-1 handles. This is highly unlikely (NSS has been running for
- * decades with this code) uless we start increasing the size of the
- * SFTK_TOKEN_MASK (which is just the high bit currently). */
-CK_OBJECT_HANDLE
-sftk_getNextHandle(SFTKSlot *slot)
-{
-    CK_OBJECT_HANDLE handle;
-    SFTKObject *duplicateObject = NULL;
-    do {
-        PRUint32 wrappedAround;
-
-        duplicateObject = NULL;
-        PZ_Lock(slot->objectLock);
-        wrappedAround = slot->sessionObjectHandleCount & SFTK_TOKEN_MASK;
-        handle = slot->sessionObjectHandleCount & ~SFTK_TOKEN_MASK;
-        if (!handle) /* don't allow zero handle */
-            handle = NSC_MIN_SESSION_OBJECT_HANDLE;
-        slot->sessionObjectHandleCount = (handle + 1U) | wrappedAround;
-        /* Is there already a session object with this handle? */
-        if (wrappedAround) {
-            sftkqueue_find(duplicateObject, handle, slot->sessObjHashTable,
-                           slot->sessObjHashSize);
-        }
-        PZ_Unlock(slot->objectLock);
-    } while (duplicateObject != NULL);
-    return handle;
-}
-
 /*
  * add an object to a slot and session queue. These two functions
  * adopt the object.
@@ -1332,7 +1249,7 @@ sftk_DeleteObject(SFTKSession *session, SFTKObject *object)
         SFTKTokenObject *to = sftk_narrowToTokenObject(object);
         PORT_Assert(to);
 #endif
-        crv = sftkdb_DestroyObject(handle, object->handle, object->objclass);
+        crv = sftkdb_DestroyObject(handle, object->handle);
         sftk_freeDB(handle);
     }
     return crv;
@@ -1393,7 +1310,7 @@ static const CK_ULONG ecPubKeyAttrsCount =
 
 static const CK_ATTRIBUTE_TYPE commonPrivKeyAttrs[] = {
     CKA_DECRYPT, CKA_SIGN, CKA_SIGN_RECOVER, CKA_UNWRAP, CKA_SUBJECT,
-    CKA_SENSITIVE, CKA_EXTRACTABLE, CKA_NSS_DB, CKA_PUBLIC_KEY_INFO
+    CKA_SENSITIVE, CKA_EXTRACTABLE, CKA_NETSCAPE_DB, CKA_PUBLIC_KEY_INFO
 };
 static const CK_ULONG commonPrivKeyAttrsCount =
     sizeof(commonPrivKeyAttrs) / sizeof(commonPrivKeyAttrs[0]);
@@ -1437,13 +1354,13 @@ static const CK_ULONG trustAttrsCount =
     sizeof(trustAttrs) / sizeof(trustAttrs[0]);
 
 static const CK_ATTRIBUTE_TYPE smimeAttrs[] = {
-    CKA_SUBJECT, CKA_NSS_EMAIL, CKA_NSS_SMIME_TIMESTAMP, CKA_VALUE
+    CKA_SUBJECT, CKA_NETSCAPE_EMAIL, CKA_NETSCAPE_SMIME_TIMESTAMP, CKA_VALUE
 };
 static const CK_ULONG smimeAttrsCount =
     sizeof(smimeAttrs) / sizeof(smimeAttrs[0]);
 
 static const CK_ATTRIBUTE_TYPE crlAttrs[] = {
-    CKA_SUBJECT, CKA_VALUE, CKA_NSS_URL, CKA_NSS_KRL
+    CKA_SUBJECT, CKA_VALUE, CKA_NETSCAPE_URL, CKA_NETSCAPE_KRL
 };
 static const CK_ULONG crlAttrsCount =
     sizeof(crlAttrs) / sizeof(crlAttrs[0]);
@@ -1637,15 +1554,15 @@ sftk_CopyTokenObject(SFTKObject *destObject, SFTKObject *srcObject)
             crv = stfk_CopyTokenAttributes(destObject, src_to, certAttrs,
                                            certAttrsCount);
             break;
-        case CKO_NSS_TRUST:
+        case CKO_NETSCAPE_TRUST:
             crv = stfk_CopyTokenAttributes(destObject, src_to, trustAttrs,
                                            trustAttrsCount);
             break;
-        case CKO_NSS_SMIME:
+        case CKO_NETSCAPE_SMIME:
             crv = stfk_CopyTokenAttributes(destObject, src_to, smimeAttrs,
                                            smimeAttrsCount);
             break;
-        case CKO_NSS_CRL:
+        case CKO_NETSCAPE_CRL:
             crv = stfk_CopyTokenAttributes(destObject, src_to, crlAttrs,
                                            crlAttrsCount);
             break;
@@ -1678,7 +1595,6 @@ sftk_CopyObject(SFTKObject *destObject, SFTKObject *srcObject)
     SFTKSessionObject *src_so = sftk_narrowToSessionObject(srcObject);
     unsigned int i;
 
-    destObject->isFIPS = srcObject->isFIPS;
     if (src_so == NULL) {
         return sftk_CopyTokenObject(destObject, srcObject);
     }
@@ -1879,13 +1795,23 @@ sftk_FreeContext(SFTKSessionContext *context)
 }
 
 /*
- * Init a new session. NOTE: The session handle is not set, and the
+ * create a new nession. NOTE: The session handle is not set, and the
  * session is not added to the slot's session queue.
  */
-CK_RV
-sftk_InitSession(SFTKSession *session, SFTKSlot *slot, CK_SLOT_ID slotID,
-                 CK_NOTIFY notify, CK_VOID_PTR pApplication, CK_FLAGS flags)
+SFTKSession *
+sftk_NewSession(CK_SLOT_ID slotID, CK_NOTIFY notify, CK_VOID_PTR pApplication,
+                CK_FLAGS flags)
 {
+    SFTKSession *session;
+    SFTKSlot *slot = sftk_SlotFromID(slotID, PR_FALSE);
+
+    if (slot == NULL)
+        return NULL;
+
+    session = (SFTKSession *)PORT_Alloc(sizeof(SFTKSession));
+    if (session == NULL)
+        return NULL;
+
     session->next = session->prev = NULL;
     session->enc_context = NULL;
     session->hash_context = NULL;
@@ -1894,7 +1820,8 @@ sftk_InitSession(SFTKSession *session, SFTKSlot *slot, CK_SLOT_ID slotID,
     session->objectIDCount = 1;
     session->objectLock = PZ_NewLock(nssILockObject);
     if (session->objectLock == NULL) {
-        return CKR_HOST_MEMORY;
+        PORT_Free(session);
+        return NULL;
     }
     session->objects[0] = NULL;
 
@@ -1905,40 +1832,12 @@ sftk_InitSession(SFTKSession *session, SFTKSlot *slot, CK_SLOT_ID slotID,
     session->info.slotID = slotID;
     session->info.ulDeviceError = 0;
     sftk_update_state(slot, session);
-    /* no ops completed yet, so the last one couldn't be a FIPS op */
-    session->lastOpWasFIPS = PR_FALSE;
-    return CKR_OK;
-}
-
-/*
- * Create a new session and init it.
- */
-SFTKSession *
-sftk_NewSession(CK_SLOT_ID slotID, CK_NOTIFY notify, CK_VOID_PTR pApplication,
-                CK_FLAGS flags)
-{
-    SFTKSession *session;
-    SFTKSlot *slot = sftk_SlotFromID(slotID, PR_FALSE);
-    CK_RV crv;
-
-    if (slot == NULL)
-        return NULL;
-
-    session = (SFTKSession *)PORT_Alloc(sizeof(SFTKSession));
-    if (session == NULL)
-        return NULL;
-
-    crv = sftk_InitSession(session, slot, slotID, notify, pApplication, flags);
-    if (crv != CKR_OK) {
-        PORT_Free(session);
-        return NULL;
-    }
     return session;
 }
 
 /* free all the data associated with a session. */
 void
-sftk_ClearSession(SFTKSession *session)
+sftk_DestroySession(SFTKSession *session)
 {
     SFTKObjectList *op, *next;
 
@@ -1964,13 +1863,6 @@ sftk_ClearSession(SFTKSession *session)
     if (session->search) {
         sftk_FreeSearch(session->search);
     }
-}
-
-/* free the data associated with the session, and the session */
-void
-sftk_DestroySession(SFTKSession *session)
-{
-    sftk_ClearSession(session);
     PORT_Free(session);
 }
 
@@ -2063,7 +1955,6 @@ sftk_NewTokenObject(SFTKSlot *slot, SECItem *dbKey, CK_OBJECT_HANDLE handle)
         goto loser;
     }
     object->slot = slot;
-    object->isFIPS = sftk_isFIPS(slot->slotID);
     object->objectInfo = NULL;
     object->infoFree = NULL;
     if (!hasLocks) {
@@ -2118,452 +2009,4 @@ SFTKTokenObject *
 sftk_narrowToTokenObject(SFTKObject *obj)
 {
     return sftk_isToken(obj->handle) ? (SFTKTokenObject *)obj : NULL;
-}
-
-/* Constant time helper functions */
-
-/* sftk_CKRVToMask returns, in constant time, a mask value of
- * all ones if rv == CKR_OK.  Otherwise it returns zero. */
-unsigned int
-sftk_CKRVToMask(CK_RV rv)
-{
-    PR_STATIC_ASSERT(CKR_OK == 0);
-    return ~PORT_CT_NOT_ZERO(rv);
-}
-
-/* sftk_CheckCBCPadding checks, in constant time, the padding validity and
- * accordingly sets the pad length. */
-CK_RV
-sftk_CheckCBCPadding(CK_BYTE_PTR pBuf, unsigned int bufLen,
-                     unsigned int blockSize, unsigned int *outPadSize)
-{
-    PORT_Assert(outPadSize);
-
-    /* CBC-padded plaintext is always at least one full block */
-    if (bufLen < blockSize || blockSize == 0) {
-        *outPadSize = 0;
-        return CKR_ENCRYPTED_DATA_INVALID;
-    }
-
-    unsigned int padSize = (unsigned int)pBuf[bufLen - 1];
-
-    /* If padSize <= blockSize, set goodPad to all-1s and all-0s otherwise.*/
-    unsigned int goodPad = PORT_CT_DUPLICATE_MSB_TO_ALL(~(blockSize - padSize));
-    /* padSize should not be 0 */
-    goodPad &= PORT_CT_NOT_ZERO(padSize);
-
-    unsigned int i;
-    for (i = 0; i < blockSize; i++) {
-        /* If i < padSize, set loopMask to all-1s and all-0s otherwise.*/
-        unsigned int loopMask = PORT_CT_DUPLICATE_MSB_TO_ALL(~(padSize - 1 - i));
-        /* Get the padding value (should be padSize) from buffer */
-        unsigned int padVal = pBuf[bufLen - 1 - i];
-        /* Update goodPad only if i < padSize */
-        goodPad &= PORT_CT_SEL(loopMask, ~(padVal ^ padSize), goodPad);
-    }
-
-    /* If any of the final padding bytes had the wrong value, one or more
-     * of the lower eight bits of |goodPad| will be cleared. We AND the
-     * bottom 8 bits together and duplicate the result to all the bits. */
-    goodPad &= goodPad >> 4;
-    goodPad &= goodPad >> 2;
-    goodPad &= goodPad >> 1;
-    goodPad <<= sizeof(goodPad) * 8 - 1;
-    goodPad = PORT_CT_DUPLICATE_MSB_TO_ALL(goodPad);
-
-    /* Set outPadSize to padSize or 0 */
-    *outPadSize = PORT_CT_SEL(goodPad, padSize, 0);
-    /* Return OK if the pad is valid */
-    return PORT_CT_SEL(goodPad, CKR_OK, CKR_ENCRYPTED_DATA_INVALID);
-}
-
-void
-sftk_EncodeInteger(PRUint64 integer, CK_ULONG num_bits, CK_BBOOL littleEndian,
-                   CK_BYTE_PTR output, CK_ULONG_PTR output_len)
-{
-    if (output_len) {
-        *output_len = (num_bits / 8);
-    }
-
-    PR_ASSERT(num_bits > 0 && num_bits <= 64 && (num_bits % 8) == 0);
-
-    if (littleEndian == CK_TRUE) {
-        for (size_t offset = 0; offset < num_bits / 8; offset++) {
-            output[offset] = (unsigned char)((integer >> (offset * 8)) & 0xFF);
-        }
-    } else {
-        for (size_t offset = 0; offset < num_bits / 8; offset++) {
-            PRUint64 shift = num_bits - (offset + 1) * 8;
-            output[offset] = (unsigned char)((integer >> shift) & 0xFF);
-        }
-    }
-}
-
-CK_FLAGS
-sftk_AttributeToFlags(CK_ATTRIBUTE_TYPE op)
-{
-    CK_FLAGS flags = 0;
-
-    switch (op) {
-        case CKA_ENCRYPT:
-            flags = CKF_ENCRYPT;
-            break;
-        case CKA_DECRYPT:
-            flags = CKF_DECRYPT;
-            break;
-        case CKA_WRAP:
-            flags = CKF_WRAP;
-            break;
-        case CKA_UNWRAP:
-            flags = CKF_UNWRAP;
-            break;
-        case CKA_SIGN:
-            flags = CKF_SIGN;
-            break;
-        case CKA_SIGN_RECOVER:
-            flags = CKF_SIGN_RECOVER;
-            break;
-        case CKA_VERIFY:
-            flags = CKF_VERIFY;
-            break;
-        case CKA_VERIFY_RECOVER:
-            flags = CKF_VERIFY_RECOVER;
-            break;
-        case CKA_DERIVE:
-            flags = CKF_DERIVE;
-            break;
-        /* fake attribute to select digesting */
-        case CKA_DIGEST:
-            flags = CKF_DIGEST;
-            break;
-        case CKA_NSS_MESSAGE | CKA_ENCRYPT:
-            flags = CKF_MESSAGE_ENCRYPT;
-            break;
-        case CKA_NSS_MESSAGE | CKA_DECRYPT:
-            flags = CKF_MESSAGE_DECRYPT;
-            break;
-        case CKA_NSS_MESSAGE | CKA_SIGN:
-            flags = CKF_MESSAGE_SIGN;
-            break;
-        case CKA_NSS_MESSAGE | CKA_VERIFY:
-            flags = CKF_MESSAGE_VERIFY;
-            break;
-        default:
-            break;
-    }
-    return flags;
-}
-
-/*
- * ******************** Hash Utilities **************************
- */
-/*
- * Utility function for converting PSS/OAEP parameter types into
- * HASH_HashTypes. Note: Only SHA family functions are defined in RFC 3447.
- */
-HASH_HashType
-sftk_GetHashTypeFromMechanism(CK_MECHANISM_TYPE mech)
-{
-    switch (mech) {
-        case CKM_SHA_1:
-        case CKG_MGF1_SHA1:
-            return HASH_AlgSHA1;
-        case CKM_SHA224:
-        case CKG_MGF1_SHA224:
-            return HASH_AlgSHA224;
-        case CKM_SHA256:
-        case CKG_MGF1_SHA256:
-            return HASH_AlgSHA256;
-        case CKM_SHA384:
-        case CKG_MGF1_SHA384:
-            return HASH_AlgSHA384;
-        case CKM_SHA512:
-        case CKG_MGF1_SHA512:
-            return HASH_AlgSHA512;
-        default:
-            return HASH_AlgNULL;
-    }
-}
-
-#ifdef NSS_HAS_FIPS_INDICATORS
-/**************** FIPS Indicator Utilities *************************/
-/* sigh, we probably need a version of this in secutil so that both
- * softoken and NSS can use it */
-static SECOidTag
-sftk_quickGetECCCurveOid(SFTKObject *source)
-{
-    SFTKAttribute *attribute = sftk_FindAttribute(source, CKA_EC_PARAMS);
-    unsigned char *encoded;
-    int len;
-    SECItem oid;
-    SECOidTag tag;
-
-    if (attribute == NULL) {
-        return SEC_OID_UNKNOWN;
-    }
-    encoded = attribute->attrib.pValue;
-    len = attribute->attrib.ulValueLen;
-    if ((len < 2) || (encoded[0] != SEC_ASN1_OBJECT_ID) ||
-        (len != encoded[1] + 2)) {
-        sftk_FreeAttribute(attribute);
-        return SEC_OID_UNKNOWN;
-    }
-    oid.data = encoded + 2;
-    oid.len = len - 2;
-    tag = SECOID_FindOIDTag(&oid);
-    sftk_FreeAttribute(attribute);
-    return tag;
-}
-
-/* This function currently only returns valid lengths for
- * FIPS approved ECC curves. If we want to make this generic
- * in the future, that Curve determination can be done in
- * the sftk_handleSpecial. Since it's currently only used
- * in FIPS indicators, it's currently only compiled with
- * the FIPS indicator code */
-static int
-sftk_getKeyLength(SFTKObject *source)
-{
-    CK_KEY_TYPE keyType = CK_INVALID_HANDLE;
-    CK_ATTRIBUTE_TYPE keyAttribute;
-    CK_ULONG keyLength = 0;
-    SFTKAttribute *attribute;
-    CK_RV crv;
-
-    /* If we don't have a key, then it doesn't have a length.
-     * this may be OK (say we are hashing). The mech info will
-     * sort this out because algorithms which expect no keys
-     * will accept zero length for the keys */
-    if (source == NULL) {
-        return 0;
-    }
-
-    crv = sftk_GetULongAttribute(source, CKA_KEY_TYPE, &keyType);
-    if (crv != CKR_OK) {
-        /* sometimes we're passed a data object, in that case the
-         * key length is CKA_VALUE, which is the default */
-        keyType = CKK_INVALID_KEY_TYPE;
-    }
-    if (keyType == CKK_EC) {
-        SECOidTag curve = sftk_quickGetECCCurveOid(source);
-        switch (curve) {
-            case SEC_OID_CURVE25519:
-                /* change when we start algorithm testing on curve25519 */
-                return 0;
-            case SEC_OID_SECG_EC_SECP256R1:
-                return 256;
-            case SEC_OID_SECG_EC_SECP384R1:
-                return 384;
-            case SEC_OID_SECG_EC_SECP521R1:
-                /* this is a lie, but it makes the table easier. We don't
-                 * have to have a double entry for every ECC mechanism */
-                return 512;
-            default:
-                break;
-        }
-        /* other curves aren't NIST approved, returning 0 will cause these
-         * curves to fail FIPS length criteria */
-        return 0;
-    }
-
-    switch (keyType) {
-        case CKK_RSA:
-            keyAttribute = CKA_MODULUS;
-            break;
-        case CKK_DSA:
-        case CKK_DH:
-            keyAttribute = CKA_PRIME;
-            break;
-        default:
-            keyAttribute = CKA_VALUE;
-            break;
-    }
-    attribute = sftk_FindAttribute(source, keyAttribute);
-    if (attribute) {
-        keyLength = attribute->attrib.ulValueLen * 8;
-        sftk_FreeAttribute(attribute);
-    }
-    return keyLength;
-}
-
-/*
- * handle specialized FIPS semantics that are too complicated to
- * handle with just a table. NOTE: this means any additional semantics
- * would have to be coded here before they can be added to the table */
-static PRBool
-sftk_handleSpecial(SFTKSlot *slot, CK_MECHANISM *mech,
-                   SFTKFIPSAlgorithmList *mechInfo, SFTKObject *source)
-{
-    switch (mechInfo->special) {
-        case SFTKFIPSDH: {
-            SECItem dhPrime;
-            const SECItem *dhSubPrime;
-            CK_RV crv = sftk_Attribute2SecItem(NULL, &dhPrime,
-                                               source, CKA_PRIME);
-            if (crv != CKR_OK) {
-                return PR_FALSE;
-            }
-            dhSubPrime = sftk_VerifyDH_Prime(&dhPrime, PR_TRUE);
-            SECITEM_ZfreeItem(&dhPrime, PR_FALSE);
-            return (dhSubPrime) ? PR_TRUE : PR_FALSE;
-        }
-        case SFTKFIPSNone:
-            return PR_FALSE;
-        case SFTKFIPSECC:
-            /* we've already handled the curve selection in the 'getlength'
-          * function */
-            return PR_TRUE;
-        case SFTKFIPSAEAD: {
-            if (mech->ulParameterLen == 0) {
-                /* AEAD ciphers are only in FIPS mode if we are using the
-                 * MESSAGE interface. This takes an empty parameter
-                 * in the init function */
-                return PR_TRUE;
-            }
-            return PR_FALSE;
-        }
-        case SFTKFIPSRSAPSS: {
-            /* PSS salt must not be longer than the  underlying hash.
-             * We verify that the underlying hash of the
-             * parameters matches Hash of the combined hash mechanisms, so
-             * we don't need to look at the specific PSS mechanism */
-            CK_RSA_PKCS_PSS_PARAMS *pss = (CK_RSA_PKCS_PSS_PARAMS *)
-                                              mech->pParameter;
-            const SECHashObject *hashObj = NULL;
-            if (mech->ulParameterLen != sizeof(*pss)) {
-                return PR_FALSE;
-            }
-            /* we use the existing hash utilities to find the length of
-             * the hash */
-            hashObj = HASH_GetRawHashObject(sftk_GetHashTypeFromMechanism(
-                pss->hashAlg));
-            if (hashObj == NULL) {
-                return PR_FALSE;
-            }
-            if (pss->sLen > hashObj->length) {
-                return PR_FALSE;
-            }
-            return PR_TRUE;
-        }
-        default:
-            break;
-    }
-    /* if we didn't understand the special processing, mark it non-fips */
-    return PR_FALSE;
-}
-#endif
-
-PRBool
-sftk_operationIsFIPS(SFTKSlot *slot, CK_MECHANISM *mech, CK_ATTRIBUTE_TYPE op,
-                     SFTKObject *source)
-{
-#ifndef NSS_HAS_FIPS_INDICATORS
-    return PR_FALSE;
-#else
-    int i;
-    CK_FLAGS opFlags;
-    CK_ULONG keyLength;
-
-    /* handle all the quick stuff first */
-    if (!sftk_isFIPS(slot->slotID)) {
-        return PR_FALSE;
-    }
-    if (source && !source->isFIPS) {
-        return PR_FALSE;
-    }
-    if (mech == NULL) {
-        return PR_FALSE;
-    }
-
-    /* now get the calculated values */
-    opFlags = sftk_AttributeToFlags(op);
-    if (opFlags == 0) {
-        return PR_FALSE;
-    }
-    keyLength = sftk_getKeyLength(source);
-
-    /* check against our algorithm array */
-    for (i = 0; i < SFTK_NUMBER_FIPS_ALGORITHMS; i++) {
-        SFTKFIPSAlgorithmList *mechs = &sftk_fips_mechs[i];
-        /* if we match the number of records exactly, then we are an
-         * approved algorithm in the approved mode with an approved key */
-        if (((mech->mechanism == mechs->type) &&
-             (opFlags == (mechs->info.flags & opFlags)) &&
-             (keyLength <= mechs->info.ulMaxKeySize) &&
-             (keyLength >= mechs->info.ulMinKeySize) &&
-             ((keyLength - mechs->info.ulMinKeySize) % mechs->step) == 0) &&
-            ((mechs->special == SFTKFIPSNone) ||
-             sftk_handleSpecial(slot, mech, mechs, source))) {
-            return PR_TRUE;
-        }
-    }
-    return PR_FALSE;
-#endif
-}
-
-/*
- * create the FIPS Validation objects. If the vendor
- * doesn't supply an NSS_FIPS_MODULE_ID, at compile time,
- * then we assumethis is an unvalidated module.
- */
-CK_RV
-sftk_CreateValidationObjects(SFTKSlot *slot)
-{
-    const char *module_id;
-    int module_id_len;
-    CK_RV crv = CKR_OK;
-    /* we currently use vendor specific values until the validation
-     * objects are approved for PKCS #11 v3.2. */
-    CK_OBJECT_CLASS cko_validation = CKO_NSS_VALIDATION;
-    CK_NSS_VALIDATION_TYPE ckv_fips = CKV_NSS_FIPS_140;
-    CK_VERSION fips_version = { 3, 0 }; /* FIPS-140-3 */
-    CK_ULONG fips_level = 1;            /* or 2 if you validated at level 2 */
-
-#ifndef NSS_FIPS_MODULE_ID
-#define NSS_FIPS_MODULE_ID "Generic NSS " SOFTOKEN_VERSION " Unvalidated"
-#endif
-    module_id = NSS_FIPS_MODULE_ID;
-    module_id_len = sizeof(NSS_FIPS_MODULE_ID) - 1;
-    SFTKObject *object;
-
-    object = sftk_NewObject(slot); /* fill in the handle later */
-    if (object == NULL) {
-        return CKR_HOST_MEMORY;
-    }
-    object->isFIPS = PR_FALSE;
-
-    crv = sftk_AddAttributeType(object, CKA_CLASS,
-                                &cko_validation, sizeof(cko_validation));
-    if (crv != CKR_OK) {
-        goto loser;
-    }
-    crv = sftk_AddAttributeType(object, CKA_NSS_VALIDATION_TYPE,
-                                &ckv_fips, sizeof(ckv_fips));
-    if (crv != CKR_OK) {
-        goto loser;
-    }
-    crv = sftk_AddAttributeType(object, CKA_NSS_VALIDATION_VERSION,
-                                &fips_version, sizeof(fips_version));
-    if (crv != CKR_OK) {
-        goto loser;
-    }
-    crv = sftk_AddAttributeType(object, CKA_NSS_VALIDATION_LEVEL,
-                                &fips_level, sizeof(fips_level));
-    if (crv != CKR_OK) {
-        goto loser;
-    }
-    crv = sftk_AddAttributeType(object, CKA_NSS_VALIDATION_MODULE_ID,
-                                module_id, module_id_len);
-    if (crv != CKR_OK) {
-        goto loser;
-    }
-
-    /* future, fill in validation certificate information from a supplied
-     * pointer to a config file */
-    object->handle = sftk_getNextHandle(slot);
-    object->slot = slot;
-    sftk_AddObject(&slot->moduleObjects, object);
-loser:
-    sftk_FreeObject(object);
-    return crv;
 }

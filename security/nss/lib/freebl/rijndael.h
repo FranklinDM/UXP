@@ -69,7 +69,6 @@ struct AESContextStr {
     unsigned int Nr;
     freeblCipherFunc worker;
     unsigned char iv[AES_BLOCK_SIZE];
-    freeblAeadFunc worker_aead;
     freeblDestroyFunc destroy;
     void *worker_cx;
     PRBool isBlock;

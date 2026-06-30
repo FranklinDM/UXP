@@ -15,11 +15,9 @@
 
 #include "blapi.h"
 
-extern std::string g_source_dir;
-
 namespace nss_test {
 
-struct PRNGTestValues {
+typedef struct PRNGTestValuesStr {
   std::vector<uint8_t> entropy;
   std::vector<uint8_t> nonce;
   std::vector<uint8_t> personal;
@@ -27,7 +25,9 @@ struct PRNGTestValues {
   std::vector<uint8_t> additional_entropy;
   std::vector<uint8_t> additional_input_reseed;
   std::vector<std::vector<uint8_t>> additional_input;
-};
+} PRNGTestValues;
+
+std::vector<PRNGTestValues> test_vector;
 
 bool contains(std::string& s, const char* to_find) {
   return s.find(to_find) != std::string::npos;
@@ -59,10 +59,8 @@ void print_bytes(std::vector<uint8_t> bytes, std::string name) {
   std::cout << std::endl;
 }
 
-static std::vector<PRNGTestValues> ReadFile(const std::string file_name) {
-  std::vector<PRNGTestValues> test_vector;
+static void ReadFile(const std::string file_name) {
   std::ifstream infile(file_name);
-  EXPECT_FALSE(infile.fail()) << "kat file: " << file_name;
   std::string line;
 
   // Variables holding the input for each test.
@@ -125,17 +123,11 @@ static std::vector<PRNGTestValues> ReadFile(const std::string file_name) {
     test = {};
     infile.seekg(pos);
   }
-  return test_vector;
 }
 
-class PRNGTest : public ::testing::Test {
+class PRNGTest : public ::testing::TestWithParam<PRNGTestValues> {
  protected:
-  void SetUp() override {
-    test_vector_ = ReadFile(::g_source_dir + "/kat/Hash_DRBG.rsp");
-    ASSERT_FALSE(test_vector_.empty());
-  }
-
-  void RunTest(PRNGTestValues& test) {
+  void RunTest(PRNGTestValues test) {
     ASSERT_EQ(2U, test.additional_input.size());
     SECStatus rv = PRNGTEST_Instantiate_Kat(
         test.entropy.data(), test.entropy.size(), test.nonce.data(),
@@ -162,15 +154,34 @@ class PRNGTest : public ::testing::Test {
     rv = PRNGTEST_Uninstantiate();
     ASSERT_EQ(SECSuccess, rv);
   }
-
- protected:
-  std::vector<PRNGTestValues> test_vector_;
 };
 
-TEST_F(PRNGTest, HashDRBG) {
-  for (auto& v : test_vector_) {
-    RunTest(v);
-  }
-}
+TEST_P(PRNGTest, HashDRBG) { RunTest(GetParam()); }
 
-}  // namespace nss_test
+INSTANTIATE_TEST_CASE_P(NISTTestVector, PRNGTest,
+                        ::testing::ValuesIn(test_vector));
+
+}  // nss_test
+
+int main(int argc, char** argv) {
+  if (argc < 2) {
+    std::cout << "usage: prng_gtest <.rsp file>" << std::endl;
+    return 1;
+  }
+
+  nss_test::ReadFile(argv[1]);
+  assert(!nss_test::test_vector.empty());
+
+  ::testing::InitGoogleTest(&argc, argv);
+
+  if (NSS_NoDB_Init(nullptr) != SECSuccess) {
+    return 1;
+  }
+  int rv = RUN_ALL_TESTS();
+
+  if (NSS_Shutdown() != SECSuccess) {
+    return 1;
+  }
+
+  return rv;
+}

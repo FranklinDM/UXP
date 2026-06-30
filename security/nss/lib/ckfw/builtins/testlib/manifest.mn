@@ -23,4 +23,3 @@ CSRCS =			\
 REQUIRES = nspr
 
 LIBRARY_NAME = nssckbi-testlib
-LIBRARY = $(NULL)

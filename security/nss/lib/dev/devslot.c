@@ -172,7 +172,10 @@ nssSlot_IsTokenPresent(
         goto done;
     }
 
-    if (PK11_GetSlotInfo(slot->pk11slot, &slotInfo) != SECSuccess) {
+    nssSlot_EnterMonitor(slot);
+    ckrv = CKAPI(epv)->C_GetSlotInfo(slot->slotID, &slotInfo);
+    nssSlot_ExitMonitor(slot);
+    if (ckrv != CKR_OK) {
         nssToken->base.name[0] = 0; /* XXX */
         isPresent = PR_FALSE;
         goto done;
@@ -184,11 +187,11 @@ nssSlot_IsTokenPresent(
         if (session) {
             nssSession_EnterMonitor(session);
             /* token is not present */
-            if (session->handle != CK_INVALID_HANDLE) {
+            if (session->handle != CK_INVALID_SESSION) {
                 /* session is valid, close and invalidate it */
                 CKAPI(epv)
                     ->C_CloseSession(session->handle);
-                session->handle = CK_INVALID_HANDLE;
+                session->handle = CK_INVALID_SESSION;
             }
             nssSession_ExitMonitor(session);
         }
@@ -210,17 +213,17 @@ nssSlot_IsTokenPresent(
     if (session) {
         PRBool tokenRemoved;
         nssSession_EnterMonitor(session);
-        if (session->handle != CK_INVALID_HANDLE) {
+        if (session->handle != CK_INVALID_SESSION) {
             CK_SESSION_INFO sessionInfo;
             ckrv = CKAPI(epv)->C_GetSessionInfo(session->handle, &sessionInfo);
             if (ckrv != CKR_OK) {
                 /* session is screwy, close and invalidate it */
                 CKAPI(epv)
                     ->C_CloseSession(session->handle);
-                session->handle = CK_INVALID_HANDLE;
+                session->handle = CK_INVALID_SESSION;
             }
         }
-        tokenRemoved = (session->handle == CK_INVALID_HANDLE);
+        tokenRemoved = (session->handle == CK_INVALID_SESSION);
         nssSession_ExitMonitor(session);
         /* token not removed, finished */
         if (!tokenRemoved) {

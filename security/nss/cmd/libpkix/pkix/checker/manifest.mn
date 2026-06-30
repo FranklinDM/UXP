@@ -12,8 +12,7 @@ MODULE = nss
 
 CSRCS = test_certchainchecker.c
 
-LIBRARY_NAME = pkixtoolchecker
-SHARED_LIBRARY = $(NULL)
+LIBRARY_NAME=pkixtoolchecker
 
 SOURCE_LIB_DIR=$(PKIX_DEPTH)/$(OBJDIR)
 

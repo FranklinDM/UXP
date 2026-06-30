@@ -22,7 +22,7 @@ class Pkcs11KeyPairGenerator {
   SECOidTag curve() const { return curve_; }
 
   void GenerateKey(ScopedSECKEYPrivateKey* priv_key,
-                   ScopedSECKEYPublicKey* pub_key, bool sensitive = true) const;
+                   ScopedSECKEYPublicKey* pub_key) const;
 
  private:
   std::unique_ptr<ParamHolder> MakeParams() const;

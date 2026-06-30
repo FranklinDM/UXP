@@ -39,8 +39,7 @@ freebl_cpuid(unsigned long op, unsigned long *eax,
              unsigned long *ebx, unsigned long *ecx,
              unsigned long *edx)
 {
-    __asm__("xor %%ecx, %%ecx\n\t"
-            "cpuid\n\t"
+    __asm__("cpuid\n\t"
             : "=a"(*eax),
               "=b"(*ebx),
               "=c"(*ecx),
@@ -727,10 +726,10 @@ s_mpi_getProcessorLineSize()
 static inline void
 dcbzl(char *array)
 {
-    __asm__("dcbzl %0, %1"
-            : /*no result*/
-            : "b%"(array), "r"(0)
-            : "memory");
+    register char *a asm("r2") = array;
+    __asm__ __volatile__("dcbzl %0,0"
+                         : "=r"(a)
+                         : "0"(a));
 }
 
 #define PPC_DO_ALIGN(x, y) ((char *)((((long long)(x)) + ((y)-1)) & ~((y)-1)))

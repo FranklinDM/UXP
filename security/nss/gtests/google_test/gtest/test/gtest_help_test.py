@@ -43,7 +43,6 @@ import gtest_test_utils
 
 
 IS_LINUX = os.name == 'posix' and os.uname()[0] == 'Linux'
-IS_GNUKFREEBSD = os.name == 'posix' and os.uname()[0] == 'GNU/kFreeBSD'
 IS_WINDOWS = os.name == 'nt'
 
 PROGRAM_PATH = gtest_test_utils.GetTestExecutablePath('gtest_help_test_')
@@ -69,7 +68,6 @@ HELP_REGEX = re.compile(
     FLAG_PREFIX + r'shuffle.*' +
     FLAG_PREFIX + r'random_seed=.*' +
     FLAG_PREFIX + r'color=.*' +
-    FLAG_PREFIX + r'brief.*' +
     FLAG_PREFIX + r'print_time.*' +
     FLAG_PREFIX + r'output=.*' +
     FLAG_PREFIX + r'break_on_failure.*' +
@@ -109,18 +107,18 @@ class GTestHelpTest(gtest_test_utils.TestCase):
     """
 
     exit_code, output = RunWithFlag(flag)
-    self.assertEqual(0, exit_code)
-    self.assertTrue(HELP_REGEX.search(output), output)
+    self.assertEquals(0, exit_code)
+    self.assert_(HELP_REGEX.search(output), output)
 
-    if IS_LINUX or IS_GNUKFREEBSD:
-      self.assertTrue(STREAM_RESULT_TO_FLAG in output, output)
+    if IS_LINUX:
+      self.assert_(STREAM_RESULT_TO_FLAG in output, output)
     else:
-      self.assertTrue(STREAM_RESULT_TO_FLAG not in output, output)
+      self.assert_(STREAM_RESULT_TO_FLAG not in output, output)
 
     if SUPPORTS_DEATH_TESTS and not IS_WINDOWS:
-      self.assertTrue(DEATH_TEST_STYLE_FLAG in output, output)
+      self.assert_(DEATH_TEST_STYLE_FLAG in output, output)
     else:
-      self.assertTrue(DEATH_TEST_STYLE_FLAG not in output, output)
+      self.assert_(DEATH_TEST_STYLE_FLAG not in output, output)
 
   def TestNonHelpFlag(self, flag):
     """Verifies correct behavior when no help flag is specified.
@@ -133,8 +131,8 @@ class GTestHelpTest(gtest_test_utils.TestCase):
     """
 
     exit_code, output = RunWithFlag(flag)
-    self.assertTrue(exit_code != 0)
-    self.assertTrue(not HELP_REGEX.search(output), output)
+    self.assert_(exit_code != 0)
+    self.assert_(not HELP_REGEX.search(output), output)
 
   def testPrintsHelpWithFullFlag(self):
     self.TestHelpFlag('--help')

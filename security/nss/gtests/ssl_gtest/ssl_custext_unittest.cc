@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -23,23 +22,23 @@ static void IncrementCounterArg(void *arg) {
   }
 }
 
-static PRBool NoopExtensionWriter(PRFileDesc *fd, SSLHandshakeType message,
-                                  PRUint8 *data, unsigned int *len,
-                                  unsigned int maxLen, void *arg) {
+PRBool NoopExtensionWriter(PRFileDesc *fd, SSLHandshakeType message,
+                           PRUint8 *data, unsigned int *len,
+                           unsigned int maxLen, void *arg) {
   IncrementCounterArg(arg);
   return PR_FALSE;
 }
 
-static PRBool EmptyExtensionWriter(PRFileDesc *fd, SSLHandshakeType message,
-                                   PRUint8 *data, unsigned int *len,
-                                   unsigned int maxLen, void *arg) {
+PRBool EmptyExtensionWriter(PRFileDesc *fd, SSLHandshakeType message,
+                            PRUint8 *data, unsigned int *len,
+                            unsigned int maxLen, void *arg) {
   IncrementCounterArg(arg);
   return PR_TRUE;
 }
 
-static SECStatus NoopExtensionHandler(PRFileDesc *fd, SSLHandshakeType message,
-                                      const PRUint8 *data, unsigned int len,
-                                      SSLAlertDescription *alert, void *arg) {
+SECStatus NoopExtensionHandler(PRFileDesc *fd, SSLHandshakeType message,
+                               const PRUint8 *data, unsigned int len,
+                               SSLAlertDescription *alert, void *arg) {
   return SECSuccess;
 }
 
@@ -67,8 +66,8 @@ static const uint16_t kManyExtensions[] = {
     ssl_tls13_certificate_authorities_xtn,
     ssl_next_proto_nego_xtn,
     ssl_renegotiation_info_xtn,
+    ssl_tls13_short_header_xtn,
     ssl_record_size_limit_xtn,
-    ssl_tls13_encrypted_client_hello_xtn,
     1,
     0xffff};
 // The list here includes all extensions we expect to use (SSL_MAX_EXTENSIONS),

@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -58,11 +57,10 @@ Config::Status Config::ParseArgs(int argc, char **argv) {
   }
   while (!args.empty()) {
     auto e = entries_.find(XformFlag(args.front()));
+    args.pop();
     if (e == entries_.end()) {
-      std::cerr << "Unimplemented shim flag: " << args.front() << std::endl;
       return kUnknownFlag;
     }
-    args.pop();
     if (!e->second->Parse(args)) return kMalformedArgument;
   }
 

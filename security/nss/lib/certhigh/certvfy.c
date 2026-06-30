@@ -65,11 +65,14 @@ checkKeyParams(const SECAlgorithmID *sigAlgorithm, const SECKEYPublicKey *key)
                     !(policyFlags & NSS_USE_ALG_IN_CERT_SIGNATURE)) {
                     PORT_SetError(SEC_ERROR_CERT_SIGNATURE_ALGORITHM_DISABLED);
                     return SECFailure;
+                } else {
+                    return SECSuccess;
                 }
-                return SECSuccess;
+            } else {
+                PORT_SetError(SEC_ERROR_UNSUPPORTED_ELLIPTIC_CURVE);
+                return SECFailure;
             }
-            PORT_SetError(SEC_ERROR_UNSUPPORTED_ELLIPTIC_CURVE);
-            return SECFailure;
+            return SECSuccess;
 
         case SEC_OID_PKCS1_RSA_PSS_SIGNATURE: {
             PORTCheapArenaPool tmpArena;
@@ -462,7 +465,7 @@ static const unsigned char CAWoSignRootDN[72] = {
     0x57, 0x6F, 0x53, 0x69, 0x67, 0x6E, 0x20, 0x43, 0x41, 0x20, 0x4C, 0x69, 0x6D,
     0x69, 0x74, 0x65, 0x64, 0x31, 0x1B, 0x30, 0x19, 0x06, 0x03, 0x55, 0x04, 0x03,
     0x0C, 0x12, 0x43, 0x41, 0x20, 0xE6, 0xB2, 0x83, 0xE9, 0x80, 0x9A, 0xE6, 0xA0,
-    0xB9, 0xE8, 0xAF, 0x81, 0xE4, 0xB9, 0xA6
+    0xB9, 0xE8, 0xAF, 0x81, 0xE4, 0xB9, 0xA6,
 };
 
 /* /C=CN/O=WoSign CA Limited/CN=CA WoSign ECC Root */
@@ -472,7 +475,7 @@ static const unsigned char CAWoSignECCRootDN[72] = {
     0x57, 0x6F, 0x53, 0x69, 0x67, 0x6E, 0x20, 0x43, 0x41, 0x20, 0x4C, 0x69, 0x6D,
     0x69, 0x74, 0x65, 0x64, 0x31, 0x1B, 0x30, 0x19, 0x06, 0x03, 0x55, 0x04, 0x03,
     0x13, 0x12, 0x43, 0x41, 0x20, 0x57, 0x6F, 0x53, 0x69, 0x67, 0x6E, 0x20, 0x45,
-    0x43, 0x43, 0x20, 0x52, 0x6F, 0x6F, 0x74
+    0x43, 0x43, 0x20, 0x52, 0x6F, 0x6F, 0x74,
 };
 
 /* /C=CN/O=WoSign CA Limited/CN=Certification Authority of WoSign */
@@ -483,7 +486,7 @@ static const unsigned char CertificationAuthorityofWoSignDN[87] = {
     0x69, 0x74, 0x65, 0x64, 0x31, 0x2A, 0x30, 0x28, 0x06, 0x03, 0x55, 0x04, 0x03,
     0x13, 0x21, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69,
     0x6F, 0x6E, 0x20, 0x41, 0x75, 0x74, 0x68, 0x6F, 0x72, 0x69, 0x74, 0x79, 0x20,
-    0x6F, 0x66, 0x20, 0x57, 0x6F, 0x53, 0x69, 0x67, 0x6E
+    0x6F, 0x66, 0x20, 0x57, 0x6F, 0x53, 0x69, 0x67, 0x6E,
 };
 
 /* /C=CN/O=WoSign CA Limited/CN=Certification Authority of WoSign G2 */
@@ -494,7 +497,7 @@ static const unsigned char CertificationAuthorityofWoSignG2DN[90] = {
     0x69, 0x74, 0x65, 0x64, 0x31, 0x2D, 0x30, 0x2B, 0x06, 0x03, 0x55, 0x04, 0x03,
     0x13, 0x24, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69,
     0x6F, 0x6E, 0x20, 0x41, 0x75, 0x74, 0x68, 0x6F, 0x72, 0x69, 0x74, 0x79, 0x20,
-    0x6F, 0x66, 0x20, 0x57, 0x6F, 0x53, 0x69, 0x67, 0x6E, 0x20, 0x47, 0x32
+    0x6F, 0x66, 0x20, 0x57, 0x6F, 0x53, 0x69, 0x67, 0x6E, 0x20, 0x47, 0x32,
 };
 
 /* /C=IL/O=StartCom Ltd./OU=Secure Digital Certificate Signing/CN=StartCom Certification Authority */
@@ -508,7 +511,7 @@ static const unsigned char StartComCertificationAuthorityDN[127] = {
     0x69, 0x67, 0x6E, 0x69, 0x6E, 0x67, 0x31, 0x29, 0x30, 0x27, 0x06, 0x03, 0x55,
     0x04, 0x03, 0x13, 0x20, 0x53, 0x74, 0x61, 0x72, 0x74, 0x43, 0x6F, 0x6D, 0x20,
     0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x69, 0x6F, 0x6E,
-    0x20, 0x41, 0x75, 0x74, 0x68, 0x6F, 0x72, 0x69, 0x74, 0x79
+    0x20, 0x41, 0x75, 0x74, 0x68, 0x6F, 0x72, 0x69, 0x74, 0x79,
 };
 
 /* /C=IL/O=StartCom Ltd./CN=StartCom Certification Authority G2 */
@@ -519,7 +522,7 @@ static const unsigned char StartComCertificationAuthorityG2DN[85] = {
     0x31, 0x2C, 0x30, 0x2A, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x23, 0x53, 0x74,
     0x61, 0x72, 0x74, 0x43, 0x6F, 0x6D, 0x20, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66,
     0x69, 0x63, 0x61, 0x74, 0x69, 0x6F, 0x6E, 0x20, 0x41, 0x75, 0x74, 0x68, 0x6F,
-    0x72, 0x69, 0x74, 0x79, 0x20, 0x47, 0x32
+    0x72, 0x69, 0x74, 0x79, 0x20, 0x47, 0x32,
 };
 
 struct DataAndLength {
@@ -722,7 +725,7 @@ cert_VerifyCertChainOld(CERTCertDBHandle *handle, CERTCertificate *cert,
                 certsList = tmpCertsList;
             }
             for (i = 0; i < subjectNameListLen; i++) {
-                certsList[namesCount + i] = CERT_DupCertificate(subjectCert);
+                certsList[namesCount + i] = subjectCert;
             }
             namesCount += subjectNameListLen;
             namesList = cert_CombineNamesLists(namesList, subjectNameList);
@@ -732,16 +735,6 @@ cert_VerifyCertChainOld(CERTCertDBHandle *handle, CERTCertificate *cert,
         if (subjectCert->options.bits.hasUnsupportedCriticalExt) {
             PORT_SetError(SEC_ERROR_UNKNOWN_CRITICAL_EXTENSION);
             LOG_ERROR_OR_EXIT(log, subjectCert, count, 0);
-        }
-
-        /* check that the signatureAlgorithm field of the certificate
-         * matches the signature field of the tbsCertificate */
-        if (SECOID_CompareAlgorithmID(
-                &subjectCert->signatureWrap.signatureAlgorithm,
-                &subjectCert->signature)) {
-            PORT_SetError(SEC_ERROR_ALGORITHM_MISMATCH);
-            LOG_ERROR(log, subjectCert, count, 0);
-            goto loser;
         }
 
         /* find the certificate of the issuer */
@@ -979,11 +972,6 @@ loser:
     rv = SECFailure;
 done:
     if (certsList != NULL) {
-        for (int i = 0; i < namesCount; i++) {
-            if (certsList[i]) {
-                CERT_DestroyCertificate(certsList[i]);
-            }
-        }
         PORT_Free(certsList);
     }
     if (issuerCert) {
@@ -1915,19 +1903,15 @@ CERT_GetCertNicknameWithValidity(PLArenaPool *arena, CERTCertificate *cert,
 {
     SECCertTimeValidity validity;
     char *nickname = NULL, *tmpstr = NULL;
-    const char *srcNickname = cert->nickname;
-    if (!srcNickname) {
-        srcNickname = "{???}";
-    }
 
     validity = CERT_CheckCertValidTimes(cert, PR_Now(), PR_FALSE);
 
     /* if the cert is good, then just use the nickname directly */
     if (validity == secCertTimeValid) {
         if (arena == NULL) {
-            nickname = PORT_Strdup(srcNickname);
+            nickname = PORT_Strdup(cert->nickname);
         } else {
-            nickname = PORT_ArenaStrdup(arena, srcNickname);
+            nickname = PORT_ArenaStrdup(arena, cert->nickname);
         }
 
         if (nickname == NULL) {
@@ -1939,11 +1923,11 @@ CERT_GetCertNicknameWithValidity(PLArenaPool *arena, CERTCertificate *cert,
          * end
          */
         if (validity == secCertTimeExpired) {
-            tmpstr = PR_smprintf("%s%s", srcNickname,
+            tmpstr = PR_smprintf("%s%s", cert->nickname,
                                  expiredString);
         } else if (validity == secCertTimeNotValidYet) {
             /* not yet valid */
-            tmpstr = PR_smprintf("%s%s", srcNickname,
+            tmpstr = PR_smprintf("%s%s", cert->nickname,
                                  notYetGoodString);
         } else {
             /* undetermined */
@@ -2138,7 +2122,6 @@ CERT_GetCertChainFromCert(CERTCertificate *cert, PRTime time, SECCertUsage usage
 
     chain = CERT_NewCertList();
     if (NULL == chain) {
-        CERT_DestroyCertificate(cert);
         PORT_SetError(SEC_ERROR_NO_MEMORY);
         return NULL;
     }
@@ -2146,7 +2129,6 @@ CERT_GetCertChainFromCert(CERTCertificate *cert, PRTime time, SECCertUsage usage
     while (cert != NULL && ++count <= CERT_MAX_CERT_CHAIN) {
         if (SECSuccess != CERT_AddCertToListTail(chain, cert)) {
             /* return partial chain */
-            CERT_DestroyCertificate(cert);
             PORT_SetError(SEC_ERROR_NO_MEMORY);
             return chain;
         }
@@ -2160,7 +2142,6 @@ CERT_GetCertChainFromCert(CERTCertificate *cert, PRTime time, SECCertUsage usage
     }
 
     /* return partial chain */
-    CERT_DestroyCertificate(cert);
     PORT_SetError(SEC_ERROR_UNKNOWN_ISSUER);
     return chain;
 }

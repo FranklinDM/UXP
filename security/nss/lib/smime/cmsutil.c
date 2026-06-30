@@ -306,10 +306,6 @@ NSS_CMSContent_GetContentInfo(void *msg, SECOidTag type)
                 cinfo = &(c.genericData->contentInfo);
             }
     }
-    /* We are using a union as a form of 'safe casting'. This
-     * syntax confuses cppcheck, so tell it it's OK (and any human
-     * who happens along to verify any other scanner warnings) */
-    /* cppcheck-suppress returnDanglingLifetime */
     return cinfo;
 }
 

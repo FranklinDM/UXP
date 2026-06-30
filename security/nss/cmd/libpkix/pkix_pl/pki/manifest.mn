@@ -21,8 +21,7 @@ CSRCS = test_cert.c \
 	test_subjectinfoaccess.c \
 	$(NULL)
 
-LIBRARY_NAME = pkixtoolpki
-SHARED_LIBRARY = $(NULL)
+LIBRARY_NAME=pkixtoolpki
 
 SOURCE_LIB_DIR=$(PKIX_DEPTH)/$(OBJDIR)
 

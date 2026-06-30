@@ -74,12 +74,12 @@ int Water::allocated_ = 0;
 class LeakChecker : public EmptyTestEventListener {
  private:
   // Called before a test starts.
-  void OnTestStart(const TestInfo& /* test_info */) override {
+  virtual void OnTestStart(const TestInfo& /* test_info */) {
     initially_allocated_ = Water::allocated();
   }
 
   // Called after a test ends.
-  void OnTestEnd(const TestInfo& /* test_info */) override {
+  virtual void OnTestEnd(const TestInfo& /* test_info */) {
     int difference = Water::allocated() - initially_allocated_;
 
     // You can generate a failure in any event handler except
@@ -100,7 +100,7 @@ TEST(ListenersTest, DoesNotLeak) {
 // specified.
 TEST(ListenersTest, LeaksWater) {
   Water* water = new Water;
-  EXPECT_TRUE(water != nullptr);
+  EXPECT_TRUE(water != NULL);
 }
 }  // namespace
 

@@ -6,9 +6,7 @@ CORE_DEPTH = ..
 DEPTH      = ..
 
 MODULE = nss
-
 LIBRARY_NAME = cpputil
-SHARED_LIBRARY = $(NULL)
 
 ifeq ($(NSS_BUILD_UTIL_ONLY),1)
 CPPSRCS = \
@@ -21,3 +19,6 @@ CPPSRCS = \
       tls_parser.cc \
       $(NULL)
 endif
+
+EXPORTS = \
+      $(NULL)

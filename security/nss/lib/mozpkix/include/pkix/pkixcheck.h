@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -59,7 +58,7 @@ Result CheckValidity(Time time, Time notBefore, Time notAfter);
 // Check that a subject has TLS Feature (rfc7633) requirements that match its
 // potential issuer
 Result CheckTLSFeatures(const BackCert& subject, BackCert& potentialIssuer);
-}  // namespace pkix
-}  // namespace mozilla
+}
+}  // namespace mozilla::pkix
 
 #endif  // mozilla_pkix_pkixcheck_h

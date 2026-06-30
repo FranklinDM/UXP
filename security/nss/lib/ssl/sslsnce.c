@@ -45,7 +45,7 @@
  */
 #include "seccomon.h"
 
-#if defined(XP_UNIX) || defined(XP_WIN32) || defined(XP_OS2)
+#if defined(XP_UNIX) || defined(XP_WIN32) || defined(XP_OS2) || defined(XP_BEOS)
 
 #include "cert.h"
 #include "ssl.h"
@@ -60,7 +60,7 @@
 #include "selfencrypt.h"
 #include <stdio.h>
 
-#if defined(XP_UNIX)
+#if defined(XP_UNIX) || defined(XP_BEOS)
 
 #include <syslog.h>
 #include <fcntl.h>
@@ -237,6 +237,8 @@ static PRBool isMultiProcess = PR_FALSE;
 
 #if defined(AIX) || defined(LINUX) || defined(NETBSD) || defined(OPENBSD)
 #define MAX_SID_CACHE_LOCKS 8 /* two FDs per lock */
+#elif defined(OSF1)
+#define MAX_SID_CACHE_LOCKS 16 /* one FD per lock */
 #else
 #define MAX_SID_CACHE_LOCKS 256
 #endif
@@ -250,10 +252,8 @@ static PRUint32 ssl_max_sid_cache_locks = MAX_SID_CACHE_LOCKS;
 /* forward static function declarations */
 static PRUint32 SIDindex(cacheDesc *cache, const PRIPv6Addr *addr, PRUint8 *s,
                          unsigned nl);
-#if defined(XP_UNIX)
 static SECStatus LaunchLockPoller(cacheDesc *cache);
 static SECStatus StopLockPoller(cacheDesc *cache);
-#endif
 
 struct inheritanceStr {
     PRUint32 cacheMemSize;
@@ -268,24 +268,13 @@ typedef struct inheritanceStr inheritance;
 
 #endif /* _win32 */
 
-#if defined(XP_UNIX)
+#if defined(XP_UNIX) || defined(XP_BEOS)
 
 #define DEFAULT_CACHE_DIRECTORY "/tmp"
 
-#endif /* XP_UNIX */
+#endif /* XP_UNIX || XP_BEOS */
 
 /************************************************************************/
-
-/* SSL Session Cache has a smaller set of functions to initialize than 
- * ssl does. some ssl_functions can't be initialized before NSS has been
- * initialized, and the cache may be configured before NSS is initialized
- * so thus the special init function */
-static SECStatus
-ssl_InitSessionCache()
-{
-    /* currently only one function, which is itself idempotent */
-    return ssl_InitializePRErrorTable();
-}
 
 /* This is used to set locking times for the cache.  It is not used to set the
  * PRTime attributes of sessions, which are driven by ss->now(). */
@@ -703,7 +692,7 @@ ServerSessionIDLookup(PRTime sslNow, const PRIPv6Addr *addr,
                 /* what the ??.  Didn't get the cert cache lock.
                 ** Don't invalidate the SID cache entry, but don't find it.
                 */
-                PORT_AssertNotReached("Didn't get cert Cache Lock!");
+                PORT_Assert(!("Didn't get cert Cache Lock!"));
                 psce = 0;
                 pcce = 0;
             }
@@ -730,7 +719,7 @@ ServerSessionIDLookup(PRTime sslNow, const PRIPv6Addr *addr,
                 /* what the ??.  Didn't get the cert cache lock.
                 ** Don't invalidate the SID cache entry, but don't find it.
                 */
-                PORT_AssertNotReached("Didn't get name Cache Lock!");
+                PORT_Assert(!("Didn't get name Cache Lock!"));
                 psce = 0;
                 psnce = 0;
             }
@@ -1047,7 +1036,7 @@ InitCache(cacheDesc *cache, int maxCacheEntries, int maxCertCacheEntries,
 
     if (shared) {
 /* Create file names */
-#if defined(XP_UNIX)
+#if defined(XP_UNIX) || defined(XP_BEOS)
         /* there's some confusion here about whether PR_OpenAnonFileMap wants
         ** a directory name or a file name for its first argument.
         cfn = PR_smprintf("%s/.sslsvrcache.%d", directory, myPid);
@@ -1176,7 +1165,7 @@ ssl_ConfigServerSessionIDCacheInstanceWithOpt(cacheDesc *cache,
 {
     SECStatus rv;
 
-    rv = ssl_InitSessionCache();
+    rv = ssl_Init();
     if (rv != SECSuccess) {
         return rv;
     }
@@ -1231,7 +1220,7 @@ SSL_ShutdownServerSessionIDCacheInstance(cacheDesc *cache)
 SECStatus
 SSL_ShutdownServerSessionIDCache(void)
 {
-#if defined(XP_UNIX)
+#if defined(XP_UNIX) || defined(XP_BEOS)
     /* Stop the thread that polls cache for expired locks on Unix */
     StopLockPoller(&globalCache);
 #endif
@@ -1295,7 +1284,7 @@ ssl_ConfigMPServerSIDCacheWithOpt(PRUint32 ssl3_timeout,
         result = SECFailure;
     }
 
-#if defined(XP_UNIX)
+#if defined(XP_UNIX) || defined(XP_BEOS)
     /* Launch thread to poll cache for expired locks on Unix */
     LaunchLockPoller(cache);
 #endif
@@ -1352,7 +1341,7 @@ SSL_InheritMPServerSIDCacheInstance(cacheDesc *cache, const char *envString)
     int locks_initialized = 0;
     int locks_to_initialize = 0;
 #endif
-    SECStatus status = ssl_InitSessionCache();
+    SECStatus status = ssl_Init();
 
     if (status != SECSuccess) {
         return status;
@@ -1519,7 +1508,7 @@ SSL_InheritMPServerSIDCache(const char *envString)
     return SSL_InheritMPServerSIDCacheInstance(&globalCache, envString);
 }
 
-#if defined(XP_UNIX)
+#if defined(XP_UNIX) || defined(XP_BEOS)
 
 #define SID_LOCK_EXPIRATION_TIMEOUT 30 /* seconds */
 
@@ -1790,8 +1779,8 @@ ssl_GetSelfEncryptKeyPair(SECKEYPublicKey **pubKey,
         return SECFailure;
     }
 
-    SECKEYPublicKey *pubKeyCopy = NULL;
-    SECKEYPrivateKey *privKeyCopy = NULL;
+    SECKEYPublicKey *pubKeyCopy;
+    SECKEYPrivateKey *privKeyCopy;
     PRBool noKey = PR_FALSE;
 
     PR_RWLock_Rlock(ssl_self_encrypt_key_pair.lock);
@@ -1820,7 +1809,7 @@ ssl_GetSelfEncryptKeyPair(SECKEYPublicKey **pubKey,
     return SECSuccess;
 }
 
-static SECStatus
+static PRBool
 ssl_GenerateSelfEncryptKeys(void *pwArg, PRUint8 *keyName,
                             PK11SymKey **aesKey, PK11SymKey **macKey);
 

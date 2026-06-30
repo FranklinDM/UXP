@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -70,7 +69,7 @@ TEST_F(TlsConnectTest, RenegotiationConfigTls13) {
 
 TEST_P(TlsConnectStream, ConnectTls10AndServerRenegotiateHigher) {
   if (version_ == SSL_LIBRARY_VERSION_TLS_1_0) {
-    GTEST_SKIP();
+    return;
   }
   // Set the client so it will accept any version from 1.0
   // to |version_|.
@@ -110,7 +109,7 @@ TEST_P(TlsConnectStream, ConnectTls10AndServerRenegotiateHigher) {
 
 TEST_P(TlsConnectStream, ConnectTls10AndClientRenegotiateHigher) {
   if (version_ == SSL_LIBRARY_VERSION_TLS_1_0) {
-    GTEST_SKIP();
+    return;
   }
   // Set the client so it will accept any version from 1.0
   // to |version_|.
@@ -148,7 +147,7 @@ TEST_P(TlsConnectStream, ConnectTls10AndClientRenegotiateHigher) {
 
 TEST_P(TlsConnectStream, ConnectAndServerRenegotiateLower) {
   if (version_ == SSL_LIBRARY_VERSION_TLS_1_0) {
-    GTEST_SKIP();
+    return;
   }
   Connect();
 
@@ -181,7 +180,7 @@ TEST_P(TlsConnectStream, ConnectAndServerRenegotiateLower) {
 
 TEST_P(TlsConnectStream, ConnectAndServerWontRenegotiateLower) {
   if (version_ == SSL_LIBRARY_VERSION_TLS_1_0) {
-    GTEST_SKIP();
+    return;
   }
   Connect();
 
@@ -200,7 +199,7 @@ TEST_P(TlsConnectStream, ConnectAndServerWontRenegotiateLower) {
 
 TEST_P(TlsConnectStream, ConnectAndClientWontRenegotiateLower) {
   if (version_ == SSL_LIBRARY_VERSION_TLS_1_0) {
-    GTEST_SKIP();
+    return;
   }
   Connect();
 

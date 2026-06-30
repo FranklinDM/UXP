@@ -4,12 +4,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 include manifest.mn
-
 include $(CORE_DEPTH)/coreconf/config.mk
-
-ifdef BUILD_IDG
-DEFINES += -DNSSDEBUG
-endif
+include config.mk
+include $(CORE_DEPTH)/coreconf/rules.mk
 
 ifdef NOTDEF # was ifdef MOZILLA_CLIENT
 NSS_BUILD_CAPI = 1
@@ -28,6 +25,7 @@ endif
 # nssck.api: ck.api ckapi.perl
 # 	$(PERL) ckapi.perl ck.api
 
+export:: private_export
 
 # can't do this in manifest.mn because OS_TARGET isn't defined there.
 ifeq (,$(filter-out WINNT WIN95,$(OS_TARGET)))
@@ -35,5 +33,3 @@ ifdef NSS_BUILD_CAPI
 DIRS += capi
 endif
 endif
-
-include $(CORE_DEPTH)/coreconf/rules.mk

@@ -13,7 +13,6 @@
       'sources': [
         '<(DEPTH)/gtests/common/gtests.cc',
         'pkixbuild_tests.cpp',
-        'pkixc_tests.cpp',
         'pkixcert_extension_tests.cpp',
         'pkixcert_signature_algorithm_tests.cpp',
         'pkixcheck_CheckExtendedKeyUsage_tests.cpp',
@@ -28,7 +27,6 @@
         'pkixder_universal_types_tests.cpp',
         'pkixgtest.cpp',
         'pkixnames_tests.cpp',
-        'pkixnss_tests.cpp',
         'pkixocsp_CreateEncodedOCSPRequest_tests.cpp',
         'pkixocsp_VerifyEncodedOCSPResponse.cpp',
       ],

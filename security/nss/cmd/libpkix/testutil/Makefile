@@ -47,4 +47,5 @@ include $(CORE_DEPTH)/coreconf/rules.mk
 
 include $(PLAT_DEPTH)/platrules.mk
 
+export:: private_export
 

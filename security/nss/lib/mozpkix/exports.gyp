@@ -17,7 +17,6 @@
             'include/pkix/Time.h',
             'include/pkix/Result.h',
             'include/pkix/pkix.h',
-            'include/pkix/pkixc.h',
             'include/pkix/pkixnss.h',
             'include/pkix/pkixtypes.h',
             'include/pkix/pkixutil.h',

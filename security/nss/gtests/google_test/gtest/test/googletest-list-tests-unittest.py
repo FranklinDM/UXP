@@ -156,14 +156,14 @@ class GTestListTestsUnitTest(gtest_test_utils.TestCase):
     output = Run(args)
 
     if expected_output_re:
-      self.assertTrue(
+      self.assert_(
           expected_output_re.match(output),
           ('when %s is %s, the output of "%s" is "%s",\n'
            'which does not match regex "%s"' %
            (LIST_TESTS_FLAG, flag_expression, ' '.join(args), output,
             expected_output_re.pattern)))
     else:
-      self.assertTrue(
+      self.assert_(
           not EXPECTED_OUTPUT_NO_FILTER_RE.match(output),
           ('when %s is %s, the output of "%s" is "%s"'%
            (LIST_TESTS_FLAG, flag_expression, ' '.join(args), output)))

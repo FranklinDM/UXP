@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -154,6 +153,7 @@ TEST_F(TlsAgentDgramTestClient, AckWithBogusLengthField) {
              sizeof(ackBuf), &record, 0);
   agent_->SetVersionRange(SSL_LIBRARY_VERSION_TLS_1_3,
                           SSL_LIBRARY_VERSION_TLS_1_3);
+  ExpectAlert(kTlsAlertDecodeError);
   ProcessMessage(record, TlsAgent::STATE_ERROR,
                  SSL_ERROR_RX_MALFORMED_DTLS_ACK);
 }
@@ -170,8 +170,7 @@ TEST_F(TlsAgentDgramTestClient, AckWithNonEvenLength) {
   // Because we haven't negotiated the version,
   // ssl3_DecodeError() sends an older (pre-TLS error).
   ExpectAlert(kTlsAlertIllegalParameter);
-  ProcessMessage(record, TlsAgent::STATE_ERROR,
-                 SSL_ERROR_RX_MALFORMED_DTLS_ACK);
+  ProcessMessage(record, TlsAgent::STATE_ERROR, SSL_ERROR_BAD_SERVER);
 }
 
 TEST_F(TlsAgentStreamTestClient, Set0RttOptionThenWrite) {
@@ -224,12 +223,15 @@ TEST_F(TlsAgentStreamTestServer, Set0RttOptionClientHelloThenRead) {
   ProcessMessage(buffer, TlsAgent::STATE_ERROR, SSL_ERROR_BAD_MAC_READ);
 }
 
-INSTANTIATE_TEST_SUITE_P(
+INSTANTIATE_TEST_CASE_P(
     AgentTests, TlsAgentTest,
     ::testing::Combine(TlsAgentTestBase::kTlsRolesAll,
                        TlsConnectTestBase::kTlsVariantsStream,
                        TlsConnectTestBase::kTlsVAll));
-INSTANTIATE_TEST_SUITE_P(ClientTests13, TlsAgentTestClient13,
-                         ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
-                                            TlsConnectTestBase::kTlsV13));
+INSTANTIATE_TEST_CASE_P(ClientTests, TlsAgentTestClient,
+                        ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
+                                           TlsConnectTestBase::kTlsVAll));
+INSTANTIATE_TEST_CASE_P(ClientTests13, TlsAgentTestClient13,
+                        ::testing::Combine(TlsConnectTestBase::kTlsVariantsAll,
+                                           TlsConnectTestBase::kTlsV13));
 }  // namespace nss_test

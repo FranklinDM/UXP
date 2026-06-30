@@ -11,6 +11,12 @@ PROGRAM = fipstest
 
 USE_STATIC_LIBS = 1
 
+EXPORTS = \
+	$(NULL)
+
+PRIVATE_EXPORTS = \
+	$(NULL)
+
 CSRCS = \
 	fipstest.c \
 	$(NULL)

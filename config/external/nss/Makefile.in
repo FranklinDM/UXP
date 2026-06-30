@@ -278,6 +278,18 @@ ifndef NSS_DISABLE_DBM
 NSS_DIRS += nss/lib/dbm
 endif
 endif
+NSS_DIRS += \
+  nss/cmd/lib \
+  nss/cmd/shlibsign \
+  $(NULL)
+
+ifdef ENABLE_TESTS
+NSS_DIRS += \
+  nss/cmd/certutil \
+  nss/cmd/pk12util \
+  nss/cmd/modutil \
+  $(NULL)
+endif
 
 ifneq (,$(filter %--build-id,$(LDFLAGS)))
 DEFAULT_GMAKE_ENV = LDFLAGS=-Wl,--build-id
@@ -436,6 +448,20 @@ $(addprefix clean-,$(NSS_DIRS)): clean-%:
 	$(MAKE) -C $(NSS_SRCDIR)/security/$* $(DEFAULT_GMAKE_FLAGS) clean
 
 clean clobber clobber_all realclean distclean depend:: $(addprefix clean-,$(NSS_DIRS))
+
+NSS_CMD_TARGETS := $(addprefix libs-,$(filter-out nss/cmd/lib,$(filter nss/cmd/%,$(NSS_DIRS))))
+target:: $(NSS_CMD_TARGETS)
+
+ifdef MOZ_FOLD_LIBS
+$(NSS_CMD_TARGETS): $(addprefix $(DIST)/lib/$(IMPORT_PREFIX),$(addsuffix $(IMPORT_SUFFIX),$(NSS_LIBS)))
+libs-nss/cmd/modutil: libs-nss/lib/jar
+ifeq (WINNT,$(OS_TARGET))
+libs-nss/cmd/modutil: libs-nss/lib/zlib
+endif
+$(NSS_CMD_TARGETS): libs-nss/cmd/lib
+else
+$(NSS_CMD_TARGETS): libs-nss/lib libs-nss/cmd/lib
+endif # MOZ_FOLD_LIBS
 
 # Work around NSS build system race condition creating certdata.c in
 # security/nss/lib/ckfw/builtins. See bug #836220.

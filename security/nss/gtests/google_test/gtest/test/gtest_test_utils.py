@@ -36,7 +36,6 @@ import sys
 
 IS_WINDOWS = os.name == 'nt'
 IS_CYGWIN = os.name == 'posix' and 'CYGWIN' in os.uname()[0]
-IS_OS2 = os.name == 'os2'
 
 import atexit
 import shutil
@@ -165,7 +164,7 @@ def GetTestExecutablePath(executable_name, build_dir=None):
 
   path = os.path.abspath(os.path.join(build_dir or GetBuildDir(),
                                       executable_name))
-  if (IS_WINDOWS or IS_CYGWIN or IS_OS2) and not path.endswith('.exe'):
+  if (IS_WINDOWS or IS_CYGWIN) and not path.endswith('.exe'):
     path += '.exe'
 
   if not os.path.exists(path):
@@ -173,7 +172,7 @@ def GetTestExecutablePath(executable_name, build_dir=None):
         'Unable to find the test binary "%s". Please make sure to provide\n'
         'a path to the binary via the --build_dir flag or the BUILD_DIR\n'
         'environment variable.' % path)
-    print(message, file=sys.stderr)
+    print >> sys.stderr, message
     sys.exit(1)
 
   return path
@@ -215,10 +214,10 @@ class Subprocess:
     Returns:
       An object that represents outcome of the executed process. It has the
       following attributes:
-        terminated_by_signal   True if and only if the child process has been
-                               terminated by a signal.
-        exited                 True if and only if the child process exited
-                               normally.
+        terminated_by_signal   True iff the child process has been terminated
+                               by a signal.
+        signal                 Sygnal that terminated the child process.
+        exited                 True iff the child process exited normally.
         exit_code              The code with which the child process exited.
         output                 Child process's stdout and stderr output
                                combined in a string.
@@ -251,7 +250,7 @@ class Subprocess:
         # Changes made by os.environ.clear are not inheritable by child
         # processes until Python 2.6. To produce inheritable changes we have
         # to delete environment items with the del statement.
-        for key in list(dest.keys()):
+        for key in dest.keys():
           del dest[key]
         dest.update(src)
 
@@ -288,9 +287,10 @@ class Subprocess:
       else:  # os.WIFEXITED(ret_code) should return True here.
         self._return_code = os.WEXITSTATUS(ret_code)
 
-    if bool(self._return_code & 0x80000000):
+    if self._return_code < 0:
       self.terminated_by_signal = True
       self.exited = False
+      self.signal = -self._return_code
     else:
       self.terminated_by_signal = False
       self.exited = True
@@ -306,6 +306,8 @@ def Main():
   _ParseAndStripGTestFlags(sys.argv)
   # The tested binaries should not be writing XML output files unless the
   # script explicitly instructs them to.
+  # FIXME: Move this into Subprocess when we implement
+  # passing environment into it as a parameter.
   if GTEST_OUTPUT_VAR_NAME in os.environ:
     del os.environ[GTEST_OUTPUT_VAR_NAME]
 

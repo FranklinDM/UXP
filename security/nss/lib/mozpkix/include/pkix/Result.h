@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -188,7 +187,7 @@ static const unsigned int FATAL_ERROR_FLAG = 0x800;
                    SEC_ERROR_LIBRARY_FAILURE)                                  \
   MOZILLA_PKIX_MAP(FATAL_ERROR_NO_MEMORY, FATAL_ERROR_FLAG | 4,                \
                    SEC_ERROR_NO_MEMORY)                                        \
-  /* nothing here */
+/* nothing here */
 
 enum class Result {
 #define MOZILLA_PKIX_MAP(name, value, nss_name) name = value,
@@ -213,7 +212,7 @@ inline Result NotReached(const char* /*explanation*/, Result result) {
   assert(false);
   return result;
 }
-}  // namespace pkix
-}  // namespace mozilla
+}
+}  // namespace mozilla::pkix
 
 #endif  // mozilla_pkix_Result_h

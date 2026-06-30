@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -73,20 +72,6 @@ TimeFromEpochInSeconds(uint64_t secondsSinceEpoch)
   uint64_t seconds = (DaysBeforeYear(1970) * Time::ONE_DAY_IN_SECONDS) +
                      secondsSinceEpoch;
   return TimeFromElapsedSecondsAD(seconds);
-}
-
-Result
-SecondsSinceEpochFromTime(Time time, uint64_t* outSeconds)
-{
-  if (!outSeconds) {
-    return Result::FATAL_ERROR_INVALID_ARGS;
-  }
-  Time epoch = TimeFromEpochInSeconds(0);
-  if (time < epoch) {
-    return Result::FATAL_ERROR_INVALID_ARGS;
-  }
-  *outSeconds = Duration(time, epoch).durationInSeconds;
-  return Result::Success;
 }
 
 } } // namespace mozilla::pkix

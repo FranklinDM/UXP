@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -95,10 +94,9 @@ class DERPrivateKeyImportTest : public ::testing::Test {
         std::to_string(rand());
     SECItem item = {siBuffer, const_cast<unsigned char*>(data.data()),
                     static_cast<unsigned int>(data.size())};
-    SECItem nick = {
-        siBuffer,
-        reinterpret_cast<unsigned char*>(const_cast<char*>(nick_str.data())),
-        static_cast<unsigned int>(nick_str.length())};
+    SECItem nick = {siBuffer, reinterpret_cast<unsigned char*>(
+                                  const_cast<char*>(nick_str.data())),
+                    static_cast<unsigned int>(nick_str.length())};
 
     ScopedPK11SlotInfo slot(PK11_GetInternalKeySlot());
     EXPECT_TRUE(slot);

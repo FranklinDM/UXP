@@ -220,24 +220,21 @@ void
 nsslowkey_DestroyPublicKey(NSSLOWKEYPublicKey *pubk)
 {
     if (pubk && pubk->arena) {
-        PORT_FreeArena(pubk->arena, PR_TRUE);
+        PORT_FreeArena(pubk->arena, PR_FALSE);
     }
 }
 unsigned
 nsslowkey_PublicModulusLen(NSSLOWKEYPublicKey *pubk)
 {
+    unsigned char b0;
+
     /* interpret modulus length as key strength... in
      * fortezza that's the public key length */
 
     switch (pubk->keyType) {
         case NSSLOWKEYRSAKey:
-            if (pubk->u.rsa.modulus.len == 0) {
-                return 0;
-            }
-            if (pubk->u.rsa.modulus.data[0] == 0) {
-                return pubk->u.rsa.modulus.len - 1;
-            }
-            return pubk->u.rsa.modulus.len;
+            b0 = pubk->u.rsa.modulus.data[0];
+            return b0 ? pubk->u.rsa.modulus.len : pubk->u.rsa.modulus.len - 1;
         default:
             break;
     }
@@ -247,15 +244,13 @@ nsslowkey_PublicModulusLen(NSSLOWKEYPublicKey *pubk)
 unsigned
 nsslowkey_PrivateModulusLen(NSSLOWKEYPrivateKey *privk)
 {
+
+    unsigned char b0;
+
     switch (privk->keyType) {
         case NSSLOWKEYRSAKey:
-            if (privk->u.rsa.modulus.len == 0) {
-                return 0;
-            }
-            if (privk->u.rsa.modulus.data[0] == 0) {
-                return privk->u.rsa.modulus.len - 1;
-            }
-            return privk->u.rsa.modulus.len;
+            b0 = privk->u.rsa.modulus.data[0];
+            return b0 ? privk->u.rsa.modulus.len : privk->u.rsa.modulus.len - 1;
         default:
             break;
     }
@@ -315,7 +310,7 @@ nsslowkey_ConvertToPublicKey(NSSLOWKEYPrivateKey *privk)
                         break;
                     }
                     rv = SECITEM_CopyItem(privk->arena, &privk->u.dsa.publicValue, &publicValue);
-                    SECITEM_ZfreeItem(&publicValue, PR_FALSE);
+                    SECITEM_FreeItem(&publicValue, PR_FALSE);
                     if (rv != SECSuccess) {
                         break;
                     }
@@ -354,7 +349,7 @@ nsslowkey_ConvertToPublicKey(NSSLOWKEYPrivateKey *privk)
                         break;
                     }
                     rv = SECITEM_CopyItem(privk->arena, &privk->u.dh.publicValue, &publicValue);
-                    SECITEM_ZfreeItem(&publicValue, PR_FALSE);
+                    SECITEM_FreeItem(&publicValue, PR_FALSE);
                     if (rv != SECSuccess) {
                         break;
                     }
@@ -399,7 +394,7 @@ nsslowkey_ConvertToPublicKey(NSSLOWKEYPrivateKey *privk)
             break;
     }
 
-    PORT_FreeArena(arena, PR_TRUE);
+    PORT_FreeArena(arena, PR_FALSE);
     return NULL;
 }
 

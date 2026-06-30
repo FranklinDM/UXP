@@ -7,7 +7,11 @@
 #######################################################################
 # (1) Include initial platform-independent assignments (MANDATORY).   #
 #######################################################################
-
+ifeq (,$(filter-out WIN%,$(OS_TARGET)))
+EXTRA_LIBS += $(DIST)/lib/crmf.lib
+else
+EXTRA_LIBS += $(DIST)/lib/libcrmf.$(LIB_SUFFIX) 
+endif
 include manifest.mn
 
 #######################################################################
@@ -20,11 +24,7 @@ include $(CORE_DEPTH)/coreconf/config.mk
 # (3) Include "component" configuration information. (OPTIONAL)       #
 #######################################################################
 
-ifeq (,$(filter-out WIN%,$(OS_TARGET)))
-EXTRA_LIBS += $(DIST)/lib/crmf.lib
-else
-EXTRA_LIBS += $(DIST)/lib/libcrmf.$(LIB_SUFFIX)
-endif
+
 
 #######################################################################
 # (4) Include "local" platform-dependent assignments (OPTIONAL).      #

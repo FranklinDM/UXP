@@ -5,11 +5,10 @@
 
 CORE_DEPTH = ../../..
 
-DIRS = . testlib
-
-testlib: .
+DIRS = testlib
 
 MODULE = nss
+MAPFILE = $(OBJDIR)/nssckbi.def
 
 EXPORTS =		\
 	nssckbi.h	\
@@ -31,6 +30,3 @@ CSRCS =			\
 REQUIRES = nspr
 
 LIBRARY_NAME = nssckbi
-MAPFILE = $(OBJDIR)/$(LIBRARY_NAME).def
-LIBRARY = $(NULL)
-IMPORT_LIBRARY = $(NULL)

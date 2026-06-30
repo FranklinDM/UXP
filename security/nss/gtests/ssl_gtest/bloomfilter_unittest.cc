@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -102,7 +101,7 @@ static const BloomFilterConfig kBloomFilterConfigurations[] = {
     {16, 9},   // This also uses all of the bits from the hashes.
 };
 
-INSTANTIATE_TEST_SUITE_P(BloomFilterConfigurations, BloomFilterTest,
-                         ::testing::ValuesIn(kBloomFilterConfigurations));
+INSTANTIATE_TEST_CASE_P(BloomFilterConfigurations, BloomFilterTest,
+                        ::testing::ValuesIn(kBloomFilterConfigurations));
 
 }  // namespace nss_test

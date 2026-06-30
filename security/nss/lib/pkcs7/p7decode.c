@@ -160,9 +160,7 @@ sec_pkcs7_decoder_work_data(SEC_PKCS7DecoderContext *p7dcx,
      */
     if (len) {
         for (i = 0; i < worker->digcnt; i++) {
-            if (worker->digobjs[i]) {
-                (*worker->digobjs[i]->update)(worker->digcxs[i], data, len);
-            }
+            (*worker->digobjs[i]->update)(worker->digcxs[i], data, len);
         }
     }
 
@@ -251,10 +249,10 @@ sec_pkcs7_decoder_start_digests(SEC_PKCS7DecoderContext *p7dcx, int depth,
     if (digcnt == 0)
         return SECSuccess;
 
-    p7dcx->worker.digcxs = (void **)PORT_ArenaZAlloc(p7dcx->tmp_poolp,
-                                                     digcnt * sizeof(void *));
-    p7dcx->worker.digobjs = (const SECHashObject **)PORT_ArenaZAlloc(p7dcx->tmp_poolp,
-                                                                     digcnt * sizeof(SECHashObject *));
+    p7dcx->worker.digcxs = (void **)PORT_ArenaAlloc(p7dcx->tmp_poolp,
+                                                    digcnt * sizeof(void *));
+    p7dcx->worker.digobjs = (const SECHashObject **)PORT_ArenaAlloc(p7dcx->tmp_poolp,
+                                                                    digcnt * sizeof(SECHashObject *));
     if (p7dcx->worker.digcxs == NULL || p7dcx->worker.digobjs == NULL) {
         p7dcx->error = SEC_ERROR_NO_MEMORY;
         return SECFailure;
@@ -263,10 +261,8 @@ sec_pkcs7_decoder_start_digests(SEC_PKCS7DecoderContext *p7dcx, int depth,
     p7dcx->worker.depth = depth;
 
     /*
-     * Create a digest context for each algorithm.  Store at the original
-     * index so digcxs/digobjs stay aligned with digestAlgorithms.
+     * Create a digest context for each algorithm.
      */
-    PRBool hasDigests = PR_FALSE;
     for (i = 0; i < digcnt; i++) {
         SECAlgorithmID *algid = digestalgs[i];
         SECOidTag oidTag = SECOID_FindOIDTag(&(algid->algorithm));
@@ -288,14 +284,13 @@ sec_pkcs7_decoder_start_digests(SEC_PKCS7DecoderContext *p7dcx, int depth,
         digcx = (*digobj->create)();
         if (digcx != NULL) {
             (*digobj->begin)(digcx);
-            p7dcx->worker.digobjs[i] = digobj;
-            p7dcx->worker.digcxs[i] = digcx;
-            hasDigests = PR_TRUE;
+            p7dcx->worker.digobjs[p7dcx->worker.digcnt] = digobj;
+            p7dcx->worker.digcxs[p7dcx->worker.digcnt] = digcx;
+            p7dcx->worker.digcnt++;
         }
     }
-    p7dcx->worker.digcnt = digcnt;
 
-    if (hasDigests)
+    if (p7dcx->worker.digcnt != 0)
         SEC_ASN1DecoderSetFilterProc(p7dcx->dcx,
                                      sec_pkcs7_decoder_filter,
                                      p7dcx,
@@ -363,9 +358,6 @@ sec_pkcs7_decoder_finish_digests(SEC_PKCS7DecoderContext *p7dcx,
 
     for (int i = 0; i < worker->digcnt; i++) {
         const SECHashObject *digobj = worker->digobjs[i];
-        if (!digobj) {
-            continue;
-        }
         digests[i] = SECITEM_AllocItem(poolp, NULL, digobj->length);
         if (!digests[i]) {
             p7dcx->error = PORT_GetError();
@@ -378,9 +370,6 @@ sec_pkcs7_decoder_finish_digests(SEC_PKCS7DecoderContext *p7dcx,
         void *digcx = worker->digcxs[i];
         const SECHashObject *digobj = worker->digobjs[i];
 
-        if (!digobj) {
-            continue;
-        }
         (*digobj->end)(digcx, digests[i]->data, &(digests[i]->len), digests[i]->len);
         (*digobj->destroy)(digcx, PR_TRUE);
     }
@@ -1484,7 +1473,7 @@ sec_pkcs7_verify_signature(SEC_PKCS7ContentInfo *cinfo,
      * stashed in the struct itself or passed in explicitly (as would
      * be done for detached contents).
      */
-    if (digests == NULL && (detached_digest == NULL || detached_digest->data == NULL))
+    if ((digests == NULL || digests[0] == NULL) && (detached_digest == NULL || detached_digest->data == NULL))
         goto done;
 
     /*
@@ -1528,10 +1517,6 @@ sec_pkcs7_verify_signature(SEC_PKCS7ContentInfo *cinfo,
         }
 
         digest = digests[i];
-        if (digest == NULL) {
-            PORT_SetError(SEC_ERROR_PKCS7_BAD_SIGNATURE);
-            goto done;
-        }
     }
 
     encTag = SECOID_FindOIDTag(&(signerinfo->digestEncAlg.algorithm));

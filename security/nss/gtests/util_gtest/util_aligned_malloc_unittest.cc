@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -74,9 +73,9 @@ TEST_P(AlignedMallocTestBadSize, TestAlloc) {
 static const size_t kSizes[] = {1, 2, 4, 8, 16, 32, 64};
 static const size_t kBadSizes[] = {0, 7, 17, 24, 56};
 
-INSTANTIATE_TEST_SUITE_P(AllAligned, AlignedMallocTest,
-                         ::testing::ValuesIn(kSizes));
-INSTANTIATE_TEST_SUITE_P(AllAlignedBadSize, AlignedMallocTestBadSize,
-                         ::testing::ValuesIn(kBadSizes));
+INSTANTIATE_TEST_CASE_P(AllAligned, AlignedMallocTest,
+                        ::testing::ValuesIn(kSizes));
+INSTANTIATE_TEST_CASE_P(AllAlignedBadSize, AlignedMallocTestBadSize,
+                        ::testing::ValuesIn(kBadSizes));
 
 }  // namespace nss_test

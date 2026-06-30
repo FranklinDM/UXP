@@ -6,7 +6,6 @@
  * various PCKS #11 modules
  */
 #define FORCE_PR_LOG 1
-#include "base.h"
 #include "seccomon.h"
 #include "pkcs11.h"
 #include "secmod.h"
@@ -17,7 +16,7 @@
 #include "nssilock.h"
 #include "secerr.h"
 #include "prenv.h"
-#include "utilpars.h"
+#include "utilparst.h"
 #include "prio.h"
 #include "prprf.h"
 #include <stdio.h>
@@ -276,8 +275,8 @@ secmod_ModuleInit(SECMODModule *mod, SECMODModule **reload,
     }
     if (crv != CKR_OK) {
         if (!mod->isThreadSafe ||
-            crv == CKR_NSS_CERTDB_FAILED ||
-            crv == CKR_NSS_KEYDB_FAILED) {
+            crv == CKR_NETSCAPE_CERTDB_FAILED ||
+            crv == CKR_NETSCAPE_KEYDB_FAILED) {
             PORT_SetError(PK11_MapError(crv));
             return SECFailure;
         }
@@ -356,7 +355,7 @@ SECMOD_SetRootCerts(PK11SlotInfo *slot, SECMODModule *mod)
 
 #ifndef NSS_STATIC_SOFTOKEN
 static const char *my_shlib_name =
-    SHLIB_PREFIX "nss" NSS_SHLIB_VERSION "." SHLIB_SUFFIX;
+    SHLIB_PREFIX "nss" SHLIB_VERSION "." SHLIB_SUFFIX;
 static const char *softoken_shlib_name =
     SHLIB_PREFIX "softokn" SOFTOKEN_SHLIB_VERSION "." SHLIB_SUFFIX;
 static const PRCallOnceType pristineCallOnce;
@@ -381,9 +380,7 @@ softoken_LoadDSO(void)
     return PR_FAILURE;
 }
 #else
-CK_RV NSC_GetInterface(CK_UTF8CHAR_PTR pInterfaceName,
-                       CK_VERSION_PTR pVersion,
-                       CK_INTERFACE_PTR_PTR *ppInterface, CK_FLAGS flags);
+CK_RV NSC_GetFunctionList(CK_FUNCTION_LIST_PTR *pFunctionList);
 char **NSC_ModuleDBFunc(unsigned long function, char *parameters, void *args);
 #endif
 
@@ -394,28 +391,20 @@ SECStatus
 secmod_LoadPKCS11Module(SECMODModule *mod, SECMODModule **oldModule)
 {
     PRLibrary *library = NULL;
-    CK_C_GetInterface ientry = NULL;
-    CK_C_GetFunctionList fentry = NULL;
+    CK_C_GetFunctionList entry = NULL;
     CK_INFO info;
     CK_ULONG slotCount = 0;
     SECStatus rv;
     PRBool alreadyLoaded = PR_FALSE;
     char *disableUnload = NULL;
-#ifndef NSS_STATIC_SOFTOKEN
-    const char *nss_interface;
-    const char *nss_function;
-#endif
-    CK_INTERFACE_PTR interface;
 
     if (mod->loaded)
         return SECSuccess;
 
-    mod->fipsIndicator = NULL;
-
     /* internal modules get loaded from their internal list */
     if (mod->internal && (mod->dllName == NULL)) {
 #ifdef NSS_STATIC_SOFTOKEN
-        ientry = (CK_C_GetInterface)NSC_GetInterface;
+        entry = (CK_C_GetFunctionList)NSC_GetFunctionList;
 #else
         /*
          * Loads softoken as a dynamic library,
@@ -428,22 +417,15 @@ secmod_LoadPKCS11Module(SECMODModule *mod, SECMODModule **oldModule)
         PR_ATOMIC_INCREMENT(&softokenLoadCount);
 
         if (mod->isFIPS) {
-            nss_interface = "FC_GetInterface";
-            nss_function = "FC_GetFunctionList";
+            entry = (CK_C_GetFunctionList)
+                PR_FindSymbol(softokenLib, "FC_GetFunctionList");
         } else {
-            nss_interface = "NSC_GetInterface";
-            nss_function = "NSC_GetFunctionList";
+            entry = (CK_C_GetFunctionList)
+                PR_FindSymbol(softokenLib, "NSC_GetFunctionList");
         }
 
-        ientry = (CK_C_GetInterface)
-            PR_FindSymbol(softokenLib, nss_interface);
-        if (!ientry) {
-            fentry = (CK_C_GetFunctionList)
-                PR_FindSymbol(softokenLib, nss_function);
-            if (!fentry) {
-                return SECFailure;
-            }
-        }
+        if (!entry)
+            return SECFailure;
 #endif
 
         if (mod->isModuleDB) {
@@ -465,27 +447,10 @@ secmod_LoadPKCS11Module(SECMODModule *mod, SECMODModule **oldModule)
             return SECFailure;
         }
 
-/* load the library. If this succeeds, then we have to remember to
+        /* load the library. If this succeeds, then we have to remember to
          * unload the library if anything goes wrong from here on out...
          */
-#if defined(_WIN32)
-        if (nssUTF8_Length(mod->dllName, NULL)) {
-            wchar_t *dllNameWide = _NSSUTIL_UTF8ToWide(mod->dllName);
-            if (dllNameWide) {
-                PRLibSpec libSpec;
-                libSpec.type = PR_LibSpec_PathnameU;
-                libSpec.value.pathname_u = dllNameWide;
-                library = PR_LoadLibraryWithFlags(libSpec, 0);
-                PORT_Free(dllNameWide);
-            }
-        }
-        if (library == NULL) {
-            // fallback to system code page
-            library = PR_LoadLibrary(mod->dllName);
-        }
-#else
         library = PR_LoadLibrary(mod->dllName);
-#endif // defined(_WIN32)
         mod->library = (void *)library;
 
         if (library == NULL) {
@@ -496,12 +461,8 @@ secmod_LoadPKCS11Module(SECMODModule *mod, SECMODModule **oldModule)
          * now we need to get the entry point to find the function pointers
          */
         if (!mod->moduleDBOnly) {
-            ientry = (CK_C_GetInterface)
-                PR_FindSymbol(library, "C_GetInterface");
-            if (!ientry) {
-                fentry = (CK_C_GetFunctionList)
-                    PR_FindSymbol(library, "C_GetFunctionList");
-            }
+            entry = (CK_C_GetFunctionList)
+                PR_FindSymbol(library, "C_GetFunctionList");
         }
         if (mod->isModuleDB) {
             mod->moduleDBFunc = (void *)
@@ -509,7 +470,7 @@ secmod_LoadPKCS11Module(SECMODModule *mod, SECMODModule **oldModule)
         }
         if (mod->moduleDBFunc == NULL)
             mod->isModuleDB = PR_FALSE;
-        if ((ientry == NULL) && (fentry == NULL)) {
+        if (entry == NULL) {
             if (mod->isModuleDB) {
                 mod->loaded = PR_TRUE;
                 mod->moduleDBOnly = PR_TRUE;
@@ -523,40 +484,18 @@ secmod_LoadPKCS11Module(SECMODModule *mod, SECMODModule **oldModule)
     /*
      * We need to get the function list
      */
-    if (ientry) {
-        /* we first try to get a FORK_SAFE interface */
-        if ((*ientry)((CK_UTF8CHAR_PTR) "PKCS 11", NULL, &interface,
-                      CKF_INTERFACE_FORK_SAFE) != CKR_OK) {
-            /* one is not appearantly available, get a non-fork safe version */
-            if ((*ientry)((CK_UTF8CHAR_PTR) "PKCS 11", NULL, &interface, 0) != CKR_OK) {
-                goto fail;
-            }
-        }
-        mod->functionList = interface->pFunctionList;
-        mod->flags = interface->flags;
-        /* if we have a fips indicator, grab it */
-        if ((*ientry)((CK_UTF8CHAR_PTR) "Vendor NSS FIPS Interface", NULL,
-                      &interface, 0) == CKR_OK) {
-            mod->fipsIndicator = ((CK_NSS_FIPS_FUNCTIONS *)(interface->pFunctionList))->NSC_NSSGetFIPSStatus;
-        }
-    } else {
-        if ((*fentry)((CK_FUNCTION_LIST_PTR *)&mod->functionList) != CKR_OK)
-            goto fail;
-        mod->flags = 0;
-    }
+    if ((*entry)((CK_FUNCTION_LIST_PTR *)&mod->functionList) != CKR_OK)
+        goto fail;
 
 #ifdef DEBUG_MODULE
     modToDBG = PR_GetEnvSecure("NSS_DEBUG_PKCS11_MODULE");
     if (modToDBG && strcmp(mod->commonName, modToDBG) == 0) {
         mod->functionList = (void *)nss_InsertDeviceLog(
-            (CK_FUNCTION_LIST_3_0_PTR)mod->functionList);
+            (CK_FUNCTION_LIST_PTR)mod->functionList);
     }
 #endif
 
-    /* This test operation makes sure our locking system is
-     * consistent even if we are using non-thread safe tokens by
-     * simulating unsafe tokens with safe ones. */
-    mod->isThreadSafe = !PR_GetEnvSecure("NSS_FORCE_TOKEN_LOCK");
+    mod->isThreadSafe = PR_TRUE;
 
     /* Now we initialize the module */
     rv = secmod_ModuleInit(mod, oldModule, &alreadyLoaded);
@@ -574,10 +513,10 @@ secmod_LoadPKCS11Module(SECMODModule *mod, SECMODModule **oldModule)
     /* check the version number */
     if (PK11_GETTAB(mod)->C_GetInfo(&info) != CKR_OK)
         goto fail2;
-    if (info.cryptokiVersion.major < 2)
+    if (info.cryptokiVersion.major != 2)
         goto fail2;
     /* all 2.0 are a priori *not* thread safe */
-    if ((info.cryptokiVersion.major == 2) && (info.cryptokiVersion.minor < 1)) {
+    if (info.cryptokiVersion.minor < 1) {
         if (!loadSingleThreadedModules) {
             PORT_SetError(SEC_ERROR_INCOMPATIBLE_PKCS11);
             goto fail2;

@@ -277,10 +277,10 @@ nssTokenObjectCache_HaveObjectClass(
         case CKO_CERTIFICATE:
             haveIt = cache->doObjectType[cachedCerts];
             break;
-        case CKO_NSS_TRUST:
+        case CKO_NETSCAPE_TRUST:
             haveIt = cache->doObjectType[cachedTrust];
             break;
-        case CKO_NSS_CRL:
+        case CKO_NETSCAPE_CRL:
             haveIt = cache->doObjectType[cachedCRLs];
             break;
         default:
@@ -355,6 +355,10 @@ create_object(
         goto loser;
     }
     rvCachedObject->arena = arena;
+    /* The cache is tied to the token, and therefore the objects
+     * in it should not hold references to the token.
+     */
+    (void)nssToken_Destroy(object->token);
     rvCachedObject->object = object;
     rvCachedObject->attributes = nss_ZNEWARRAY(arena, CK_ATTRIBUTE, numTypes);
     if (!rvCachedObject->attributes) {
@@ -376,12 +380,6 @@ create_object(
     *status = PR_SUCCESS;
     nssSlot_Destroy(slot);
 
-    /* The cache is tied to the token, and therefore the objects in it should
-     * not hold references to the token. Drop the object's token reference
-     * only after success so that on failure the caller can still safely
-     * destroy the object (and its token reference) exactly once.
-     */
-    (void)nssToken_Destroy(object->token);
     return rvCachedObject;
 loser:
     *status = PR_FAILURE;
@@ -467,7 +465,7 @@ create_cert(
         CKA_ISSUER,
         CKA_SERIAL_NUMBER,
         CKA_SUBJECT,
-        CKA_NSS_EMAIL
+        CKA_NETSCAPE_EMAIL
     };
     static const PRUint32 numCertAttr = sizeof(certAttr) / sizeof(certAttr[0]);
     return create_object(object, certAttr, numCertAttr, status);
@@ -506,8 +504,8 @@ create_crl(
         CKA_LABEL,
         CKA_VALUE,
         CKA_SUBJECT,
-        CKA_NSS_KRL,
-        CKA_NSS_URL
+        CKA_NETSCAPE_KRL,
+        CKA_NETSCAPE_URL
     };
     static const PRUint32 numCRLAttr = sizeof(crlAttr) / sizeof(crlAttr[0]);
     return create_object(object, crlAttr, numCRLAttr, status);
@@ -714,10 +712,10 @@ nssTokenObjectCache_FindObjectsByTemplate(
         case CKO_CERTIFICATE:
             objectType = cachedCerts;
             break;
-        case CKO_NSS_TRUST:
+        case CKO_NETSCAPE_TRUST:
             objectType = cachedTrust;
             break;
-        case CKO_NSS_CRL:
+        case CKO_NETSCAPE_CRL:
             objectType = cachedCRLs;
             break;
         default:
@@ -782,10 +780,10 @@ nssTokenObjectCache_GetObjectAttributes(
         case CKO_CERTIFICATE:
             objectType = cachedCerts;
             break;
-        case CKO_NSS_TRUST:
+        case CKO_NETSCAPE_TRUST:
             objectType = cachedTrust;
             break;
-        case CKO_NSS_CRL:
+        case CKO_NETSCAPE_CRL:
             objectType = cachedCRLs;
             break;
         default:
@@ -875,10 +873,10 @@ nssTokenObjectCache_ImportObject(
         case CKO_CERTIFICATE:
             objectType = cachedCerts;
             break;
-        case CKO_NSS_TRUST:
+        case CKO_NETSCAPE_TRUST:
             objectType = cachedTrust;
             break;
-        case CKO_NSS_CRL:
+        case CKO_NETSCAPE_CRL:
             objectType = cachedCRLs;
             break;
         default:

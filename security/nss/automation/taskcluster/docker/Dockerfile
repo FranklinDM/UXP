@@ -1,5 +1,5 @@
 # Lean image for running the bulk of the NSS CI tests on taskcluster.
-FROM ubuntu:bionic-20221215
+FROM ubuntu:18.04
 LABEL maintainer="Martin Thomson <martin.thomson@gmail.com>"
 
 RUN dpkg --add-architecture i386
@@ -20,7 +20,6 @@ RUN apt-get update \
     mercurial \
     ninja-build \
     pkg-config \
-    sqlite3 \
     zlib1g-dev \
  && rm -rf /var/lib/apt/lists/* \
  && apt-get autoremove -y && apt-get clean -y

@@ -295,13 +295,12 @@ main(int argc, char **argv)
         outFile = stdout;
     }
 
-    if (NSS_NoDB_Init(NULL) != SECSuccess) {
-        return 1;
-    }
+    NSS_NoDB_Init(NULL);
 
     if (keySizeInBits > 1024 || qSizeInBits != 0) {
         rv = PK11_PQG_ParamGenV2((unsigned)keySizeInBits,
-                                 (unsigned)qSizeInBits, (unsigned)(g / 8),
+                                 (unsigned)qSizeInBits, (unsigned)(g /
+                                                                   8),
                                  &pqgParams, &pqgVerify);
     } else if (g) {
         rv = PK11_PQG_ParamGenSeedLen((unsigned)j, (unsigned)(g / 8),
@@ -341,9 +340,6 @@ main(int argc, char **argv)
 
     PK11_PQG_DestroyParams(pqgParams);
     PK11_PQG_DestroyVerify(pqgVerify);
-    if (NSS_Shutdown() != SECSuccess) {
-        return 1;
-    }
     return 0;
 
 loser:

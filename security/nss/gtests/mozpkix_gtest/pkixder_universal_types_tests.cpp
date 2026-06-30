@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This code is made available to you under your choice of the following sets
  * of licensing terms:
  */
@@ -1126,7 +1125,7 @@ TEST_P(pkixder_universal_types_tests_Integer,
 
 #undef INVALID
 
-INSTANTIATE_TEST_SUITE_P(pkixder_universal_types_tests_Integer,
+INSTANTIATE_TEST_CASE_P(pkixder_universal_types_tests_Integer,
                         pkixder_universal_types_tests_Integer,
                         testing::ValuesIn(INTEGER_TEST_PARAMS));
 

@@ -10,6 +10,12 @@ REQUIRES = seccmd dbm softoken
 
 PROGRAM = rsapoptst
 
+EXPORTS = \
+	$(NULL)
+
+PRIVATE_EXPORTS = \
+	$(NULL)
+
 CSRCS = \
 	rsapoptst.c \
 	$(NULL)

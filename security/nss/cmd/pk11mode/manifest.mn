@@ -7,6 +7,8 @@ CORE_DEPTH = ../..
 
 MODULE = nss
 
+EXPORTS =
+
 CSRCS = pk11mode.c
 
 PROGRAM = pk11mode

@@ -59,7 +59,7 @@ TEST(CxxExceptionDeathTest, ExceptionIsFailure) {
 
 class TestException : public std::exception {
  public:
-  const char* what() const noexcept override { return "exceptional message"; }
+  virtual const char* what() const throw() { return "exceptional message"; }
 };
 
 TEST(CxxExceptionDeathTest, PrintsMessageForStdExceptions) {
@@ -68,7 +68,7 @@ TEST(CxxExceptionDeathTest, PrintsMessageForStdExceptions) {
                           "exceptional message");
   // Verifies that the location is mentioned in the failure text.
   EXPECT_NONFATAL_FAILURE(EXPECT_DEATH(throw TestException(), ""),
-                          __FILE__);
+                          "googletest-death-test_ex_test.cc");
 }
 # endif  // GTEST_HAS_EXCEPTIONS
 

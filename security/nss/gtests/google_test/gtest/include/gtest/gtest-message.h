@@ -44,12 +44,10 @@
 
 // GOOGLETEST_CM0001 DO NOT DELETE
 
-#ifndef GOOGLETEST_INCLUDE_GTEST_GTEST_MESSAGE_H_
-#define GOOGLETEST_INCLUDE_GTEST_GTEST_MESSAGE_H_
+#ifndef GTEST_INCLUDE_GTEST_GTEST_MESSAGE_H_
+#define GTEST_INCLUDE_GTEST_GTEST_MESSAGE_H_
 
 #include <limits>
-#include <memory>
-#include <sstream>
 
 #include "gtest/internal/gtest-port.h"
 
@@ -108,6 +106,14 @@ class GTEST_API_ Message {
     *ss_ << str;
   }
 
+#if GTEST_OS_SYMBIAN
+  // Streams a value (either a pointer or not) to this object.
+  template <typename T>
+  inline Message& operator <<(const T& value) {
+    StreamHelper(typename internal::is_pointer<T>::type(), value);
+    return *this;
+  }
+#else
   // Streams a non-pointer value to this object.
   template <typename T>
   inline Message& operator <<(const T& val) {
@@ -145,13 +151,14 @@ class GTEST_API_ Message {
   // as "(null)".
   template <typename T>
   inline Message& operator <<(T* const& pointer) {  // NOLINT
-    if (pointer == nullptr) {
+    if (pointer == NULL) {
       *ss_ << "(null)";
     } else {
       *ss_ << pointer;
     }
     return *this;
   }
+#endif  // GTEST_OS_SYMBIAN
 
   // Since the basic IO manipulators are overloaded for both narrow
   // and wide streams, we have to provide this specialized definition
@@ -180,6 +187,12 @@ class GTEST_API_ Message {
   Message& operator <<(const ::std::wstring& wstr);
 #endif  // GTEST_HAS_STD_WSTRING
 
+#if GTEST_HAS_GLOBAL_WSTRING
+  // Converts the given wide string to a narrow string using the UTF-8
+  // encoding, and streams the result to this Message object.
+  Message& operator <<(const ::wstring& wstr);
+#endif  // GTEST_HAS_GLOBAL_WSTRING
+
   // Gets the text streamed to this object so far as an std::string.
   // Each '\0' character in the buffer is replaced with "\\0".
   //
@@ -187,8 +200,31 @@ class GTEST_API_ Message {
   std::string GetString() const;
 
  private:
+#if GTEST_OS_SYMBIAN
+  // These are needed as the Nokia Symbian Compiler cannot decide between
+  // const T& and const T* in a function template. The Nokia compiler _can_
+  // decide between class template specializations for T and T*, so a
+  // tr1::type_traits-like is_pointer works, and we can overload on that.
+  template <typename T>
+  inline void StreamHelper(internal::true_type /*is_pointer*/, T* pointer) {
+    if (pointer == NULL) {
+      *ss_ << "(null)";
+    } else {
+      *ss_ << pointer;
+    }
+  }
+  template <typename T>
+  inline void StreamHelper(internal::false_type /*is_pointer*/,
+                           const T& value) {
+    // See the comments in Message& operator <<(const T&) above for why
+    // we need this using statement.
+    using ::operator <<;
+    *ss_ << value;
+  }
+#endif  // GTEST_OS_SYMBIAN
+
   // We'll hold the text streamed to this object here.
-  const std::unique_ptr< ::std::stringstream> ss_;
+  const internal::scoped_ptr< ::std::stringstream> ss_;
 
   // We declare (but don't implement) this to prevent the compiler
   // from implementing the assignment operator.
@@ -216,4 +252,4 @@ std::string StreamableToString(const T& streamable) {
 
 GTEST_DISABLE_MSC_WARNINGS_POP_()  //  4251
 
-#endif  // GOOGLETEST_INCLUDE_GTEST_GTEST_MESSAGE_H_
+#endif  // GTEST_INCLUDE_GTEST_GTEST_MESSAGE_H_

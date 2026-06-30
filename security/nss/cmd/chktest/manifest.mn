@@ -13,7 +13,13 @@ REQUIRES = seccmd dbm
 
 PROGRAM = chktest
 
-USE_STATIC_LIBS = 1
+ USE_STATIC_LIBS = 1
+
+EXPORTS = \
+	$(NULL)
+
+PRIVATE_EXPORTS = \
+	$(NULL)
 
 CSRCS = \
 	chktest.c \

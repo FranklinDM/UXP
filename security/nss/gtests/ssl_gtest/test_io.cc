@@ -1,5 +1,4 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -110,6 +109,7 @@ int32_t DummyPrSocket::Recv(PRFileDesc *f, void *buf, int32_t buflen,
 
   auto &front = input_.front();
   if (static_cast<size_t>(buflen) < front.len()) {
+    PR_ASSERT(false);
     PR_SetError(PR_BUFFER_OVERFLOW_ERROR, 0);
     return -1;
   }

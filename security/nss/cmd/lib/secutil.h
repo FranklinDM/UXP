@@ -26,7 +26,6 @@
 #define SEC_CT_CERTIFICATE_REQUEST "certificate-request"
 #define SEC_CT_CERTIFICATE_ID "certificate-identity"
 #define SEC_CT_PKCS7 "pkcs7"
-#define SEC_CT_PKCS12 "pkcs12"
 #define SEC_CT_CRL "crl"
 #define SEC_CT_NAME "name"
 
@@ -236,8 +235,10 @@ extern void SECU_PrintTrustFlags(FILE *out, CERTCertTrust *trust, char *m,
 extern int SECU_PrintSubjectPublicKeyInfo(FILE *out, SECItem *der, char *m,
                                           int level);
 
+#ifdef HAVE_EPV_TEMPLATE
 /* Dump contents of private key */
 extern int SECU_PrintPrivateKey(FILE *out, SECItem *der, char *m, int level);
+#endif
 
 /* Dump contents of an RSA public key */
 extern void SECU_PrintRSAPublicKey(FILE *out, SECKEYPublicKey *pk, char *m, int level);
@@ -252,8 +253,7 @@ extern int SECU_PrintFingerprints(FILE *out, SECItem *derCert, char *m,
 /* Pretty-print any PKCS7 thing */
 extern int SECU_PrintPKCS7ContentInfo(FILE *out, SECItem *der, char *m,
                                       int level);
-/* Pretty-print a pkcs12 file */
-extern SECStatus SECU_PrintPKCS12(FILE *out, const SECItem *der, char *m, int level);
+
 /* Init PKCS11 stuff */
 extern SECStatus SECU_PKCS11Init(PRBool readOnly);
 
@@ -423,8 +423,6 @@ SECStatus parseExporters(const char *arg,
 SECStatus exportKeyingMaterials(PRFileDesc *fd,
                                 const secuExporter *exporters,
                                 unsigned int exporterCount);
-
-SECStatus readPSK(const char *arg, SECItem *psk, SECItem *label);
 
 /*
  *

@@ -16,7 +16,7 @@
 #include "sslproto.h"
 #include "nssilock.h"
 #include "sslencode.h"
-#if defined(XP_UNIX) || defined(XP_WIN) || defined(_WINDOWS)
+#if defined(XP_UNIX) || defined(XP_WIN) || defined(_WINDOWS) || defined(XP_BEOS)
 #include <time.h>
 #endif
 
@@ -528,9 +528,7 @@ ssl_DecodeResumptionToken(sslSessionID *sid, const PRUint8 *encodedToken,
         }
         SECItem tempItem = { siBuffer, (unsigned char *)readerBuffer.buf,
                              readerBuffer.len };
-        if (SECITEM_CopyItem(NULL, &sid->peerCertStatus.items[0], &tempItem) != SECSuccess) {
-            return SECFailure;
-        }
+        SECITEM_CopyItem(NULL, &sid->peerCertStatus.items[0], &tempItem);
     }
 
     if (sslRead_ReadVariable(&reader, 1, &readerBuffer) != SECSuccess) {
@@ -542,11 +540,7 @@ ssl_DecodeResumptionToken(sslSessionID *sid, const PRUint8 *encodedToken,
         if (sid->peerID) {
             PORT_Free((void *)sid->peerID);
         }
-        sid->peerID = PORT_ZAlloc(readerBuffer.len + 1);
-        if (!sid->peerID) {
-            return SECFailure;
-        }
-        PORT_Memcpy((void *)sid->peerID, readerBuffer.buf, readerBuffer.len);
+        sid->peerID = PORT_Strdup((const char *)readerBuffer.buf);
     }
 
     if (sslRead_ReadVariable(&reader, 1, &readerBuffer) != SECSuccess) {
@@ -558,11 +552,7 @@ ssl_DecodeResumptionToken(sslSessionID *sid, const PRUint8 *encodedToken,
             PORT_Free((void *)sid->urlSvrName);
         }
         PORT_Assert(readerBuffer.buf);
-        sid->urlSvrName = PORT_ZAlloc(readerBuffer.len + 1);
-        if (!sid->urlSvrName) {
-            return SECFailure;
-        }
-        PORT_Memcpy((void *)sid->urlSvrName, readerBuffer.buf, readerBuffer.len);
+        sid->urlSvrName = PORT_Strdup((const char *)readerBuffer.buf);
     }
 
     if (sslRead_ReadVariable(&reader, 3, &readerBuffer) != SECSuccess) {
@@ -576,9 +566,6 @@ ssl_DecodeResumptionToken(sslSessionID *sid, const PRUint8 *encodedToken,
         sid->localCert = CERT_NewTempCertificate(NULL, /* dbHandle */
                                                  &tempItem,
                                                  NULL, PR_FALSE, PR_TRUE);
-        if (!sid->localCert) {
-            return SECFailure;
-        }
     }
 
     if (sslRead_ReadNumber(&reader, 8, &sid->addr.pr_s6_addr64[0]) != SECSuccess) {
@@ -1136,13 +1123,12 @@ ssl_CacheSessionID(sslSocket *ss)
 {
     sslSecurityInfo *sec = &ss->sec;
     PORT_Assert(sec);
-    PORT_Assert(sec->ci.sid->cached == never_cached);
 
     if (sec->ci.sid && !sec->ci.sid->u.ssl3.keys.resumable) {
         return;
     }
 
-    if (!sec->isServer && ss->resumptionTokenCallback) {
+    if (!ss->sec.isServer && ss->resumptionTokenCallback) {
         ssl_CacheExternalToken(ss);
         return;
     }

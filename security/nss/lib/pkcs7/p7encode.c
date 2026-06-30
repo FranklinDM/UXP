@@ -196,7 +196,7 @@ sec_pkcs7_encoder_start_encrypt(SEC_PKCS7ContentInfo *cinfo,
         PORT_ArenaUnmark(cinfo->poolp, mark);
         mark = NULL; /* good one; do not want to release */
     }
-    /* fallthru */
+/* fallthru */
 
 loser:
     if (arena) {
@@ -714,9 +714,11 @@ sec_pkcs7_encoder_sig_and_certs(SEC_PKCS7ContentInfo *cinfo,
                 if (digestalgtag == SECOID_GetAlgorithmTag(digestalgs[di]))
                     break;
             }
-            if (digestalgs[di] == NULL || digests[di] == NULL) {
+            if (digestalgs[di] == NULL) {
+                /* XXX oops; do what? set an error? */
                 return SECFailure;
             }
+            PORT_Assert(digests[di] != NULL);
 
             cert = signerinfo->cert;
             privkey = PK11_FindKeyByAnyCert(cert, pwfnarg);

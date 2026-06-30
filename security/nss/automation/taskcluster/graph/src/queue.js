@@ -157,7 +157,7 @@ function convertTask(def) {
 
   return {
     provisionerId: def.provisioner || `nss-${process.env.MOZ_SCM_LEVEL}`,
-    workerType: def.workerType || "linux-gcp",
+    workerType: def.workerType || "linux",
     schedulerId: process.env.TC_SCHEDULER_ID,
     taskGroupId: process.env.TASK_ID,
 
@@ -220,9 +220,6 @@ export async function submit() {
     maps.forEach(map => { task = map(merge({}, task)) });
 
     let log_id = `${task.name} @ ${task.platform}[${task.collection || "opt"}]`;
-    if (task.group) {
-      log_id = `${task.group}::${log_id}`;
-    }
     console.log(`+ Submitting ${log_id}.`);
 
     // Index that task for each tag specified
@@ -277,7 +274,7 @@ export async function submit() {
       }
 
       task.payload.image = {
-        path: "public/image.tar.zst",
+        path: "public/image.tar",
         taskId: data.taskId,
         type: "task-image"
       };

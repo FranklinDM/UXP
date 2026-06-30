@@ -34,8 +34,12 @@
 
 class PropertyTwo : public testing::Test {
  protected:
-  void SetUp() override { RecordProperty("SetUpProp", 2); }
-  void TearDown() override { RecordProperty("TearDownProp", 2); }
+  virtual void SetUp() {
+    RecordProperty("SetUpProp", 2);
+  }
+  virtual void TearDown() {
+    RecordProperty("TearDownProp", 2);
+  }
 };
 
 TEST_F(PropertyTwo, TestSomeProperties) {

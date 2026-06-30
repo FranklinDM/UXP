@@ -30,14 +30,12 @@
       'target_name': 'freebl_gtest',
       'type': 'executable',
       'sources': [
-        'blake2b_unittest.cc',
-        'cmac_unittests.cc',
+        'mpi_unittest.cc',
         'dh_unittest.cc',
         'ecl_unittest.cc',
         'ghash_unittest.cc',
-        'mpi_unittest.cc',
-        'prng_kat_unittest.cc',
         'rsa_unittest.cc',
+        'cmac_unittests.cc',
         '<(DEPTH)/gtests/common/gtests.cc'
       ],
       'dependencies': [
@@ -50,6 +48,28 @@
           '-msse2',
           ],
         }],
+      ],
+    },
+    {
+      'target_name': 'prng_gtest',
+      'type': 'executable',
+      'sources': [
+        'prng_kat_unittest.cc',
+      ],
+      'dependencies': [
+        'freebl_gtest_deps',
+        '<(DEPTH)/exports.gyp:nss_exports',
+      ],
+    },
+    {
+      'target_name': 'blake2b_gtest',
+      'type': 'executable',
+      'sources': [
+        'blake2b_unittest.cc',
+      ],
+      'dependencies': [
+        'freebl_gtest_deps',
+        '<(DEPTH)/exports.gyp:nss_exports',
       ],
     },
   ],

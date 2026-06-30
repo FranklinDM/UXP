@@ -80,7 +80,8 @@ TEST(Test, Test) {
   try {
     AssertFalse();
   } catch(const testing::AssertionException& e) {
-    if (strstr(e.what(), "Expected failure") != nullptr) throw;
+    if (strstr(e.what(), "Expected failure") != NULL)
+      throw;
 
     printf("%s",
            "A failed assertion did throw an exception of the right type, "
@@ -96,6 +97,7 @@ TEST(Test, Test) {
 int kTestForContinuingTest = 0;
 
 TEST(Test, Test2) {
+  // FIXME: how to force Test2 to be after Test?
   kTestForContinuingTest = 1;
 }
 

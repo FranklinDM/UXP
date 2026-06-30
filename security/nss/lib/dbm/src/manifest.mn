@@ -26,4 +26,3 @@ CSRCS = db.c	   \
 	$(NULL)
 
 LIBRARY_NAME = dbm
-SHARED_LIBRARY = $(NULL)

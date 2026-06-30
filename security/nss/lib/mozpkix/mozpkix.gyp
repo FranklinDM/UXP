@@ -12,7 +12,6 @@
       'standalone_static_library': 1,
       'sources': [
         'lib/pkixbuild.cpp',
-        'lib/pkixc.cpp',
         'lib/pkixcert.cpp',
         'lib/pkixcheck.cpp',
         'lib/pkixder.cpp',

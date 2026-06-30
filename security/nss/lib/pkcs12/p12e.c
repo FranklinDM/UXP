@@ -14,7 +14,6 @@
 #include "secpkcs7.h"
 #include "secasn1.h"
 #include "secerr.h"
-#include "sechash.h"
 #include "pk11func.h"
 #include "p12plcy.h"
 #include "p12local.h"
@@ -380,18 +379,11 @@ SEC_PKCS12CreatePasswordPrivSafe(SEC_PKCS12ExportContext *p12ctxt,
     safeInfo->itemCount = 0;
 
     /* create the encrypted safe */
-    if (!SEC_PKCS5IsAlgorithmPBEAlgTag(privAlg)) {
-        SECOidTag prfAlg = SEC_OID_UNKNOWN;
-        /* if we have password integrity set, use that to set the integrity
-         * hash algorithm to set our password PRF. If we haven't set it, just
-         * let the low level code pick it */
-        if (p12ctxt->integrityEnabled && p12ctxt->pwdIntegrity) {
-            prfAlg = HASH_GetHMACOidTagByHashOidTag(
-                p12ctxt->integrityInfo.pwdInfo.algorithm);
-        }
+    if (!SEC_PKCS5IsAlgorithmPBEAlgTag(privAlg) &&
+        PK11_AlgtagToMechanism(privAlg) == CKM_AES_CBC) {
         safeInfo->cinfo = SEC_PKCS7CreateEncryptedDataWithPBEV2(SEC_OID_PKCS5_PBES2,
                                                                 privAlg,
-                                                                prfAlg,
+                                                                SEC_OID_UNKNOWN,
                                                                 0,
                                                                 p12ctxt->pwfn,
                                                                 p12ctxt->pwfnarg);
@@ -1221,20 +1213,11 @@ SEC_PKCS12AddKeyForCert(SEC_PKCS12ExportContext *p12ctxt, SEC_PKCS12SafeInfo *sa
         /* extract the key encrypted */
         SECKEYEncryptedPrivateKeyInfo *epki = NULL;
         PK11SlotInfo *slot = NULL;
-        SECOidTag prfAlg = SEC_OID_UNKNOWN;
 
         if (!sec_pkcs12_encode_password(p12ctxt->arena, &uniPwitem, algorithm,
                                         pwitem)) {
             PORT_SetError(SEC_ERROR_NO_MEMORY);
             goto loser;
-        }
-
-        /* if we have password integrity set, use that to set the integrity
-         * hash algorithm to set our password PRF. If we haven't set it, just
-         * let the low level code pick it */
-        if (p12ctxt->integrityEnabled && p12ctxt->pwdIntegrity) {
-            prfAlg = HASH_GetHMACOidTagByHashOidTag(
-                p12ctxt->integrityInfo.pwdInfo.algorithm);
         }
 
         /* we want to make sure to take the key out of the key slot */
@@ -1244,15 +1227,10 @@ SEC_PKCS12AddKeyForCert(SEC_PKCS12ExportContext *p12ctxt, SEC_PKCS12SafeInfo *sa
             slot = PK11_ReferenceSlot(p12ctxt->slot);
         }
 
-        /* passing algorithm as the pbe will force the PBE code to
-         * automatically handle the selection between using the algorithm
-         * as a the pbe algorithm, or using the algorithm as a cipher
-         * and building a pkcs5 pbe */
-        epki = PK11_ExportEncryptedPrivateKeyInfoV2(slot, algorithm,
-                                                    SEC_OID_UNKNOWN, prfAlg,
-                                                    &uniPwitem, cert,
-                                                    NSS_PBE_DEFAULT_ITERATION_COUNT,
-                                                    p12ctxt->wincx);
+        epki = PK11_ExportEncryptedPrivateKeyInfo(slot, algorithm,
+                                                  &uniPwitem, cert,
+                                                  NSS_PBE_DEFAULT_ITERATION_COUNT,
+                                                  p12ctxt->wincx);
         PK11_FreeSlot(slot);
         if (!epki) {
             PORT_SetError(SEC_ERROR_PKCS12_UNABLE_TO_EXPORT_KEY);
@@ -1617,10 +1595,18 @@ sec_pkcs12_encoder_start_context(SEC_PKCS12ExportContext *p12exp)
             SECITEM_ZfreeItem(&pwd, PR_FALSE);
 
             /* get the PBA Mechanism to generate the key */
-            integrityMechType = sec_pkcs12_algtag_to_keygen_mech(
-                p12exp->integrityInfo.pwdInfo.algorithm);
-            if (integrityMechType == CKM_INVALID_MECHANISM) {
-                goto loser;
+            switch (p12exp->integrityInfo.pwdInfo.algorithm) {
+                case SEC_OID_SHA1:
+                    integrityMechType = CKM_PBA_SHA1_WITH_SHA1_HMAC;
+                    break;
+                case SEC_OID_MD5:
+                    integrityMechType = CKM_NETSCAPE_PBE_MD5_HMAC_KEY_GEN;
+                    break;
+                case SEC_OID_MD2:
+                    integrityMechType = CKM_NETSCAPE_PBE_MD2_HMAC_KEY_GEN;
+                    break;
+                default:
+                    goto loser;
             }
 
             /* generate the key */
@@ -1851,8 +1837,7 @@ loser:
 static SECStatus
 sec_Pkcs12FinishMac(sec_PKCS12EncoderContext *p12ecx)
 {
-    unsigned char hmacData[HASH_LENGTH_MAX];
-    unsigned int hmacLen;
+    SECItem hmac = { siBuffer, NULL, 0 };
     SECStatus rv;
     SGNDigestInfo *di = NULL;
     void *dummy;
@@ -1871,8 +1856,13 @@ sec_Pkcs12FinishMac(sec_PKCS12EncoderContext *p12ecx)
     }
 
     /* finish the hmac */
+    hmac.data = (unsigned char *)PORT_ZAlloc(SHA1_LENGTH);
+    if (!hmac.data) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+        return SECFailure;
+    }
 
-    rv = PK11_DigestFinal(p12ecx->hmacCx, hmacData, &hmacLen, HASH_LENGTH_MAX);
+    rv = PK11_DigestFinal(p12ecx->hmacCx, hmac.data, &hmac.len, SHA1_LENGTH);
 
     if (rv != SECSuccess) {
         PORT_SetError(SEC_ERROR_NO_MEMORY);
@@ -1881,7 +1871,7 @@ sec_Pkcs12FinishMac(sec_PKCS12EncoderContext *p12ecx)
 
     /* create the digest info */
     di = SGN_CreateDigestInfo(p12ecx->p12exp->integrityInfo.pwdInfo.algorithm,
-                              hmacData, hmacLen);
+                              hmac.data, hmac.len);
     if (!di) {
         PORT_SetError(SEC_ERROR_NO_MEMORY);
         rv = SECFailure;
@@ -1906,9 +1896,11 @@ loser:
     if (di) {
         SGN_DestroyDigestInfo(di);
     }
+    if (hmac.data) {
+        SECITEM_ZfreeItem(&hmac, PR_FALSE);
+    }
     PK11_DestroyContext(p12ecx->hmacCx, PR_TRUE);
     p12ecx->hmacCx = NULL;
-    PORT_Memset(hmacData, 0, hmacLen);
 
     return rv;
 }
