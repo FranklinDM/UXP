@@ -376,24 +376,6 @@ def sdk_bin_path(valid_windows_sdk_dir, valid_ucrt_sdk_dir):
 mt = check_prog('MT', depends_win()(lambda: ('mt.exe',)), input='MT',
                 paths=sdk_bin_path)
 
-
-# Check that MT is not something unexpected like "magnetic tape manipulation
-# utility".
-@depends_win(mt)
-@checking('whether MT is really Microsoft Manifest Tool', lambda x: bool(x))
-@imports('subprocess')
-def valid_mt(path):
-    try:
-        out = subprocess.check_output([path]).splitlines()
-        out = '\n'.join(l for l in out
-                        if 'Microsoft (R) Manifest Tool' in l)
-        if out:
-              return path
-    except subprocess.CalledProcessError:
-        pass
-    raise FatalCheckError('%s is not Microsoft Manifest Tool')
-
-
 set_config('MSMANIFEST_TOOL', depends(valid_mt)(lambda x: bool(x)))
 
 
