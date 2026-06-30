@@ -376,8 +376,6 @@ def sdk_bin_path(valid_windows_sdk_dir, valid_ucrt_sdk_dir):
 mt = check_prog('MT', depends_win()(lambda: ('mt.exe',)), input='MT',
                 paths=sdk_bin_path)
 
-set_config('MSMANIFEST_TOOL', depends(valid_mt)(lambda x: bool(x)))
-
 
 # Ultimately, this will move to toolchain.configure and be turned into a
 # cross-platform check.
