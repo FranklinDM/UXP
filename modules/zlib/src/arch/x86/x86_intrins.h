@@ -76,9 +76,11 @@ static inline __m512i _mm512_set_epi8(char __q63, char __q62, char __q61, char _
  */
 #if defined(_MSC_VER) && _MSC_VER < 1914
 #ifdef __AVX2__
+#if !defined(__clang__) && defined(_MSC_VER)
 static inline __m256i _mm256_zextsi128_si256(__m128i a) {
-    return _mm256_inserti128_si256(_mm256_setzero_si256(), a, 0);
+    return _mm256_insertf128_si256(_mm256_castsi128_si256(a), a, 1);
 }
+#endif __clang__
 #endif // __AVX2__
 
 #ifdef __AVX512F__
