@@ -11,12 +11,19 @@ ac_add_options --target=i686-pc-mingw32
 WIN32_REDIST_DIR=$VCINSTALLDIR/Redist/MSVC/14.16.27012/x86
 WIN_UCRT_REDIST_DIR=$WINDOWSSDKDIR/Redist/10.0.19041.0/ucrt/DLLs/r86
 
+# Force compiler + linker + tools
+
 CC=gcc
 CXX=g++
 LD=g++
 AR=ar
 AS=as
 RANLIB=ranlib
+
+export GCC=/c/mingw32/bin
+
+# Force PATH so UXP thinks only GCC is there
+export PATH="$GCC:$PATH"
 
 # Build only Hydra
 ac_add_options --enable-application=basilisk
@@ -37,7 +44,7 @@ ac_add_options --enable-devtools
 #ac_add_options --enable-install-strip
 ac_add_options --enable-jemalloc
 ac_add_options --enable-js-lto
-ac_add_options --enable-optimize="-O2"
+ac_add_options --enable-optimize="-O2 -w -march=pentium3 -mtune=pentium3 -msse -mno-sse2 -fno-tree-vectorize"
 ac_add_options --enable-phoenix-extensions
 ac_add_options --enable-release
 ac_add_options --enable-shared-js
@@ -49,7 +56,7 @@ export MOZILLA_OFFICIAL=1
 export STRIP_FLAGS="--strip-debug --strip-unneeded"
 
 # Media settings
-ac_add_options --enable-av1
+ac_add_options --disable-av1
 ac_add_options --enable-jxl
 ac_add_options --enable-raw
 ac_add_options --disable-webrtc
