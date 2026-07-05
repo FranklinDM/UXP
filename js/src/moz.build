@@ -405,6 +405,8 @@ SOURCES += [
 if CONFIG['CC_TYPE'] == 'gcc':
     SOURCES['vm/SelfHosting.cpp'].flags += ['-fopenmp']
     OS_LIBS += ['gomp']
+    if CONFIG['OS_ARCH'] == 'WINNT':
+        OS_LIBS += ['dl']
 
 if CONFIG['JS_POSIX_NSPR']:
     posix_nspr_deunified_sources = [
