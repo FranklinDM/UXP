@@ -25,7 +25,7 @@ void LoadA8ToRGBA8(size_t width,
                    size_t outputRowPitch,
                    size_t outputDepthPitch)
 {
-#if defined(ANGLE_USE_SSE)
+#if defined(ANGLE_USE_SSE) && !(defined(__GNUC__) && !defined(__clang__))
     if (gl::supportsSSE2())
     {
         __m128i zeroWide = _mm_setzero_si128();
@@ -594,7 +594,7 @@ void LoadRGBA8ToBGRA8(size_t width,
                       size_t outputRowPitch,
                       size_t outputDepthPitch)
 {
-#if defined(ANGLE_USE_SSE)
+#if defined(ANGLE_USE_SSE) && !(defined(__GNUC__) && !defined(__clang__))
     if (gl::supportsSSE2())
     {
         __m128i brMask = _mm_set1_epi32(0x00ff00ff);
