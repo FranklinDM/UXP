@@ -114,7 +114,34 @@ public:
   };
 
   struct CalcNode final {
+#if defined(__MINGW32__)
+    MOZ_NEVER_INLINE MozExternalRefCountType AddRef(void)
+    {
+      MOZ_ASSERT_TYPE_OK_FOR_REFCOUNTING(CalcNode)
+      MOZ_ASSERT(int32_t(mRefCnt) >= 0, "illegal refcnt");
+      nsrefcnt count = ++mRefCnt;
+      NS_LOG_ADDREF(this, count, "CalcNode", sizeof(*this));
+      return (nsrefcnt) count;
+    }
+
+    MOZ_NEVER_INLINE MozExternalRefCountType Release(void)
+    {
+      MOZ_ASSERT(int32_t(mRefCnt) > 0, "dup release");
+      nsrefcnt count = --mRefCnt;
+      NS_LOG_RELEASE(this, count, "CalcNode");
+      if (count == 0) {
+        delete (this);
+        return 0;
+      }
+      return count;
+    }
+    typedef mozilla::TrueType HasThreadSafeRefCnt;
+  protected:
+    ::mozilla::ThreadSafeAutoRefCnt mRefCnt;
+  public:
+#else
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CalcNode)
+#endif
 
     enum class Type : uint8_t {
       Leaf,
@@ -151,7 +178,34 @@ public:
   // Reference counted calc() value.  This is the type that is used to store
   // the calc() value in nsStyleCoord.
   struct Calc final : public CalcValue {
+#if defined(__MINGW32__)
+    MOZ_NEVER_INLINE MozExternalRefCountType AddRef(void)
+    {
+      MOZ_ASSERT_TYPE_OK_FOR_REFCOUNTING(Calc)
+      MOZ_ASSERT(int32_t(mRefCnt) >= 0, "illegal refcnt");
+      nsrefcnt count = ++mRefCnt;
+      NS_LOG_ADDREF(this, count, "Calc", sizeof(*this));
+      return (nsrefcnt) count;
+    }
+
+    MOZ_NEVER_INLINE MozExternalRefCountType Release(void)
+    {
+      MOZ_ASSERT(int32_t(mRefCnt) > 0, "dup release");
+      nsrefcnt count = --mRefCnt;
+      NS_LOG_RELEASE(this, count, "Calc");
+      if (count == 0) {
+        delete (this);
+        return 0;
+      }
+      return count;
+    }
+    typedef mozilla::TrueType HasThreadSafeRefCnt;
+  protected:
+    ::mozilla::ThreadSafeAutoRefCnt mRefCnt;
+  public:
+#else
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Calc)
+#endif
     Calc() {}
 
     bool HasCalcNode() const { return !!mNode; }
