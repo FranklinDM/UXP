@@ -45,6 +45,8 @@ else:
 if CONFIG['CC_TYPE'] == 'gcc':
     CXXFLAGS += ['-fopenmp']
     OS_LIBS += ['gomp']
+    if CONFIG['OS_ARCH'] == 'WINNT':
+        OS_LIBS += ['dl']
 
 DEFINES['BUILDING_SOUNDTOUCH'] = 1
 
