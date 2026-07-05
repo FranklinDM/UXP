@@ -894,9 +894,9 @@ case "$target" in
         IMPORT_LIB_SUFFIX=lib
         MKSHLIB='$(LD) -NOLOGO -DLL -OUT:$@ -PDB:$(LINK_PDBFILE) $(DSO_LDOPTS)'
         MKCSHLIB='$(LD) -NOLOGO -DLL -OUT:$@ -PDB:$(LINK_PDBFILE) $(DSO_LDOPTS)'
-        dnl Set subsystem version 5 for Windows XP.
+        dnl Set subsystem version 4 for NT4/9x, version 5 for XP x64
         if test "$CPU_ARCH" = "x86"; then
-            WIN32_SUBSYSTEM_VERSION=5.01
+            WIN32_SUBSYSTEM_VERSION=4.00
         else
             WIN32_SUBSYSTEM_VERSION=5.02
         fi
