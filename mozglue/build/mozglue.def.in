@@ -34,7 +34,7 @@ EXPORTS
   _wcsdup=wrap_wcsdup
   jemalloc_stats
   jemalloc_free_dirty_pages
-#ifdef GNU_CC
+#if defined(__GNUC__)
   _Z14mozalloc_abortPKc
 #else
   ?mozalloc_abort@@YAXQEBD@Z
