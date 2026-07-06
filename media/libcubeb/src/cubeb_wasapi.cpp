@@ -938,6 +938,12 @@ BOOL WINAPI revert_mm_thread_characteristics_noop(HANDLE mmcss_handle)
 
 HRESULT register_notification_client(cubeb_stream * stm)
 {
+#if defined(__MINGW32__)
+  // MinGW builds have shown crashes in MMDevApi callback dispatch paths.
+  // Skip notification registration and rely on normal stream operation.
+  (void)stm;
+  return S_OK;
+#else
   HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
                                 NULL, CLSCTX_INPROC_SERVER,
                                 IID_PPV_ARGS(&stm->device_enumerator));
@@ -958,10 +964,15 @@ HRESULT register_notification_client(cubeb_stream * stm)
   }
 
   return hr;
+#endif
 }
 
 HRESULT unregister_notification_client(cubeb_stream * stm)
 {
+#if defined(__MINGW32__)
+  (void)stm;
+  return S_OK;
+#else
   XASSERT(stm);
   HRESULT hr;
 
@@ -981,6 +992,7 @@ HRESULT unregister_notification_client(cubeb_stream * stm)
   SafeRelease(stm->device_enumerator);
 
   return S_OK;
+#endif
 }
 
 HRESULT get_endpoint(IMMDevice ** device, LPCWSTR devid)
