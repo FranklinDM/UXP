@@ -12,14 +12,10 @@
 /*
 * Windows NT4 / 2000 / XP‑RTM do not provide EncodePointer / DecodePointer.
 * On down‑level systems, the correct behaviour is to return the pointer unchanged.
+* ulw = Ultra-Legacy Windows.
 */
 
-static __inline void* CompatDecodePointer(void* p)
-{
-    return p;
-}
-
-static __inline void* CompatEncodePointer(void* p)
+static __inline void* ulwDecodePointer(void* p)
 {
     return p;
 }
@@ -417,7 +413,7 @@ DecodeInline(void* dest,
 }
 
 static SECStatus
-CompatDecodePointer(void* dest,
+ulwDecodePointer(void* dest,
               const SEC_ASN1Template* templateEntry,
               SECItem* src, PLArenaPool* arena, PRBool checkTag)
 {
@@ -443,7 +439,7 @@ DecodeImplicit(void* dest,
                SECItem* src, PLArenaPool* arena)
 {
     if (templateEntry->kind & SEC_ASN1_POINTER) {
-        return CompatDecodePointer((void*)((char*)dest),
+        return ulwDecodePointer((void*)((char*)dest),
                              templateEntry, src, arena, PR_FALSE);
     } else {
         return DecodeInline((void*)((char*)dest),
@@ -584,7 +580,7 @@ DecodeExplicit(void* dest,
 
     if (SECSuccess == rv) {
         if (templateEntry->kind & SEC_ASN1_POINTER) {
-            rv = CompatDecodePointer(dest, templateEntry, &subItem, arena, PR_TRUE);
+            rv = ulwDecodePointer(dest, templateEntry, &subItem, arena, PR_TRUE);
         } else {
             rv = DecodeInline(dest, templateEntry, &subItem, arena, PR_TRUE);
         }
@@ -711,7 +707,7 @@ DecodeItem(void* dest,
             /* decode implicitly tagged components */
             rv = DecodeImplicit(dest, templateEntry, &temp, arena);
         } else if (kind & SEC_ASN1_POINTER) {
-            rv = CompatDecodePointer(dest, templateEntry, &temp, arena, PR_TRUE);
+            rv = ulwDecodePointer(dest, templateEntry, &temp, arena, PR_TRUE);
         } else if (kind & SEC_ASN1_CHOICE) {
             rv = DecodeChoice(dest, templateEntry, &temp, arena);
         } else if (kind & SEC_ASN1_ANY) {
