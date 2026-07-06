@@ -851,7 +851,12 @@ MozDescribeCodeAddress(void* aPC, MozCodeAddressDetails* aDetails)
   pSymbol->MaxNameLen = MAX_SYM_NAME;
 
   DWORD64 displacement;
+#ifdef __MINGW32__
+  // SymFromAddr is not available in MinGW dbghelp.dll
+  ok = FALSE;
+#else
   ok = SymFromAddr(myProcess, addr, &displacement, pSymbol);
+#endif
 
   if (ok) {
     strncpy(aDetails->function, pSymbol->Name,
