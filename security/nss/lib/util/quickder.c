@@ -9,17 +9,13 @@
 #include "secerr.h"
 #include "secasn1.h" /* for SEC_ASN1GetSubtemplate */
 
-/*
-* Windows NT4 / 2000 / XP‑RTM do not provide EncodePointer / DecodePointer.
-* On down‑level systems, the correct behaviour is to return the pointer unchanged.
-* ulw = Ultra-Legacy Windows.
-*/
+#if defined(_WIN32) && !defined(_WIN64)
+static __inline void* Win2000_EncodePointer(void* p) { return p; }
+static __inline void* Win2000_DecodePointer(void* p) { return p; }
 
-static __inline void* ulwDecodePointer(void* p)
-{
-    return p;
-}
-
+#define EncodePointer(p) Win2000_EncodePointer(p)
+#define DecodePointer(p) Win2000_DecodePointer(p)
+#endif
 
 /*
  * simple definite-length ASN.1 decoder
@@ -413,7 +409,7 @@ DecodeInline(void* dest,
 }
 
 static SECStatus
-ulwDecodePointer(void* dest,
+DecodePointer(void* dest,
               const SEC_ASN1Template* templateEntry,
               SECItem* src, PLArenaPool* arena, PRBool checkTag)
 {
@@ -439,7 +435,7 @@ DecodeImplicit(void* dest,
                SECItem* src, PLArenaPool* arena)
 {
     if (templateEntry->kind & SEC_ASN1_POINTER) {
-        return ulwDecodePointer((void*)((char*)dest),
+        return DecodePointer((void*)((char*)dest),
                              templateEntry, src, arena, PR_FALSE);
     } else {
         return DecodeInline((void*)((char*)dest),
@@ -580,7 +576,7 @@ DecodeExplicit(void* dest,
 
     if (SECSuccess == rv) {
         if (templateEntry->kind & SEC_ASN1_POINTER) {
-            rv = ulwDecodePointer(dest, templateEntry, &subItem, arena, PR_TRUE);
+            rv = DecodePointer(dest, templateEntry, &subItem, arena, PR_TRUE);
         } else {
             rv = DecodeInline(dest, templateEntry, &subItem, arena, PR_TRUE);
         }
@@ -707,7 +703,7 @@ DecodeItem(void* dest,
             /* decode implicitly tagged components */
             rv = DecodeImplicit(dest, templateEntry, &temp, arena);
         } else if (kind & SEC_ASN1_POINTER) {
-            rv = ulwDecodePointer(dest, templateEntry, &temp, arena, PR_TRUE);
+            rv = DecodePointer(dest, templateEntry, &temp, arena, PR_TRUE);
         } else if (kind & SEC_ASN1_CHOICE) {
             rv = DecodeChoice(dest, templateEntry, &temp, arena);
         } else if (kind & SEC_ASN1_ANY) {
