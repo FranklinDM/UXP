@@ -17,6 +17,11 @@ Some advantages over upstream, roytam1's Serpent, Eclipse Hydra and Firefox are:
 - Literally being the fastest XUL browser (33.7 in Speedometer 2.1 compared to 22.4 in Pale Moon 34.2 AVX2)
 - Re-add support for iOS, Android, Windows 2000 and later, NetBSD (soon OpenBSD)
 
+## Interested in running Dactyloidae in Win9x?
+
+Get DactJump alongside Dactyloidae if you want to use it on 9x.
+
+<a href="https://repo.dactyloidae.xyz/Dactyloidae/DactJump/">Get it here.</a>
 ## Credits
 
 If I've forgotten to put your name here, please let me know and I'll add it.
