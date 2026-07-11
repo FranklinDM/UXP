@@ -9,14 +9,6 @@
 #include "secerr.h"
 #include "secasn1.h" /* for SEC_ASN1GetSubtemplate */
 
-#if defined(_WIN32) && !defined(_WIN64)
-static __inline void* Win2000_EncodePointer(void* p) { return p; }
-static __inline void* Win2000_DecodePointer(void* p) { return p; }
-
-#define EncodePointer(p) Win2000_EncodePointer(p)
-#define DecodePointer(p) Win2000_DecodePointer(p)
-#endif
-
 /*
  * simple definite-length ASN.1 decoder
  */
