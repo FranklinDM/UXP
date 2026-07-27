@@ -2274,6 +2274,11 @@ PK11_TraverseCertsForNicknameInSlot(SECItem *nickname, PK11SlotInfo *slot,
         (void)nssToken_Destroy(token);
         return SECSuccess;
     }
+    if (!nickname || !nickname->data || nickname->len == 0) {
+        (void)nssToken_Destroy(token);
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
+        return SECFailure;
+    }
     if (nickname->data[nickname->len - 1] != '\0') {
         nick = nssUTF8_Create(NULL, nssStringType_UTF8String,
                               nickname->data, nickname->len);
