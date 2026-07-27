@@ -234,13 +234,7 @@ nsHTMLButtonControlFrame::ReflowButtonContents(nsPresContext* aPresContext,
 {
   WritingMode wm = GetWritingMode();
   LogicalSize availSize = aButtonReflowInput.ComputedSize(wm);
-
-  // Preserve the button's definite BSize so that flex/grid children inside
-  // see a definite containing block main size. Only clobber to intrinsic
-  // when the button itself has an indefinite BSize.
-  if (aButtonReflowInput.ComputedBSize() == NS_INTRINSICSIZE) {
-    availSize.BSize(wm) = NS_INTRINSICSIZE;
-  }
+  availSize.BSize(wm) = NS_INTRINSICSIZE;
 
   // shorthand for a value we need to use in a bunch of places
   const LogicalMargin& clbp = aButtonReflowInput.ComputedLogicalBorderPadding();
@@ -253,12 +247,6 @@ nsHTMLButtonControlFrame::ReflowButtonContents(nsPresContext* aPresContext,
                                   aButtonReflowInput,
                                   aFirstKid,
                                   availSize);
-
-  // Also set the computed BSize directly on the inner reflow input so it
-  // gets used as-is by the anonymous flex container:
-  if (aButtonReflowInput.ComputedBSize() != NS_INTRINSICSIZE) {
-    contentsReflowInput.SetComputedBSize(aButtonReflowInput.ComputedBSize());
-  }
 
   nsReflowStatus contentsReflowStatus;
   ReflowOutput contentsDesiredSize(aButtonReflowInput);
