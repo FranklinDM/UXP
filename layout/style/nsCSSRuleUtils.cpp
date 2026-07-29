@@ -1676,6 +1676,52 @@ nsCSSRuleUtils::SelectorListMatches(Element* aElement,
                              aPreventComplexSelectors);
 }
 
+static inline bool
+matchesCandidate(Element* aCandidate,
+                 nsCSSSelectorList* aRelativeSelector,
+                 TreeMatchContext& aTreeMatchContext)
+{
+  AutoRestore<Element*> styleScopeRestorer(
+    aTreeMatchContext.mCurrentStyleScope);
+  // A candidate inspected by :has() is never the relevant link for the
+  // anchor being styled.  Treating it as relevant would allow
+  // :has(:visited) to expose link history through an ancestor.
+  NodeMatchContext nodeContext(EventStates(), false);
+  nsCSSSelector* selector = aRelativeSelector->mSelectors;
+  if (!nsCSSRuleUtils::SelectorMatches(
+        aCandidate,
+        selector,
+        nodeContext,
+        aTreeMatchContext,
+        SelectorMatchesFlags::IS_PSEUDO_CLASS_ARGUMENT)) {
+    return false;
+  }
+  return !selector->mNext ||
+         nsCSSRuleUtils::SelectorMatchesTree(
+           aCandidate,
+           selector->mNext,
+           aTreeMatchContext,
+           SelectorMatchesTreeFlags(0));
+}
+
+static inline bool
+matchesSubtree(nsIContent* aRoot,
+               nsCSSSelectorList* aRelativeSelector,
+               TreeMatchContext& aTreeMatchContext)
+{
+  for (nsIContent* node = aRoot;
+       node;
+       node = node->GetNextNode(aRoot)) {
+    if (node->IsElement() &&
+        matchesCandidate(node->AsElement(),
+                         aRelativeSelector,
+                         aTreeMatchContext)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /* static */ bool
 nsCSSRuleUtils::RelativeSelectorListMatches(
   Element* aAnchor,
@@ -1703,42 +1749,6 @@ nsCSSRuleUtils::RelativeSelectorListMatches(
     aTreeMatchContext.mRelativeSelectorAnchor);
   aTreeMatchContext.mRelativeSelectorAnchor = aAnchor;
 
-  auto matchesCandidate =
-    [&](Element* aCandidate, nsCSSSelectorList* aRelativeSelector) {
-      AutoRestore<Element*> styleScopeRestorer(
-        aTreeMatchContext.mCurrentStyleScope);
-      // A candidate inspected by :has() is never the relevant link for the
-      // anchor being styled.  Treating it as relevant would allow
-      // :has(:visited) to expose link history through an ancestor.
-      NodeMatchContext nodeContext(EventStates(), false);
-      nsCSSSelector* selector = aRelativeSelector->mSelectors;
-      if (!SelectorMatches(aCandidate,
-                           selector,
-                           nodeContext,
-                           aTreeMatchContext,
-                           SelectorMatchesFlags::IS_PSEUDO_CLASS_ARGUMENT)) {
-        return false;
-      }
-      return !selector->mNext ||
-             SelectorMatchesTree(aCandidate,
-                                 selector->mNext,
-                                 aTreeMatchContext,
-                                 SelectorMatchesTreeFlags(0));
-    };
-
-  auto matchesSubtree =
-    [&](nsIContent* aRoot, nsCSSSelectorList* aRelativeSelector) {
-      for (nsIContent* node = aRoot;
-           node;
-           node = node->GetNextNode(aRoot)) {
-        if (node->IsElement() &&
-            matchesCandidate(node->AsElement(), aRelativeSelector)) {
-          return true;
-        }
-      }
-      return false;
-    };
-
   for (nsCSSSelectorList* relative = aList;
        relative;
        relative = relative->mNext) {
@@ -1765,7 +1775,7 @@ nsCSSRuleUtils::RelativeSelectorListMatches(
         for (Element* sibling = aAnchor->GetNextElementSibling();
              sibling;
              sibling = sibling->GetNextElementSibling()) {
-          if (matchesSubtree(sibling, relative)) {
+          if (matchesSubtree(sibling, relative, aTreeMatchContext)) {
             return true;
           }
         }
@@ -1777,7 +1787,9 @@ nsCSSRuleUtils::RelativeSelectorListMatches(
              node;
              node = node->GetNextNode(aAnchor)) {
           if (node->IsElement() &&
-              matchesCandidate(node->AsElement(), relative)) {
+              matchesCandidate(node->AsElement(),
+                               relative,
+                               aTreeMatchContext)) {
             return true;
           }
         }
