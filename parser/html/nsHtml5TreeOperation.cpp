@@ -690,11 +690,11 @@ nsHtml5TreeOperation::CreateMathMLElement(nsIAtom* aName,
 void
 nsHtml5TreeOperation::SetFormElement(nsIContent* aNode, nsIContent* aParent)
 {
-  if (aNode->SubtreeRoot() != aParent->SubtreeRoot()) {
-    return;
-  }
   nsCOMPtr<nsIFormControl> formControl(do_QueryInterface(aNode));
   nsCOMPtr<nsIDOMHTMLImageElement> domImageElement = do_QueryInterface(aNode);
+  if (domImageElement && aNode->SubtreeRoot() != aParent->SubtreeRoot()) {
+    return;
+  }
   // NS_ASSERTION(formControl, "Form-associated element did not implement nsIFormControl.");
   // TODO: uncomment the above line when <keygen> (bug 101019) is supported by Gecko
   nsCOMPtr<nsIDOMHTMLFormElement> formElement(do_QueryInterface(aParent));
