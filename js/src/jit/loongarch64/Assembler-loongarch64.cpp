@@ -334,8 +334,19 @@ void AssemblerLOONGARCH64::WriteInstStatic(uint32_t x, uint32_t* dest) {
 }
 
 BufferOffset AssemblerLOONGARCH64::haltingAlign(int alignment) {
-  // TODO(loongarch64): Implement a proper halting align.
-  return nopAlign(alignment);
+  BufferOffset ret;
+  MOZ_ASSERT(m_buffer.isAligned(4));
+  MOZ_ASSERT((alignment & (alignment - 1)) == 0);
+
+  while (size() & (alignment - 1)) {
+    BufferOffset tmp(size());
+    as_break(WASM_TRAP);
+    if (!ret.assigned()) {
+      ret = tmp;
+    }
+  }
+
+  return ret;
 }
 
 BufferOffset AssemblerLOONGARCH64::nopAlign(int alignment) {
@@ -436,10 +447,30 @@ InstImm AssemblerLOONGARCH64::getBranchCode(JumpOrCall jumpOrCall) {
 }
 
 InstImm AssemblerLOONGARCH64::getBranchCode(Register rj, Register rd, Condition c) {
-  // beq, bne
-  MOZ_ASSERT(c == AssemblerLOONGARCH64::Equal || c == AssemblerLOONGARCH64::NotEqual);
-  return InstImm(c == AssemblerLOONGARCH64::Equal ? op_beq : op_bne, BOffImm16(0),
-                 rj, rd);
+  switch (c) {
+    case AssemblerLOONGARCH64::Equal:
+      return InstImm(op_beq, BOffImm16(0), rj, rd);
+    case AssemblerLOONGARCH64::NotEqual:
+      return InstImm(op_bne, BOffImm16(0), rj, rd);
+    case AssemblerLOONGARCH64::Above:
+      return InstImm(op_bltu, BOffImm16(0), rd, rj);
+    case AssemblerLOONGARCH64::AboveOrEqual:
+      return InstImm(op_bgeu, BOffImm16(0), rj, rd);
+    case AssemblerLOONGARCH64::Below:
+      return InstImm(op_bltu, BOffImm16(0), rj, rd);
+    case AssemblerLOONGARCH64::BelowOrEqual:
+      return InstImm(op_bgeu, BOffImm16(0), rd, rj);
+    case AssemblerLOONGARCH64::GreaterThan:
+      return InstImm(op_blt, BOffImm16(0), rd, rj);
+    case AssemblerLOONGARCH64::GreaterThanOrEqual:
+      return InstImm(op_bge, BOffImm16(0), rj, rd);
+    case AssemblerLOONGARCH64::LessThan:
+      return InstImm(op_blt, BOffImm16(0), rj, rd);
+    case AssemblerLOONGARCH64::LessThanOrEqual:
+      return InstImm(op_bge, BOffImm16(0), rd, rj);
+    default:
+      MOZ_CRASH("Condition not supported.");
+  }
 }
 
 InstImm AssemblerLOONGARCH64::getBranchCode(Register rj, Condition c) {

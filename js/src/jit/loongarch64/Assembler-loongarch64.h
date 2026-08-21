@@ -239,8 +239,8 @@ static_assert(JitStackAlignment % sizeof(Value) == 0 &&
                   JitStackValueAlignment >= 1,
               "Stack alignment should be a non-zero multiple of sizeof(Value)");
 
-// TODO(loongarch64): this is just a filler to prevent a build failure. The
-// LoongArch SIMD alignment requirements still need to be explored.
+// LoongArch LSX SIMD vectors are 128 bits wide, so use 16-byte alignment for
+// SIMD constants and wasm stack alignment even while SIMD codegen is disabled.
 static constexpr uint32_t SimdMemoryAlignment = 16;
 
 static_assert(CodeAlignment % SimdMemoryAlignment == 0,
@@ -260,9 +260,8 @@ static constexpr uint32_t WasmCheckedTailEntryOffset = 16u;
 
 static constexpr Scale ScalePointer = TimesEight;
 
-// TODO(loongarch64): Add LoongArch instruction types description.
-
-// LoongArch instruction encoding constants.
+// LoongArch instruction encoding constants. The assembler models the encodings
+// used by this backend as register, immediate, and jump instruction records.
 static const uint32_t RJShift = 5;
 static const uint32_t RJBits = 5;
 static const uint32_t RKShift = 10;
@@ -344,11 +343,11 @@ static const uint32_t BOffImm21Mask = ((1 << Imm21Bits) - 1) << Imm21Shift;
 static const uint32_t BOffImm26Mask = ((1 << Imm26Bits) - 1) << Imm26Shift;
 static const uint32_t RegMask = Registers::Total - 1;
 
-// TODO(loongarch64) Change to syscall?
 static const uint32_t MAX_BREAK_CODE = 1024 - 1;
+// Use LoongArch BRK for wasm traps and debug breakpoints. Signal handling code
+// decodes the BRK immediate to recover the wasm trap kind.
 static const uint32_t WASM_TRAP = 6;  // BRK_OVERFLOW
 
-// TODO(loongarch64) Change to LoongArch instruction type.
 class Instruction;
 class InstReg;
 class InstImm;
@@ -866,7 +865,8 @@ class LOONGBufferWithExecutableCopy : public LOONGBuffer {
 
 class AssemblerLOONGARCH64 : public AssemblerShared {
  public:
-  // TODO(loongarch64): Should we remove these conditions here?
+  // Keep the shared condition vocabulary so shared MacroAssembler and
+  // CodeGenerator code can lower comparisons without per-use remapping.
   enum Condition {
     Equal,
     NotEqual,

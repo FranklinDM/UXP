@@ -293,7 +293,7 @@ class FloatRegisters {
   static const SetType AllDoubleMask = AllPhysMask * SpreadDouble;
   static const SetType NoneMask = SetType(0);
 
-  // TODO(loongarch64): Much less than ARM64 here.
+  // LoongArch64 callee-saved floating-point registers are f24-f31.
   static const SetType NonVolatileMask =
       SetType((1 << FloatRegisters::f24) | (1 << FloatRegisters::f25) |
               (1 << FloatRegisters::f26) | (1 << FloatRegisters::f27) |

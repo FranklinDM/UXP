@@ -1299,10 +1299,20 @@ void MacroAssemblerLOONGARCH64::ma_cmp_set(Register rd, Register rj, ImmPtr imm,
 
 void MacroAssemblerLOONGARCH64::ma_cmp_set(Register rd, Address address, Imm32 imm,
                                        Condition c) {
-  // TODO(loongarch64): 32-bit ma_cmp_set?
   SecondScratchRegisterScope scratch2(asMasm());
-  ma_ld_w(scratch2, address);
-  ma_cmp_set(rd, Register(scratch2), imm, c);
+  switch (c) {
+    case Above:
+    case AboveOrEqual:
+    case Below:
+    case BelowOrEqual:
+      ma_ld_wu(scratch2, address);
+      ma_cmp_set(rd, Register(scratch2), ImmWord(uint32_t(imm.value)), c);
+      break;
+    default:
+      ma_ld_w(scratch2, address);
+      ma_cmp_set(rd, Register(scratch2), imm, c);
+      break;
+  }
 }
 
 void MacroAssemblerLOONGARCH64::ma_cmp_set(Register rd, Address address,
@@ -1852,12 +1862,19 @@ void MacroAssemblerLOONGARCH64::storeUnalignedFloat32(
 }
 
 // Branches when done from within loongarch-specific code.
-// TODO(loongarch64) Optimize ma_b
 void MacroAssemblerLOONGARCH64::ma_b(Register lhs, Register rhs, Label* label,
                                  Condition c, JumpKind jumpKind) {
   switch (c) {
     case Equal:
     case NotEqual:
+    case Above:
+    case AboveOrEqual:
+    case Below:
+    case BelowOrEqual:
+    case GreaterThan:
+    case GreaterThanOrEqual:
+    case LessThan:
+    case LessThanOrEqual:
       asMasm().branchWithCode(getBranchCode(lhs, rhs, c), label, jumpKind);
       break;
     case Always:
@@ -1870,12 +1887,8 @@ void MacroAssemblerLOONGARCH64::ma_b(Register lhs, Register rhs, Label* label,
       MOZ_ASSERT(lhs == rhs);
       asMasm().branchWithCode(getBranchCode(lhs, c), label, jumpKind);
       break;
-    default: {
-      Condition cond = ma_cmp(ScratchRegister, lhs, rhs, c);
-      asMasm().branchWithCode(getBranchCode(ScratchRegister, cond), label,
-                              jumpKind);
-      break;
-    }
+    default:
+      MOZ_CRASH("Invalid condition.");
   }
 }
 
@@ -2521,7 +2534,8 @@ void MacroAssemblerLOONGARCH64Compat::wasmLoadI64Impl(
       as_ldx_w(output.reg, memoryBase, ptr);
       break;
     case Scalar::Uint32:
-      // TODO(loongarch64): Why need zero-extension here?
+      // Uint32 loads must clear the upper 32 bits before the value is consumed
+      // by 64-bit wasm operations.
       as_ldx_wu(output.reg, memoryBase, ptr);
       break;
     case Scalar::Int64:
