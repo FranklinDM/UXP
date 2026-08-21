@@ -833,7 +833,14 @@ CodeGeneratorLoongArch64::visitWrapInt64ToInt32(LWrapInt64ToInt32* lir)
         else
             masm.ma_sll(output, ToRegister(input), Imm32(0));
     } else {
-        MOZ_CRASH("Not implemented.");
+        if (input->isMemory())
+            masm.load32(Address(ToAddress(input).base,
+                                ToAddress(input).offset + sizeof(int32_t)),
+                        output);
+        else {
+            masm.ma_dsrl(output, ToRegister(input), Imm32(32));
+            masm.ma_sll(output, output, Imm32(0));
+        }
     }
 }
 
