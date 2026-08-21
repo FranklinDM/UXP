@@ -639,16 +639,46 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   void loadUnalignedSimd128Float(const BaseIndex& src, FloatRegister dest);
   void storeUnalignedSimd128Float(FloatRegister src, const Address& dest);
   void storeUnalignedSimd128Float(FloatRegister src, const BaseIndex& dest);
+  void loadAlignedSimd128Float(const Address& src, FloatRegister dest) {
+    loadUnalignedSimd128Float(src, dest);
+  }
+  void loadAlignedSimd128Float(const BaseIndex& src, FloatRegister dest) {
+    loadUnalignedSimd128Float(src, dest);
+  }
+  void storeAlignedSimd128Float(FloatRegister src, const Address& dest) {
+    storeUnalignedSimd128Float(src, dest);
+  }
+  void storeAlignedSimd128Float(FloatRegister src, const BaseIndex& dest) {
+    storeUnalignedSimd128Float(src, dest);
+  }
+  void moveSimd128Float(FloatRegister src, FloatRegister dest);
+  void moveSimd128Int(FloatRegister src, FloatRegister dest) {
+    moveSimd128Float(src, dest);
+  }
+  void zeroSimd128Float(FloatRegister dest);
+  void zeroSimd128Int(FloatRegister dest) { zeroSimd128Float(dest); }
   void loadUnalignedSimd128Int(const Address& src, FloatRegister dest) {
     loadUnalignedSimd128Float(src, dest);
   }
   void loadUnalignedSimd128Int(const BaseIndex& src, FloatRegister dest) {
     loadUnalignedSimd128Float(src, dest);
   }
+  void loadAlignedSimd128Int(const Address& src, FloatRegister dest) {
+    loadUnalignedSimd128Float(src, dest);
+  }
+  void loadAlignedSimd128Int(const BaseIndex& src, FloatRegister dest) {
+    loadUnalignedSimd128Float(src, dest);
+  }
   void storeUnalignedSimd128Int(FloatRegister src, const Address& dest) {
     storeUnalignedSimd128Float(src, dest);
   }
   void storeUnalignedSimd128Int(FloatRegister src, const BaseIndex& dest) {
+    storeUnalignedSimd128Float(src, dest);
+  }
+  void storeAlignedSimd128Int(FloatRegister src, const Address& dest) {
+    storeUnalignedSimd128Float(src, dest);
+  }
+  void storeAlignedSimd128Int(FloatRegister src, const BaseIndex& dest) {
     storeUnalignedSimd128Float(src, dest);
   }
 

@@ -544,6 +544,8 @@ enum OpcodeField {
   op_fstx_d = 0x7078U << 15,
   op_vldx = 0x38400000,
   op_vstx = 0x38440000,
+  op_vor_v = 0x71268000,
+  op_vxor_v = 0x71270000,
   op_amswap_w = 0x70c0U << 15,
   op_amswap_d = 0x70c1U << 15,
   op_amadd_w = 0x70c2U << 15,
@@ -1282,6 +1284,8 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
   BufferOffset as_stx_d(Register rd, Register rj, Register rk);
   BufferOffset as_vldx(FloatRegister vd, Register rj, Register rk);
   BufferOffset as_vstx(FloatRegister vd, Register rj, Register rk);
+  BufferOffset as_vor_v(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vxor_v(FloatRegister vd, FloatRegister vj, FloatRegister vk);
 
   BufferOffset as_ldptr_w(Register rd, Register rj, int32_t si14);
   BufferOffset as_ldptr_d(Register rd, Register rj, int32_t si14);

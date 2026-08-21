@@ -1141,6 +1141,24 @@ BufferOffset AssemblerLOONGARCH64::as_vstx(FloatRegister vd, Register rj,
   return writeInst(InstReg(op_vstx, rk, rj, vd).encode());
 }
 
+BufferOffset AssemblerLOONGARCH64::as_vor_v(FloatRegister vd, FloatRegister vj,
+                                            FloatRegister vk) {
+  MOZ_ASSERT(vd.isSimd128());
+  MOZ_ASSERT(vj.isSimd128());
+  MOZ_ASSERT(vk.isSimd128());
+  spew("vor.v    %3s,%3s,%3s", vd.name(), vj.name(), vk.name());
+  return writeInst(InstReg(op_vor_v, vk, vj, vd).encode());
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vxor_v(FloatRegister vd, FloatRegister vj,
+                                             FloatRegister vk) {
+  MOZ_ASSERT(vd.isSimd128());
+  MOZ_ASSERT(vj.isSimd128());
+  MOZ_ASSERT(vk.isSimd128());
+  spew("vxor.v   %3s,%3s,%3s", vd.name(), vj.name(), vk.name());
+  return writeInst(InstReg(op_vxor_v, vk, vj, vd).encode());
+}
+
 BufferOffset AssemblerLOONGARCH64::as_ldptr_w(Register rd, Register rj,
                                           int32_t si14) {
   MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));

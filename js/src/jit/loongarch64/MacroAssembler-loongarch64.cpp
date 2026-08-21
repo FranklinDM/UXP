@@ -2470,6 +2470,21 @@ void MacroAssemblerLOONGARCH64::storeUnalignedSimd128Float(FloatRegister src,
   asMasm().ma_vst(src.asSimd128(), dest);
 }
 
+void MacroAssemblerLOONGARCH64::moveSimd128Float(FloatRegister src,
+                                                 FloatRegister dest) {
+  src = src.asSimd128();
+  dest = dest.asSimd128();
+  if (src == dest) {
+    return;
+  }
+  as_vor_v(dest, src, src);
+}
+
+void MacroAssemblerLOONGARCH64::zeroSimd128Float(FloatRegister dest) {
+  dest = dest.asSimd128();
+  as_vxor_v(dest, dest, dest);
+}
+
 void MacroAssemblerLOONGARCH64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
                                          Register memoryBase, Register ptr,
                                          Register ptrScratch,
