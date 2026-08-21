@@ -2636,14 +2636,16 @@ void MacroAssembler::PushRegsInMask(LiveRegisterSet set) {
     storePtr(*iter, Address(StackPointer, diff));
   }
 
-#ifdef ENABLE_WASM_SIMD
-#  error "Needs more careful logic if SIMD is enabled"
-#endif
-
   for (FloatRegisterBackwardIterator iter(set.fpus().reduceSetForPush());
        iter.more(); ++iter) {
-    diff -= sizeof(double);
-    storeDouble(*iter, Address(StackPointer, diff));
+    FloatRegister reg = *iter;
+    diff -= reg.size();
+    if (reg.isSingle()) {
+      storeFloat32(reg, Address(StackPointer, diff));
+    } else {
+      MOZ_ASSERT(reg.isDouble());
+      storeDouble(reg, Address(StackPointer, diff));
+    }
   }
   MOZ_ASSERT(diff == 0);
 }
@@ -2661,15 +2663,17 @@ void MacroAssembler::PopRegsInMaskIgnore(LiveRegisterSet set,
     }
   }
 
-#ifdef ENABLE_WASM_SIMD
-#  error "Needs more careful logic if SIMD is enabled"
-#endif
-
   for (FloatRegisterBackwardIterator iter(set.fpus().reduceSetForPush());
        iter.more(); ++iter) {
-    diff -= sizeof(double);
+    FloatRegister reg = *iter;
+    diff -= reg.size();
     if (!ignore.has(*iter)) {
-      loadDouble(Address(StackPointer, diff), *iter);
+      if (reg.isSingle()) {
+        loadFloat32(Address(StackPointer, diff), reg);
+      } else {
+        MOZ_ASSERT(reg.isDouble());
+        loadDouble(Address(StackPointer, diff), reg);
+      }
     }
   }
   MOZ_ASSERT(diff == 0);
