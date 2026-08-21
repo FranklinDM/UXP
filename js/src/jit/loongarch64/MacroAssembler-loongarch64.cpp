@@ -955,8 +955,13 @@ void MacroAssemblerLOONGARCH64::ma_subPtrTestOverflow(Register rd, Register rj,
 
 void MacroAssemblerLOONGARCH64::ma_subPtrTestOverflow(Register rd, Register rj,
                                                   Imm32 imm, Label* overflow) {
-  // TODO(loongarch64): Check subPtrTestOverflow
-  MOZ_ASSERT(imm.value != INT32_MIN);
+  if (imm.value == INT32_MIN) {
+    SecondScratchRegisterScope scratch2(asMasm());
+    ma_li(scratch2, imm);
+    ma_subPtrTestOverflow(rd, rj, scratch2, overflow);
+    return;
+  }
+
   ma_addPtrTestOverflow(rd, rj, Imm32(-imm.value), overflow);
 }
 
