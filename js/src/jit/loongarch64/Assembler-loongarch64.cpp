@@ -49,11 +49,6 @@ void js::jit::PatchJump(CodeLocationJump& jump_, CodeLocationLabel label,
 // Note this is used for inter-wasm calls and may pass arguments and results
 // in floating point registers even if the system ABI does not.
 
-// TODO(loongarch64): Inconsistent with LoongArch's calling convention.
-// LoongArch floating-point parameters calling convention:
-//   The first eight floating-point parameters should be passed in f0-f7, and
-//   the other floating point parameters will be passed like integer parameters.
-// But we just pass the other floating-point parameters on stack here.
 ABIArg ABIArgGenerator::next(MIRType type) {
   switch (type) {
     case MIRType::Int32:
@@ -70,16 +65,21 @@ ABIArg ABIArgGenerator::next(MIRType type) {
     }
     case MIRType::Float32:
     case MIRType::Double: {
-      if (floatRegIndex_ == NumFloatArgRegs) {
+      if (floatRegIndex_ < NumFloatArgRegs) {
+        current_ = ABIArg(FloatRegister(
+            FloatRegisters::Encoding(floatRegIndex_ + f0.encoding()),
+            type == MIRType::Double ? FloatRegisters::Double
+                                    : FloatRegisters::Single));
+        floatRegIndex_++;
+        break;
+      }
+      if (intRegIndex_ == NumIntArgRegs) {
         current_ = ABIArg(stackOffset_);
         stackOffset_ += sizeof(double);
         break;
       }
-      current_ = ABIArg(FloatRegister(
-          FloatRegisters::Encoding(floatRegIndex_ + f0.encoding()),
-          type == MIRType::Double ? FloatRegisters::Double
-                                  : FloatRegisters::Single));
-      floatRegIndex_++;
+      current_ = ABIArg(Register::FromCode(intRegIndex_ + a0.encoding()));
+      intRegIndex_++;
       break;
     }
     default:
