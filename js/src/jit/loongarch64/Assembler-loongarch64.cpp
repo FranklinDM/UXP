@@ -1053,6 +1053,22 @@ BufferOffset AssemblerLOONGARCH64::as_st_d(Register rd, Register rj, int32_t si1
   return writeInst(InstImm(op_st_d, si12, rj, rd, 12).encode());
 }
 
+BufferOffset AssemblerLOONGARCH64::as_vld(FloatRegister vd, Register rj,
+                                          int32_t si12) {
+  MOZ_ASSERT(vd.isSimd128());
+  MOZ_ASSERT(is_intN(si12, 12));
+  spew("vld   %3s,%3s,0x%x", vd.name(), rj.name(), si12);
+  return writeInst(InstImm(op_vld, si12, rj, vd).encode());
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vst(FloatRegister vd, Register rj,
+                                          int32_t si12) {
+  MOZ_ASSERT(vd.isSimd128());
+  MOZ_ASSERT(is_intN(si12, 12));
+  spew("vst   %3s,%3s,0x%x", vd.name(), rj.name(), si12);
+  return writeInst(InstImm(op_vst, si12, rj, vd).encode());
+}
+
 BufferOffset AssemblerLOONGARCH64::as_ldx_b(Register rd, Register rj, Register rk) {
   spew("ldx_b    %3s,%3s,%3s", rd.name(), rj.name(), rk.name());
   return writeInst(InstReg(op_ldx_b, rk, rj, rd).encode());
@@ -1109,6 +1125,20 @@ BufferOffset AssemblerLOONGARCH64::as_stx_w(Register rd, Register rj, Register r
 BufferOffset AssemblerLOONGARCH64::as_stx_d(Register rd, Register rj, Register rk) {
   spew("stx_d    %3s,%3s,%3s", rd.name(), rj.name(), rk.name());
   return writeInst(InstReg(op_stx_d, rk, rj, rd).encode());
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vldx(FloatRegister vd, Register rj,
+                                           Register rk) {
+  MOZ_ASSERT(vd.isSimd128());
+  spew("vldx    %3s,%3s,%3s", vd.name(), rj.name(), rk.name());
+  return writeInst(InstReg(op_vldx, rk, rj, vd).encode());
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vstx(FloatRegister vd, Register rj,
+                                           Register rk) {
+  MOZ_ASSERT(vd.isSimd128());
+  spew("vstx    %3s,%3s,%3s", vd.name(), rj.name(), rk.name());
+  return writeInst(InstReg(op_vstx, rk, rj, vd).encode());
 }
 
 BufferOffset AssemblerLOONGARCH64::as_ldptr_w(Register rd, Register rj,

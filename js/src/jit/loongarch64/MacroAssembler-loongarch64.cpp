@@ -1399,6 +1399,36 @@ void MacroAssemblerLOONGARCH64::ma_fst_d(FloatRegister src, Address address) {
   }
 }
 
+void MacroAssemblerLOONGARCH64::ma_vld(FloatRegister dest, Address address) {
+  MOZ_ASSERT(dest.isSimd128());
+  int32_t offset = address.offset;
+  Register base = address.base;
+
+  if (is_intN(offset, 12)) {
+    as_vld(dest, base, offset);
+  } else {
+    ScratchRegisterScope scratch(asMasm());
+    MOZ_ASSERT(base != scratch);
+    ma_li(scratch, Imm32(offset));
+    as_vldx(dest, base, scratch);
+  }
+}
+
+void MacroAssemblerLOONGARCH64::ma_vst(FloatRegister src, Address address) {
+  MOZ_ASSERT(src.isSimd128());
+  int32_t offset = address.offset;
+  Register base = address.base;
+
+  if (is_intN(offset, 12)) {
+    as_vst(src, base, offset);
+  } else {
+    ScratchRegisterScope scratch(asMasm());
+    MOZ_ASSERT(base != scratch);
+    ma_li(scratch, Imm32(offset));
+    as_vstx(src, base, scratch);
+  }
+}
+
 void MacroAssemblerLOONGARCH64::ma_pop(FloatRegister f) {
   if (f.isDouble()) {
     as_fld_d(f, StackPointer, 0);
@@ -2064,6 +2094,12 @@ void MacroAssemblerLOONGARCH64::ma_fst_s(FloatRegister ft, BaseIndex address) {
   asMasm().ma_fst_s(ft, Address(scratch2, address.offset));
 }
 
+void MacroAssemblerLOONGARCH64::ma_vst(FloatRegister ft, BaseIndex address) {
+  SecondScratchRegisterScope scratch2(asMasm());
+  asMasm().computeScaledAddress(address, scratch2);
+  asMasm().ma_vst(ft, Address(scratch2, address.offset));
+}
+
 void MacroAssemblerLOONGARCH64::ma_fld_d(FloatRegister ft, const BaseIndex& src) {
   SecondScratchRegisterScope scratch2(asMasm());
   asMasm().computeScaledAddress(src, scratch2);
@@ -2074,6 +2110,12 @@ void MacroAssemblerLOONGARCH64::ma_fld_s(FloatRegister ft, const BaseIndex& src)
   SecondScratchRegisterScope scratch2(asMasm());
   asMasm().computeScaledAddress(src, scratch2);
   asMasm().ma_fld_s(ft, Address(scratch2, src.offset));
+}
+
+void MacroAssemblerLOONGARCH64::ma_vld(FloatRegister ft, const BaseIndex& src) {
+  SecondScratchRegisterScope scratch2(asMasm());
+  asMasm().computeScaledAddress(src, scratch2);
+  asMasm().ma_vld(ft, Address(scratch2, src.offset));
 }
 
 void MacroAssemblerLOONGARCH64::ma_bc_s(FloatRegister lhs, FloatRegister rhs,
@@ -2408,6 +2450,26 @@ void MacroAssemblerLOONGARCH64::loadFloat32(const BaseIndex& src,
   asMasm().ma_fld_s(dest, src);
 }
 
+void MacroAssemblerLOONGARCH64::loadUnalignedSimd128Float(const Address& src,
+                                                          FloatRegister dest) {
+  asMasm().ma_vld(dest.asSimd128(), src);
+}
+
+void MacroAssemblerLOONGARCH64::loadUnalignedSimd128Float(const BaseIndex& src,
+                                                          FloatRegister dest) {
+  asMasm().ma_vld(dest.asSimd128(), src);
+}
+
+void MacroAssemblerLOONGARCH64::storeUnalignedSimd128Float(FloatRegister src,
+                                                           const Address& dest) {
+  asMasm().ma_vst(src.asSimd128(), dest);
+}
+
+void MacroAssemblerLOONGARCH64::storeUnalignedSimd128Float(FloatRegister src,
+                                                           const BaseIndex& dest) {
+  asMasm().ma_vst(src.asSimd128(), dest);
+}
+
 void MacroAssemblerLOONGARCH64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
                                          Register memoryBase, Register ptr,
                                          Register ptrScratch,
@@ -2642,6 +2704,8 @@ void MacroAssembler::PushRegsInMask(LiveRegisterSet set) {
     diff -= reg.size();
     if (reg.isSingle()) {
       storeFloat32(reg, Address(StackPointer, diff));
+    } else if (reg.isSimd128()) {
+      storeUnalignedSimd128Float(reg, Address(StackPointer, diff));
     } else {
       MOZ_ASSERT(reg.isDouble());
       storeDouble(reg, Address(StackPointer, diff));
@@ -2670,6 +2734,8 @@ void MacroAssembler::PopRegsInMaskIgnore(LiveRegisterSet set,
     if (!ignore.has(*iter)) {
       if (reg.isSingle()) {
         loadFloat32(Address(StackPointer, diff), reg);
+      } else if (reg.isSimd128()) {
+        loadUnalignedSimd128Float(Address(StackPointer, diff), reg);
       } else {
         MOZ_ASSERT(reg.isDouble());
         loadDouble(Address(StackPointer, diff), reg);

@@ -438,6 +438,8 @@ enum OpcodeField {
   op_fst_s = 0xadU << 22,
   op_fld_d = 0xaeU << 22,
   op_fst_d = 0xafU << 22,
+  op_vld = 0x2c000000,
+  op_vst = 0x2c400000,
   op_bstr_w = 0x3U << 21,  // BSTRINS_W & BSTRPICK_W
   op_fmadd_s = 0x81U << 20,
   op_fmadd_d = 0x82U << 20,
@@ -540,6 +542,8 @@ enum OpcodeField {
   op_fldx_d = 0x7068U << 15,
   op_fstx_s = 0x7070U << 15,
   op_fstx_d = 0x7078U << 15,
+  op_vldx = 0x38400000,
+  op_vstx = 0x38440000,
   op_amswap_w = 0x70c0U << 15,
   op_amswap_d = 0x70c1U << 15,
   op_amadd_w = 0x70c2U << 15,
@@ -1262,6 +1266,8 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
   BufferOffset as_st_h(Register rd, Register rj, int32_t si12);
   BufferOffset as_st_w(Register rd, Register rj, int32_t si12);
   BufferOffset as_st_d(Register rd, Register rj, int32_t si12);
+  BufferOffset as_vld(FloatRegister vd, Register rj, int32_t si12);
+  BufferOffset as_vst(FloatRegister vd, Register rj, int32_t si12);
 
   BufferOffset as_ldx_b(Register rd, Register rj, Register rk);
   BufferOffset as_ldx_h(Register rd, Register rj, Register rk);
@@ -1274,6 +1280,8 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
   BufferOffset as_stx_h(Register rd, Register rj, Register rk);
   BufferOffset as_stx_w(Register rd, Register rj, Register rk);
   BufferOffset as_stx_d(Register rd, Register rj, Register rk);
+  BufferOffset as_vldx(FloatRegister vd, Register rj, Register rk);
+  BufferOffset as_vstx(FloatRegister vd, Register rj, Register rk);
 
   BufferOffset as_ldptr_w(Register rd, Register rj, int32_t si14);
   BufferOffset as_ldptr_d(Register rd, Register rj, int32_t si14);

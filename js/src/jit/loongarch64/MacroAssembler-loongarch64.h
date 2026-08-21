@@ -199,6 +199,8 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   void ma_fld_d(FloatRegister ft, Address address);
   void ma_fst_d(FloatRegister ft, Address address);
   void ma_fst_s(FloatRegister ft, Address address);
+  void ma_vld(FloatRegister vt, Address address);
+  void ma_vst(FloatRegister vt, Address address);
 
   void ma_pop(FloatRegister f);
   void ma_push(FloatRegister f);
@@ -451,9 +453,11 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
 
   void ma_fst_d(FloatRegister src, BaseIndex address);
   void ma_fst_s(FloatRegister src, BaseIndex address);
+  void ma_vst(FloatRegister src, BaseIndex address);
 
   void ma_fld_d(FloatRegister dest, const BaseIndex& src);
   void ma_fld_s(FloatRegister dest, const BaseIndex& src);
+  void ma_vld(FloatRegister dest, const BaseIndex& src);
 
   // FP branches
   void ma_bc_s(FloatRegister lhs, FloatRegister rhs, Label* label,
@@ -631,6 +635,22 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   void loadFloat32(const Address& addr, FloatRegister dest);
   void loadFloat32(const BaseIndex& src, FloatRegister dest);
 
+  void loadUnalignedSimd128Float(const Address& src, FloatRegister dest);
+  void loadUnalignedSimd128Float(const BaseIndex& src, FloatRegister dest);
+  void storeUnalignedSimd128Float(FloatRegister src, const Address& dest);
+  void storeUnalignedSimd128Float(FloatRegister src, const BaseIndex& dest);
+  void loadUnalignedSimd128Int(const Address& src, FloatRegister dest) {
+    loadUnalignedSimd128Float(src, dest);
+  }
+  void loadUnalignedSimd128Int(const BaseIndex& src, FloatRegister dest) {
+    loadUnalignedSimd128Float(src, dest);
+  }
+  void storeUnalignedSimd128Int(FloatRegister src, const Address& dest) {
+    storeUnalignedSimd128Float(src, dest);
+  }
+  void storeUnalignedSimd128Int(FloatRegister src, const BaseIndex& dest) {
+    storeUnalignedSimd128Float(src, dest);
+  }
 
  protected:
   void wasmLoadImpl(const wasm::MemoryAccessDesc& access, Register memoryBase,
