@@ -101,7 +101,8 @@ static constexpr Register64 ReturnReg64(ReturnReg);
 static constexpr FloatRegister ReturnFloat32Reg{FloatRegisters::f0,
                                                 FloatRegisters::Single};
 static constexpr FloatRegister ReturnDoubleReg = f0;
-static constexpr FloatRegister ReturnSimd128Reg = InvalidFloatReg;
+static constexpr FloatRegister ReturnSimd128Reg{FloatRegisters::f0,
+                                                FloatRegisters::Simd128};
 
 static constexpr Register ScratchRegister = t7;
 static constexpr Register SecondScratchReg = t8;
@@ -121,7 +122,8 @@ struct SecondScratchRegisterScope : public AutoRegisterScope {
 static constexpr FloatRegister ScratchFloat32Reg{FloatRegisters::f23,
                                                  FloatRegisters::Single};
 static constexpr FloatRegister ScratchDoubleReg = f23;
-static constexpr FloatRegister ScratchSimd128Reg = InvalidFloatReg;
+static constexpr FloatRegister ScratchSimd128Reg{FloatRegisters::f23,
+                                                 FloatRegisters::Simd128};
 
 struct ScratchFloat32Scope : public AutoFloatRegisterScope {
   explicit ScratchFloat32Scope(MacroAssembler& masm)
