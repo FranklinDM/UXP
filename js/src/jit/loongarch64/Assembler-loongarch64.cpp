@@ -82,6 +82,18 @@ ABIArg ABIArgGenerator::next(MIRType type) {
       intRegIndex_++;
       break;
     }
+    case MIRType::Int8x16:
+    case MIRType::Int16x8:
+    case MIRType::Int32x4:
+    case MIRType::Float32x4:
+    case MIRType::Bool8x16:
+    case MIRType::Bool16x8:
+    case MIRType::Bool32x4: {
+      stackOffset_ = AlignBytes(stackOffset_, SimdMemoryAlignment);
+      current_ = ABIArg(stackOffset_);
+      stackOffset_ += Simd128DataSize;
+      break;
+    }
     default:
       MOZ_CRASH("Unexpected argument type");
   }
