@@ -2582,6 +2582,103 @@ void MacroAssemblerLOONGARCH64::subInt32x4(FloatRegister lhs,
   as_vsub_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
 }
 
+void MacroAssemblerLOONGARCH64::mulInt32x4(FloatRegister lhs,
+                                           FloatRegister rhs,
+                                           FloatRegister dest) {
+  as_vmul_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::minInt32x4(FloatRegister lhs,
+                                           FloatRegister rhs,
+                                           FloatRegister dest) {
+  as_vmin_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::maxInt32x4(FloatRegister lhs,
+                                           FloatRegister rhs,
+                                           FloatRegister dest) {
+  as_vmax_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::minUint32x4(FloatRegister lhs,
+                                            FloatRegister rhs,
+                                            FloatRegister dest) {
+  as_vmin_wu(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::maxUint32x4(FloatRegister lhs,
+                                            FloatRegister rhs,
+                                            FloatRegister dest) {
+  as_vmax_wu(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::negInt32x4(FloatRegister input,
+                                           FloatRegister dest) {
+  as_vneg_w(dest.asSimd128(), input.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::shiftLeftInt32x4(FloatRegister lhs,
+                                                 FloatRegister rhs,
+                                                 FloatRegister dest) {
+  as_vsll_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::shiftRightInt32x4(FloatRegister lhs,
+                                                  FloatRegister rhs,
+                                                  FloatRegister dest) {
+  as_vsra_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::unsignedShiftRightInt32x4(FloatRegister lhs,
+                                                          FloatRegister rhs,
+                                                          FloatRegister dest) {
+  as_vsrl_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::shiftLeftInt32x4(FloatRegister lhs, Imm32 rhs,
+                                                 FloatRegister dest) {
+  as_vslli_w(dest.asSimd128(), lhs.asSimd128(), rhs.value & 31);
+}
+
+void MacroAssemblerLOONGARCH64::shiftRightInt32x4(FloatRegister lhs, Imm32 rhs,
+                                                  FloatRegister dest) {
+  as_vsrai_w(dest.asSimd128(), lhs.asSimd128(), rhs.value & 31);
+}
+
+void MacroAssemblerLOONGARCH64::unsignedShiftRightInt32x4(FloatRegister lhs,
+                                                          Imm32 rhs,
+                                                          FloatRegister dest) {
+  as_vsrli_w(dest.asSimd128(), lhs.asSimd128(), rhs.value & 31);
+}
+
+void MacroAssemblerLOONGARCH64::compareInt32x4Equal(FloatRegister lhs,
+                                                    FloatRegister rhs,
+                                                    FloatRegister dest) {
+  as_vseq_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::compareInt32x4LessThan(FloatRegister lhs,
+                                                       FloatRegister rhs,
+                                                       FloatRegister dest) {
+  as_vslt_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::compareInt32x4LessThanOrEqual(
+    FloatRegister lhs, FloatRegister rhs, FloatRegister dest) {
+  as_vsle_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::compareUint32x4LessThan(FloatRegister lhs,
+                                                        FloatRegister rhs,
+                                                        FloatRegister dest) {
+  as_vslt_wu(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::compareUint32x4LessThanOrEqual(
+    FloatRegister lhs, FloatRegister rhs, FloatRegister dest) {
+  as_vsle_wu(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
 void MacroAssemblerLOONGARCH64::addFloat32x4(FloatRegister lhs,
                                              FloatRegister rhs,
                                              FloatRegister dest) {
@@ -2598,6 +2695,18 @@ void MacroAssemblerLOONGARCH64::mulFloat32x4(FloatRegister lhs,
                                              FloatRegister rhs,
                                              FloatRegister dest) {
   as_vfmul_s(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::minFloat32x4(FloatRegister lhs,
+                                             FloatRegister rhs,
+                                             FloatRegister dest) {
+  as_vfmin_s(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::maxFloat32x4(FloatRegister lhs,
+                                             FloatRegister rhs,
+                                             FloatRegister dest) {
+  as_vfmax_s(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
 }
 
 void MacroAssemblerLOONGARCH64::bitwiseAndSimd128(FloatRegister lhs,

@@ -547,8 +547,21 @@ enum OpcodeField {
   op_fstx_d = 0x7078U << 15,
   op_vldx = 0x38400000,
   op_vstx = 0x38440000,
+  op_vseq_w = 0x70010000,
+  op_vsle_w = 0x70030000,
+  op_vsle_wu = 0x70050000,
+  op_vslt_w = 0x70070000,
+  op_vslt_wu = 0x70090000,
   op_vadd_w = 0x700b0000,
   op_vsub_w = 0x700d0000,
+  op_vmax_w = 0x70710000,
+  op_vmin_w = 0x70730000,
+  op_vmax_wu = 0x70750000,
+  op_vmin_wu = 0x70770000,
+  op_vmul_w = 0x70850000,
+  op_vsll_w = 0x70e90000,
+  op_vsrl_w = 0x70eb0000,
+  op_vsra_w = 0x70ed0000,
   op_vand_v = 0x71260000,
   op_vor_v = 0x71268000,
   op_vxor_v = 0x71270000,
@@ -557,11 +570,17 @@ enum OpcodeField {
   op_vfadd_s = 0x71308000,
   op_vfsub_s = 0x71328000,
   op_vfmul_s = 0x71388000,
+  op_vfmax_s = 0x713c8000,
+  op_vfmin_s = 0x713e8000,
+  op_vneg_w = 0x729c3800,
   op_vreplgr2vr_w = 0x729f0800,
   op_vreplvei_w = 0x72f7e000,
   op_vinsgr2vr_w = 0x72ebe000,
   op_vpickve2gr_w = 0x72efe000,
   op_vpickve2gr_wu = 0x72f3e000,
+  op_vslli_w = 0x732c8000,
+  op_vsrli_w = 0x73308000,
+  op_vsrai_w = 0x73348000,
   op_vldi = 0x73e00000,
   op_amswap_w = 0x70c0U << 15,
   op_amswap_d = 0x70c1U << 15,
@@ -1301,8 +1320,21 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
   BufferOffset as_stx_d(Register rd, Register rj, Register rk);
   BufferOffset as_vldx(FloatRegister vd, Register rj, Register rk);
   BufferOffset as_vstx(FloatRegister vd, Register rj, Register rk);
+  BufferOffset as_vseq_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vsle_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vsle_wu(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vslt_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vslt_wu(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vadd_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vsub_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vmax_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vmin_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vmax_wu(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vmin_wu(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vmul_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vsll_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vsrl_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vsra_w(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vand_v(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vor_v(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vxor_v(FloatRegister vd, FloatRegister vj, FloatRegister vk);
@@ -1311,11 +1343,17 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
   BufferOffset as_vfadd_s(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vfsub_s(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vfmul_s(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vfmax_s(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vfmin_s(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vneg_w(FloatRegister vd, FloatRegister vj);
   BufferOffset as_vreplgr2vr_w(FloatRegister vd, Register rj);
   BufferOffset as_vreplvei_w(FloatRegister vd, FloatRegister vj, uint32_t lane);
   BufferOffset as_vinsgr2vr_w(FloatRegister vd, Register rj, uint32_t lane);
   BufferOffset as_vpickve2gr_w(Register rd, FloatRegister vj, uint32_t lane);
   BufferOffset as_vpickve2gr_wu(Register rd, FloatRegister vj, uint32_t lane);
+  BufferOffset as_vslli_w(FloatRegister vd, FloatRegister vj, uint32_t imm);
+  BufferOffset as_vsrli_w(FloatRegister vd, FloatRegister vj, uint32_t imm);
+  BufferOffset as_vsrai_w(FloatRegister vd, FloatRegister vj, uint32_t imm);
   BufferOffset as_vldi(FloatRegister vd, int32_t imm);
 
   BufferOffset as_ldptr_w(Register rd, Register rj, int32_t si14);

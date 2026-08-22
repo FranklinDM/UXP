@@ -673,9 +673,37 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
                            FloatRegister output, unsigned lane);
   void addInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
   void subInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void mulInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void minInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void maxInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void minUint32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void maxUint32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void negInt32x4(FloatRegister input, FloatRegister dest);
+  void shiftLeftInt32x4(FloatRegister lhs, FloatRegister rhs,
+                        FloatRegister dest);
+  void shiftRightInt32x4(FloatRegister lhs, FloatRegister rhs,
+                         FloatRegister dest);
+  void unsignedShiftRightInt32x4(FloatRegister lhs, FloatRegister rhs,
+                                 FloatRegister dest);
+  void shiftLeftInt32x4(FloatRegister lhs, Imm32 rhs, FloatRegister dest);
+  void shiftRightInt32x4(FloatRegister lhs, Imm32 rhs, FloatRegister dest);
+  void unsignedShiftRightInt32x4(FloatRegister lhs, Imm32 rhs,
+                                 FloatRegister dest);
+  void compareInt32x4Equal(FloatRegister lhs, FloatRegister rhs,
+                           FloatRegister dest);
+  void compareInt32x4LessThan(FloatRegister lhs, FloatRegister rhs,
+                              FloatRegister dest);
+  void compareInt32x4LessThanOrEqual(FloatRegister lhs, FloatRegister rhs,
+                                     FloatRegister dest);
+  void compareUint32x4LessThan(FloatRegister lhs, FloatRegister rhs,
+                               FloatRegister dest);
+  void compareUint32x4LessThanOrEqual(FloatRegister lhs, FloatRegister rhs,
+                                      FloatRegister dest);
   void addFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
   void subFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
   void mulFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void minFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void maxFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
   void bitwiseAndSimd128(FloatRegister lhs, FloatRegister rhs,
                          FloatRegister dest);
   void bitwiseOrSimd128(FloatRegister lhs, FloatRegister rhs,
