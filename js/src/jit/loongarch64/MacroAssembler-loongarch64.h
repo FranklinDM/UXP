@@ -659,6 +659,21 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   }
   void zeroSimd128Float(FloatRegister dest);
   void zeroSimd128Int(FloatRegister dest) { zeroSimd128Float(dest); }
+  void addInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void subInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void addFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void subFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void mulFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void bitwiseAndSimd128(FloatRegister lhs, FloatRegister rhs,
+                         FloatRegister dest);
+  void bitwiseOrSimd128(FloatRegister lhs, FloatRegister rhs,
+                        FloatRegister dest);
+  void bitwiseXorSimd128(FloatRegister lhs, FloatRegister rhs,
+                         FloatRegister dest);
+  void bitwiseNorSimd128(FloatRegister lhs, FloatRegister rhs,
+                         FloatRegister dest);
+  void bitwiseAndNotSimd128(FloatRegister lhs, FloatRegister rhs,
+                            FloatRegister dest);
   void loadUnalignedSimd128Int(const Address& src, FloatRegister dest) {
     loadUnalignedSimd128Float(src, dest);
   }

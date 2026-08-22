@@ -2509,6 +2509,66 @@ void MacroAssemblerLOONGARCH64::zeroSimd128Float(FloatRegister dest) {
   as_vxor_v(dest, dest, dest);
 }
 
+void MacroAssemblerLOONGARCH64::addInt32x4(FloatRegister lhs,
+                                           FloatRegister rhs,
+                                           FloatRegister dest) {
+  as_vadd_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::subInt32x4(FloatRegister lhs,
+                                           FloatRegister rhs,
+                                           FloatRegister dest) {
+  as_vsub_w(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::addFloat32x4(FloatRegister lhs,
+                                             FloatRegister rhs,
+                                             FloatRegister dest) {
+  as_vfadd_s(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::subFloat32x4(FloatRegister lhs,
+                                             FloatRegister rhs,
+                                             FloatRegister dest) {
+  as_vfsub_s(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::mulFloat32x4(FloatRegister lhs,
+                                             FloatRegister rhs,
+                                             FloatRegister dest) {
+  as_vfmul_s(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::bitwiseAndSimd128(FloatRegister lhs,
+                                                  FloatRegister rhs,
+                                                  FloatRegister dest) {
+  as_vand_v(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::bitwiseOrSimd128(FloatRegister lhs,
+                                                 FloatRegister rhs,
+                                                 FloatRegister dest) {
+  as_vor_v(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::bitwiseXorSimd128(FloatRegister lhs,
+                                                  FloatRegister rhs,
+                                                  FloatRegister dest) {
+  as_vxor_v(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::bitwiseNorSimd128(FloatRegister lhs,
+                                                  FloatRegister rhs,
+                                                  FloatRegister dest) {
+  as_vnor_v(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
+void MacroAssemblerLOONGARCH64::bitwiseAndNotSimd128(FloatRegister lhs,
+                                                     FloatRegister rhs,
+                                                     FloatRegister dest) {
+  as_vandn_v(dest.asSimd128(), lhs.asSimd128(), rhs.asSimd128());
+}
+
 void MacroAssemblerLOONGARCH64::wasmLoadImpl(const wasm::MemoryAccessDesc& access,
                                          Register memoryBase, Register ptr,
                                          Register ptrScratch,
