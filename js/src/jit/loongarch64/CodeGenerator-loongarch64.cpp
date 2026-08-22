@@ -1022,10 +1022,12 @@ CodeGeneratorLoongArch64::setReturnDoubleRegs(LiveRegisterSet* regs)
 {
     MOZ_ASSERT(ReturnFloat32Reg.encoding() == FloatRegisters::f0);
     MOZ_ASSERT(ReturnDoubleReg.encoding() == FloatRegisters::f0);
+    MOZ_ASSERT(ReturnSimd128Reg.encoding() == FloatRegisters::f0);
     FloatRegister f1 = { FloatRegisters::f1, FloatRegisters::Single };
     regs->add(ReturnFloat32Reg);
     regs->add(f1);
     regs->add(ReturnDoubleReg);
+    regs->add(ReturnSimd128Reg);
 }
 
 void
