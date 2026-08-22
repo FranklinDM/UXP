@@ -704,6 +704,36 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   void mulFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
   void minFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
   void maxFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
+  void sqrtFloat32x4(FloatRegister input, FloatRegister dest);
+  void reciprocalApproximationFloat32x4(FloatRegister input, FloatRegister dest);
+  void reciprocalSqrtApproximationFloat32x4(FloatRegister input,
+                                            FloatRegister dest);
+  void roundFloat32x4(FloatRegister input, FloatRegister dest);
+  void convertInt32x4ToFloat32x4(FloatRegister input, FloatRegister dest);
+  void convertFloat32x4ToInt32x4(FloatRegister input, FloatRegister dest);
+  void compareFloat32x4Equal(FloatRegister lhs, FloatRegister rhs,
+                             FloatRegister dest);
+  void compareFloat32x4NotEqual(FloatRegister lhs, FloatRegister rhs,
+                                FloatRegister dest);
+  void compareFloat32x4LessThan(FloatRegister lhs, FloatRegister rhs,
+                                FloatRegister dest);
+  void compareFloat32x4LessThanOrEqual(FloatRegister lhs, FloatRegister rhs,
+                                       FloatRegister dest);
+  void compareFloat32x4Unordered(FloatRegister lhs, FloatRegister rhs,
+                                 FloatRegister dest);
+  void compareFloat32x4UnorderedLessThan(FloatRegister lhs, FloatRegister rhs,
+                                         FloatRegister dest);
+  void compareFloat32x4UnorderedLessThanOrEqual(FloatRegister lhs,
+                                                FloatRegister rhs,
+                                                FloatRegister dest);
+  void interleaveLowInt32x4(FloatRegister lhs, FloatRegister rhs,
+                            FloatRegister dest);
+  void interleaveHighInt32x4(FloatRegister lhs, FloatRegister rhs,
+                             FloatRegister dest);
+  void bitselectSimd128(FloatRegister mask, FloatRegister onTrue,
+                        FloatRegister onFalse, FloatRegister dest);
+  void shuffleBytesSimd128(FloatRegister lhs, FloatRegister rhs,
+                           FloatRegister control, FloatRegister dest);
   void bitwiseAndSimd128(FloatRegister lhs, FloatRegister rhs,
                          FloatRegister dest);
   void bitwiseOrSimd128(FloatRegister lhs, FloatRegister rhs,
