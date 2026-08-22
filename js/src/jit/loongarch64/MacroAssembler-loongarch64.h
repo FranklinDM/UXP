@@ -651,6 +651,8 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   void storeAlignedSimd128Float(FloatRegister src, const BaseIndex& dest) {
     storeUnalignedSimd128Float(src, dest);
   }
+  void loadConstantSimd128Float(const SimdConstant& v, FloatRegister dest);
+  void loadConstantSimd128Int(const SimdConstant& v, FloatRegister dest);
   void moveSimd128Float(FloatRegister src, FloatRegister dest);
   void moveSimd128Int(FloatRegister src, FloatRegister dest) {
     moveSimd128Float(src, dest);

@@ -6,6 +6,8 @@
 
 #include "jit/loongarch64/MacroAssembler-loongarch64.h"
 
+#include <cstring>
+
 #include "jsmath.h"
 
 #include "jit/Bailouts.h"
@@ -2468,6 +2470,28 @@ void MacroAssemblerLOONGARCH64::storeUnalignedSimd128Float(FloatRegister src,
 void MacroAssemblerLOONGARCH64::storeUnalignedSimd128Float(FloatRegister src,
                                                            const BaseIndex& dest) {
   asMasm().ma_vst(src.asSimd128(), dest);
+}
+
+void MacroAssemblerLOONGARCH64::loadConstantSimd128Int(const SimdConstant& v,
+                                                       FloatRegister dest) {
+  uint64_t words[2];
+  memcpy(words, v.bytes(), sizeof(words));
+
+  ma_add_d(StackPointer, StackPointer, Imm32(-Simd128DataSize));
+  {
+    ScratchRegisterScope scratch(asMasm());
+    ma_li(scratch, ImmWord(words[0]));
+    ma_st_d(scratch, Address(StackPointer, 0));
+    ma_li(scratch, ImmWord(words[1]));
+    ma_st_d(scratch, Address(StackPointer, sizeof(uint64_t)));
+  }
+  loadAlignedSimd128Int(Address(StackPointer, 0), dest);
+  ma_add_d(StackPointer, StackPointer, Imm32(Simd128DataSize));
+}
+
+void MacroAssemblerLOONGARCH64::loadConstantSimd128Float(const SimdConstant& v,
+                                                         FloatRegister dest) {
+  loadConstantSimd128Int(v, dest);
 }
 
 void MacroAssemblerLOONGARCH64::moveSimd128Float(FloatRegister src,
