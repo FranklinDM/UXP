@@ -1239,6 +1239,57 @@ BufferOffset AssemblerLOONGARCH64::as_vfmul_s(FloatRegister vd,
   return writeInst(InstReg(op_vfmul_s, vk, vj, vd).encode());
 }
 
+BufferOffset AssemblerLOONGARCH64::as_vreplgr2vr_w(FloatRegister vd,
+                                                   Register rj) {
+  MOZ_ASSERT(vd.isSimd128());
+  spew("vreplgr2vr.w %3s,%3s", vd.name(), rj.name());
+  return writeInst(op_vreplgr2vr_w | RJ(rj) | FD(vd));
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vreplvei_w(FloatRegister vd,
+                                                 FloatRegister vj,
+                                                 uint32_t lane) {
+  MOZ_ASSERT(vd.isSimd128());
+  MOZ_ASSERT(vj.isSimd128());
+  MOZ_ASSERT(lane < 4);
+  spew("vreplvei.w %3s,%3s,%u", vd.name(), vj.name(), lane);
+  return writeInst(op_vreplvei_w | (lane << RKShift) | FJ(vj) | FD(vd));
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vinsgr2vr_w(FloatRegister vd,
+                                                  Register rj,
+                                                  uint32_t lane) {
+  MOZ_ASSERT(vd.isSimd128());
+  MOZ_ASSERT(lane < 4);
+  spew("vinsgr2vr.w %3s,%3s,%u", vd.name(), rj.name(), lane);
+  return writeInst(op_vinsgr2vr_w | (lane << RKShift) | RJ(rj) | FD(vd));
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vpickve2gr_w(Register rd,
+                                                   FloatRegister vj,
+                                                   uint32_t lane) {
+  MOZ_ASSERT(vj.isSimd128());
+  MOZ_ASSERT(lane < 4);
+  spew("vpickve2gr.w %3s,%3s,%u", rd.name(), vj.name(), lane);
+  return writeInst(op_vpickve2gr_w | (lane << RKShift) | FJ(vj) | RD(rd));
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vpickve2gr_wu(Register rd,
+                                                    FloatRegister vj,
+                                                    uint32_t lane) {
+  MOZ_ASSERT(vj.isSimd128());
+  MOZ_ASSERT(lane < 4);
+  spew("vpickve2gr.wu %3s,%3s,%u", rd.name(), vj.name(), lane);
+  return writeInst(op_vpickve2gr_wu | (lane << RKShift) | FJ(vj) | RD(rd));
+}
+
+BufferOffset AssemblerLOONGARCH64::as_vldi(FloatRegister vd, int32_t imm) {
+  MOZ_ASSERT(vd.isSimd128());
+  MOZ_ASSERT(is_intN(imm, 13));
+  spew("vldi     %3s,%d", vd.name(), imm);
+  return writeInst(op_vldi | ((imm & Imm13Mask) << Imm13Shift) | FD(vd));
+}
+
 BufferOffset AssemblerLOONGARCH64::as_ldptr_w(Register rd, Register rj,
                                           int32_t si14) {
   MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));

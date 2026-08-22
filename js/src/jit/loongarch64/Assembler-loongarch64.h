@@ -313,6 +313,8 @@ static const uint32_t Imm6Shift = 10;
 static const uint32_t Imm6Bits = 6;
 static const uint32_t Imm12Shift = 10;
 static const uint32_t Imm12Bits = 12;
+static const uint32_t Imm13Shift = 5;
+static const uint32_t Imm13Bits = 13;
 static const uint32_t Imm14Shift = 10;
 static const uint32_t Imm14Bits = 14;
 static const uint32_t Imm15Shift = 0;
@@ -343,6 +345,7 @@ static const uint32_t CODEMask = (1 << CODEBits) - 1;
 static const uint32_t Imm5Mask = (1 << Imm5Bits) - 1;
 static const uint32_t Imm6Mask = (1 << Imm6Bits) - 1;
 static const uint32_t Imm12Mask = (1 << Imm12Bits) - 1;
+static const uint32_t Imm13Mask = (1 << Imm13Bits) - 1;
 static const uint32_t Imm14Mask = (1 << Imm14Bits) - 1;
 static const uint32_t Imm15Mask = (1 << Imm15Bits) - 1;
 static const uint32_t Imm16Mask = (1 << Imm16Bits) - 1;
@@ -554,6 +557,12 @@ enum OpcodeField {
   op_vfadd_s = 0x71308000,
   op_vfsub_s = 0x71328000,
   op_vfmul_s = 0x71388000,
+  op_vreplgr2vr_w = 0x729f0800,
+  op_vreplvei_w = 0x72f7e000,
+  op_vinsgr2vr_w = 0x72ebe000,
+  op_vpickve2gr_w = 0x72efe000,
+  op_vpickve2gr_wu = 0x72f3e000,
+  op_vldi = 0x73e00000,
   op_amswap_w = 0x70c0U << 15,
   op_amswap_d = 0x70c1U << 15,
   op_amadd_w = 0x70c2U << 15,
@@ -1302,6 +1311,12 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
   BufferOffset as_vfadd_s(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vfsub_s(FloatRegister vd, FloatRegister vj, FloatRegister vk);
   BufferOffset as_vfmul_s(FloatRegister vd, FloatRegister vj, FloatRegister vk);
+  BufferOffset as_vreplgr2vr_w(FloatRegister vd, Register rj);
+  BufferOffset as_vreplvei_w(FloatRegister vd, FloatRegister vj, uint32_t lane);
+  BufferOffset as_vinsgr2vr_w(FloatRegister vd, Register rj, uint32_t lane);
+  BufferOffset as_vpickve2gr_w(Register rd, FloatRegister vj, uint32_t lane);
+  BufferOffset as_vpickve2gr_wu(Register rd, FloatRegister vj, uint32_t lane);
+  BufferOffset as_vldi(FloatRegister vd, int32_t imm);
 
   BufferOffset as_ldptr_w(Register rd, Register rj, int32_t si14);
   BufferOffset as_ldptr_d(Register rd, Register rj, int32_t si14);

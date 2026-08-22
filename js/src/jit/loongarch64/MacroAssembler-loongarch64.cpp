@@ -2509,6 +2509,67 @@ void MacroAssemblerLOONGARCH64::zeroSimd128Float(FloatRegister dest) {
   as_vxor_v(dest, dest, dest);
 }
 
+void MacroAssemblerLOONGARCH64::createInt32x4(Register lane0, Register lane1,
+                                              Register lane2, Register lane3,
+                                              FloatRegister dest) {
+  dest = dest.asSimd128();
+  as_vreplgr2vr_w(dest, lane0);
+  as_vinsgr2vr_w(dest, lane1, 1);
+  as_vinsgr2vr_w(dest, lane2, 2);
+  as_vinsgr2vr_w(dest, lane3, 3);
+}
+
+void MacroAssemblerLOONGARCH64::splatX4(Register input, FloatRegister output) {
+  as_vreplgr2vr_w(output.asSimd128(), input);
+}
+
+void MacroAssemblerLOONGARCH64::splatX4(FloatRegister input,
+                                        FloatRegister output) {
+  as_vreplvei_w(output.asSimd128(), input.asSimd128(), 0);
+}
+
+void MacroAssemblerLOONGARCH64::extractLaneInt32x4(FloatRegister input,
+                                                   Register output,
+                                                   unsigned lane) {
+  as_vpickve2gr_w(output, input.asSimd128(), lane);
+}
+
+void MacroAssemblerLOONGARCH64::extractLaneFloat32x4(FloatRegister input,
+                                                     FloatRegister output,
+                                                     unsigned lane,
+                                                     bool canonicalize) {
+  ScratchRegisterScope scratch(asMasm());
+  as_vpickve2gr_w(scratch, input.asSimd128(), lane);
+  moveToFloat32(scratch, output);
+  if (canonicalize) {
+    asMasm().canonicalizeFloat(output);
+  }
+}
+
+void MacroAssemblerLOONGARCH64::insertLaneSimdInt(FloatRegister input,
+                                                  Register value,
+                                                  FloatRegister output,
+                                                  unsigned lane,
+                                                  unsigned numLanes) {
+  MOZ_ASSERT(numLanes == 4);
+  if (input != output) {
+    moveSimd128Int(input, output);
+  }
+  as_vinsgr2vr_w(output.asSimd128(), value, lane);
+}
+
+void MacroAssemblerLOONGARCH64::insertLaneFloat32x4(FloatRegister input,
+                                                    FloatRegister value,
+                                                    FloatRegister output,
+                                                    unsigned lane) {
+  if (input != output) {
+    moveSimd128Float(input, output);
+  }
+  ScratchRegisterScope scratch(asMasm());
+  moveFromFloat32(value, scratch);
+  as_vinsgr2vr_w(output.asSimd128(), scratch, lane);
+}
+
 void MacroAssemblerLOONGARCH64::addInt32x4(FloatRegister lhs,
                                            FloatRegister rhs,
                                            FloatRegister dest) {

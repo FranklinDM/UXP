@@ -659,6 +659,18 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   }
   void zeroSimd128Float(FloatRegister dest);
   void zeroSimd128Int(FloatRegister dest) { zeroSimd128Float(dest); }
+  void createInt32x4(Register lane0, Register lane1, Register lane2,
+                     Register lane3, FloatRegister dest);
+  void splatX4(Register input, FloatRegister output);
+  void splatX4(FloatRegister input, FloatRegister output);
+  void extractLaneInt32x4(FloatRegister input, Register output, unsigned lane);
+  void extractLaneFloat32x4(FloatRegister input, FloatRegister output,
+                            unsigned lane, bool canonicalize);
+  void insertLaneSimdInt(FloatRegister input, Register value,
+                         FloatRegister output, unsigned lane,
+                         unsigned numLanes);
+  void insertLaneFloat32x4(FloatRegister input, FloatRegister value,
+                           FloatRegister output, unsigned lane);
   void addInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
   void subInt32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
   void addFloat32x4(FloatRegister lhs, FloatRegister rhs, FloatRegister dest);
