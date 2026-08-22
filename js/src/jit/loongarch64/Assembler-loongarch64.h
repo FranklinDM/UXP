@@ -241,7 +241,7 @@ static constexpr bool SupportsUint32x4Compares = false;
 // this architecture or not. Rather than a method in the LIRGenerator, it is
 // here such that it is accessible from the entire codebase. Once full support
 // for SIMD is reached on all tier-1 platforms, this constant can be deleted.
-static constexpr bool SupportsSimd = false;
+static constexpr bool SupportsSimd = true;
 static constexpr uint32_t JitStackAlignment = 16;
 
 static constexpr uint32_t JitStackValueAlignment =
@@ -1614,7 +1614,7 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
     return false;
 #endif
   }
-  static bool SupportsSimd() { return false; }
+  static bool SupportsSimd() { return true; }
   static bool SupportsUnalignedAccesses() { return true; }
   static bool SupportsFastUnalignedFPAccesses() { return true; }
 
