@@ -89,6 +89,13 @@ ABIArg ABIArgGenerator::next(MIRType type) {
     case MIRType::Bool8x16:
     case MIRType::Bool16x8:
     case MIRType::Bool32x4: {
+      if (floatRegIndex_ < NumFloatArgRegs) {
+        current_ = ABIArg(FloatRegister(
+            FloatRegisters::Encoding(floatRegIndex_ + f0.encoding()),
+            FloatRegisters::Simd128));
+        floatRegIndex_++;
+        break;
+      }
       stackOffset_ = AlignBytes(stackOffset_, SimdMemoryAlignment);
       current_ = ABIArg(stackOffset_);
       stackOffset_ += Simd128DataSize;

@@ -1018,6 +1018,26 @@ CodeGeneratorLoongArch64::visitTestI64AndBranch(LTestI64AndBranch* lir)
 }
 
 void
+CodeGeneratorLoongArch64::visitWasmStackArg(LWasmStackArg* ins)
+{
+    MIRType type = ins->mir()->input()->type();
+
+    if (IsSimdType(type)) {
+        MOZ_ASSERT(ins->arg()->isFloatReg());
+        Address dst(StackPointer, ins->mir()->spOffset());
+        FloatRegister src = ToFloatRegister(ins->arg()).asSimd128();
+
+        if (type == MIRType::Float32x4)
+            masm.storeAlignedSimd128Float(src, dst);
+        else
+            masm.storeAlignedSimd128Int(src, dst);
+        return;
+    }
+
+    CodeGeneratorMIPSShared::visitWasmStackArg(ins);
+}
+
+void
 CodeGeneratorLoongArch64::setReturnDoubleRegs(LiveRegisterSet* regs)
 {
     MOZ_ASSERT(ReturnFloat32Reg.encoding() == FloatRegisters::f0);
