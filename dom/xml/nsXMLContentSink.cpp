@@ -991,6 +991,9 @@ nsXMLContentSink::HandleStartElement(const char16_t *aName,
     if (!SetDocElement(nameSpaceID, localName, content) && appendContent) {
       NS_ENSURE_TRUE(parent, NS_ERROR_UNEXPECTED);
 
+      if (MOZ_UNLIKELY(content->GetParentNode())) {
+        content->Remove();
+      }
       parent->AppendChildTo(content, false);
     }
   }
