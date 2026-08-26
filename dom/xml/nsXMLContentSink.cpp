@@ -881,6 +881,9 @@ nsXMLContentSink::SetDocElement(int32_t aNameSpaceID,
 
   if (!mDocumentChildren.IsEmpty()) {
     for (nsIContent* child : mDocumentChildren) {
+      if (MOZ_UNLIKELY(child->GetParentNode())) {
+        child->Remove();
+      }
       mDocument->AppendChildTo(child, false);
     }
     mDocumentChildren.Clear();
